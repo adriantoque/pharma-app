@@ -1,0 +1,1161 @@
+{
+  "Copy of August 1_conflict186732": {
+    "reason": "Partial Google Sheets conflict copy. None of its 9 lines match August 1 on item and quantity, it holds one line with no price, and it contains \"daphne pills\" at 147 pesos which appears nowhere else in eleven months of records. Not merged in; the raw rows are in this file for review.",
+    "rows": [
+      {
+        "A": "2"
+      },
+      {
+        "B": "Daily Sales Tracker"
+      },
+      {
+        "D": "TOTAL DAILY SALES"
+      },
+      {
+        "B": "symdex ",
+        "C": "6",
+        "D": "1"
+      },
+      {
+        "B": "neozep",
+        "C": "2",
+        "D": "9"
+      },
+      {
+        "B": "salbutamol ",
+        "C": "3",
+        "D": "18",
+        "E": "53"
+      },
+      {
+        "B": " daphne pills ",
+        "C": "1",
+        "D": "147",
+        "E": "147"
+      },
+      {
+        "B": "biogesic",
+        "C": "10",
+        "D": "6",
+        "E": "60"
+      },
+      {
+        "B": "ceterizine",
+        "C": "10",
+        "D": "3",
+        "E": "30"
+      },
+      {
+        "B": "lady pills ",
+        "C": "1",
+        "D": "55",
+        "E": "55"
+      },
+      {
+        "B": "symdex ",
+        "C": "5",
+        "D": "5",
+        "E": "25"
+      },
+      {
+        "B": "symdex ",
+        "C": "5"
+      }
+    ]
+  },
+  "EFRAIM": {
+    "reason": "Unfinished draft, not a record: all 65 lines have quantity 5, none has a total, and the prices carry a stray prefix that never parsed.",
+    "rows": [
+      {
+        "B": "Daily Sales Tracker"
+      },
+      {
+        "D": "TOTAL DAILY SALES"
+      },
+      {
+        "B": "ITEM",
+        "C": "QTY.",
+        "D": "PRICE PER PC."
+      },
+      {
+        "B": "ERCEFLORA",
+        "C": "5",
+        "D": "₱50.00",
+        "L": "S"
+      },
+      {
+        "B": "DIATABS",
+        "C": "5",
+        "D": "₱11.00"
+      },
+      {
+        "B": "PYROFLORA",
+        "C": "5",
+        "D": "₱35.00",
+        "H": "`"
+      },
+      {
+        "B": "ENERVON",
+        "C": "5",
+        "D": "₱12.00"
+      },
+      {
+        "B": "BIOFLU",
+        "C": "5",
+        "D": "₱11.00"
+      },
+      {
+        "B": "CARBO CAP",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "BIOGESIC",
+        "C": "5",
+        "D": "₱6.00"
+      },
+      {
+        "B": "BABYOIL",
+        "C": "5",
+        "D": "₱30.00"
+      },
+      {
+        "B": "SUPPOSOTORY",
+        "C": "5",
+        "D": "₱19.00"
+      },
+      {
+        "B": "CINNARIZINE",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Cloxacillin",
+        "C": "5",
+        "D": "₱7.00"
+      },
+      {
+        "B": "FernC syrup",
+        "C": "5",
+        "D": "₱165.00"
+      },
+      {
+        "B": "Ascorbic Tablet",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "BABYOIL",
+        "C": "5",
+        "D": "₱30.00"
+      },
+      {
+        "B": "EYEMO",
+        "C": "5",
+        "D": "₱105.00"
+      },
+      {
+        "B": "MEFENAMIC",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "DIATABS",
+        "C": "5",
+        "D": "₱22.00"
+      },
+      {
+        "B": "BIOGESIC",
+        "C": "5",
+        "D": "₱6.00"
+      },
+      {
+        "B": "KATIALIS",
+        "C": "5",
+        "D": "₱32.00"
+      },
+      {
+        "B": "FLANAX",
+        "C": "5",
+        "D": "₱27.00"
+      },
+      {
+        "B": "ASPIRIN",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Amox 500mg",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "ENERVON",
+        "C": "5",
+        "D": "₱12.00"
+      },
+      {
+        "B": "Amox 500mg",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "Ceterizine syrup",
+        "C": "5",
+        "D": "₱60.00"
+      },
+      {
+        "B": "AMOX 250 CAP",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "Ceterizine tab",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "off lotion",
+        "C": "5",
+        "D": "₱13.00"
+      },
+      {
+        "B": "Para syrup",
+        "C": "5",
+        "D": "₱48.00"
+      },
+      {
+        "B": "Trust pills",
+        "C": "5",
+        "D": "₱60.00"
+      },
+      {
+        "B": "BabYOIL",
+        "C": "5",
+        "D": "₱30.00"
+      },
+      {
+        "B": "Manzanill",
+        "C": "5",
+        "D": "₱21.00"
+      },
+      {
+        "B": "Biogesic",
+        "C": "5",
+        "D": "₱6.00"
+      },
+      {
+        "B": "PT",
+        "C": "5",
+        "D": "₱45.00"
+      },
+      {
+        "B": "Alcohol small",
+        "C": "5",
+        "D": "₱27.00"
+      },
+      {
+        "B": "Omeprazole",
+        "C": "5",
+        "D": "₱10.00"
+      },
+      {
+        "B": "Salbutamol 4mg",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "ElShadai",
+        "C": "5",
+        "D": "₱20.00"
+      },
+      {
+        "B": "Tramadol",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "Katinko",
+        "C": "5",
+        "D": "₱38.00"
+      },
+      {
+        "B": "Biogesic",
+        "C": "5",
+        "D": "₱6.00"
+      },
+      {
+        "B": "Medicol",
+        "C": "5",
+        "D": "₱9.00"
+      },
+      {
+        "B": "Alcohol med",
+        "C": "5",
+        "D": "₱65.00"
+      },
+      {
+        "B": "Katinko roll",
+        "C": "5",
+        "D": "₱55.00"
+      },
+      {
+        "B": "Tempra 1-5",
+        "C": "5",
+        "D": "₱135.00"
+      },
+      {
+        "B": "Alchol",
+        "C": "5",
+        "D": "₱65.00"
+      },
+      {
+        "B": "Amox",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "Mefe",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Diclofenac",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Tawas",
+        "C": "5",
+        "D": "₱22.00"
+      },
+      {
+        "B": "CETERIZINE",
+        "C": "5",
+        "D": "₱2.50"
+      },
+      {
+        "B": "Tramadol",
+        "C": "5",
+        "D": "₱13.00"
+      },
+      {
+        "B": "Tissue",
+        "C": "5",
+        "D": "₱13.00"
+      },
+      {
+        "B": "Cotton",
+        "C": "5",
+        "D": "₱8.00"
+      },
+      {
+        "B": "Lady Pills",
+        "C": "5",
+        "D": "₱55.00"
+      },
+      {
+        "B": "EyeMO",
+        "C": "5",
+        "D": "₱105.00"
+      },
+      {
+        "B": "Lady Pills",
+        "C": "5",
+        "D": "₱55.00"
+      },
+      {
+        "B": "Neozep",
+        "C": "5",
+        "D": "₱27.00"
+      },
+      {
+        "B": "Celecoxib",
+        "C": "5",
+        "D": "₱10.00"
+      },
+      {
+        "B": "Ceterizine",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Losartan",
+        "C": "5",
+        "D": "₱4.00"
+      },
+      {
+        "B": "Metformin",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Amlo 5",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Metropolol",
+        "C": "5",
+        "D": "₱3.00"
+      },
+      {
+        "B": "Captopril",
+        "C": "5",
+        "D": "₱3.00"
+      }
+    ]
+  },
+  "BOSE OUT OF STOCK August": {
+    "reason": "A purchase order for items to buy in, not sales and not a stock count.",
+    "rows": [
+      {
+        "A": "Items",
+        "B": "#of order",
+        "C": "PUHUNAN ",
+        "D": "SELLING PRICE",
+        "I": "Generic"
+      },
+      {
+        "A": "Tempra Drops",
+        "B": "2 pcs",
+        "I": "Column 1",
+        "J": "#of order",
+        "K": "PUHUNAN ",
+        "L": "SELLING PRICE"
+      },
+      {
+        "A": "Tempra 1-5",
+        "B": "3 pcs"
+      },
+      {
+        "A": "Tempra 6-12",
+        "B": "2 pcs"
+      },
+      {
+        "A": "Bonamine kids",
+        "B": "10 pcs"
+      },
+      {
+        "A": "Bonamine adult",
+        "B": "10pcs"
+      },
+      {
+        "A": "Myra E",
+        "B": "10pcs"
+      },
+      {
+        "A": "Manzanilla",
+        "B": "15pcs"
+      },
+      {
+        "A": "Efficascent extra",
+        "B": "10 pcs"
+      },
+      {
+        "A": "Efficascent extreme",
+        "B": "10pcs"
+      },
+      {
+        "A": "Medicol",
+        "B": "20pcs"
+      },
+      {
+        "A": "Saridon",
+        "B": "40pcs"
+      },
+      {
+        "A": "Calamine",
+        "B": "3 pcs"
+      },
+      {
+        "A": "Lady Pills",
+        "B": "5 pcs"
+      },
+      {
+        "A": "Trust Pills",
+        "B": "5 pcs"
+      },
+      {
+        "A": "Condom",
+        "B": "4 pcs"
+      },
+      {
+        "A": "Strepsills by 2",
+        "B": "6pcs"
+      },
+      {
+        "A": "Biogesic 2-6",
+        "B": "2PCS"
+      },
+      {
+        "A": "Biogesic 7-12",
+        "B": "2pcs"
+      },
+      {
+        "A": "Pharex",
+        "B": "20 pcs"
+      },
+      {
+        "A": "Mefenamic ritemed",
+        "B": "20ps"
+      }
+    ]
+  },
+  "ITEMS": {
+    "reason": "A reference master of brand/generic/classification. Read to fill in generic names, never as a source of products: it covers only 17 of the 463 distinct names actually sold.",
+    "rows": [
+      {
+        "B": "Brand Name",
+        "C": "Generic Name",
+        "D": "Items",
+        "F": "Classification",
+        "G": "Cost",
+        "H": "Actual Selling Price"
+      },
+      {
+        "D": "Old",
+        "E": "New"
+      },
+      {
+        "A": "25 ml ",
+        "B": "Alcamforado",
+        "C": "Aceite De Alcamforado",
+        "E": "10",
+        "F": "Liquid",
+        "G": "19",
+        "H": "19"
+      },
+      {
+        "A": "25 ml ",
+        "B": "Manzanilla",
+        "C": "Aceite De Manzanilla",
+        "E": "3",
+        "F": "Liquid",
+        "G": "19",
+        "H": "19"
+      },
+      {
+        "A": "75 mg",
+        "B": "Saphroxol",
+        "C": "Ambroxol HCI",
+        "F": "Capsule",
+        "G": "4.5",
+        "H": "10"
+      },
+      {
+        "A": "30 mg",
+        "B": "Mucolax",
+        "C": "Ambroxol Hydrochloride 30 mg",
+        "F": "Tablet",
+        "G": "3"
+      },
+      {
+        "B": "ulfu",
+        "C": "Ambroxol Hydrochloride 15 mg",
+        "F": "Syrup",
+        "G": "12.5",
+        "H": "45"
+      },
+      {
+        "A": "60 ml",
+        "B": "Mucoriz",
+        "C": "Ambroxol Hydrochloride 30 mg",
+        "F": "Syrup",
+        "G": "16",
+        "H": "45"
+      },
+      {
+        "A": "15 ml",
+        "B": "Couxin / Mdbrox",
+        "C": "Ambroxol Hydrochloride 6 mg",
+        "F": "Drops",
+        "G": "12.5",
+        "H": "35"
+      },
+      {
+        "A": "10 mg",
+        "B": "Regivasc",
+        "C": "Amlodipine Besilate 10 mg",
+        "F": "Tablet",
+        "G": "0.32",
+        "H": "3"
+      },
+      {
+        "A": "5 mg",
+        "B": "Regivasc",
+        "C": "Amlodipine Besilate 5 mg",
+        "F": "Tablet",
+        "G": "0.28",
+        "H": "3"
+      },
+      {
+        "A": "60 ml",
+        "B": "Moxylor",
+        "C": "Amoxicillin 125 mg",
+        "F": "Suspension",
+        "G": "18.5",
+        "H": "45"
+      },
+      {
+        "A": "10 ml",
+        "B": "Eppitrexil",
+        "C": "Amoxicillin Trihydrate 100 mg",
+        "F": "Drops",
+        "G": "13",
+        "H": "35"
+      },
+      {
+        "A": "60 ml",
+        "B": "Eppitrexil",
+        "C": "Amoxicillin Trihydrate 250 mg",
+        "F": "Suspension",
+        "G": "24",
+        "H": "45"
+      },
+      {
+        "A": "30 mg ",
+        "B": "Bettermax",
+        "C": "Ampalaya ",
+        "F": "Capsule"
+      },
+      {
+        "A": "250 ml",
+        "B": "RaphC",
+        "C": "Ascorbic Acid ",
+        "F": "Syrup",
+        "G": "55",
+        "H": "110"
+      },
+      {
+        "A": "250 ml",
+        "B": "Ceelin",
+        "C": "Ascorbic Acid ",
+        "E": "1",
+        "F": "Syrup",
+        "G": "243",
+        "H": "280"
+      },
+      {
+        "A": "250 ml",
+        "B": "Ceelin Plus",
+        "C": "Ascorbic Acid  + Zinc",
+        "E": "1",
+        "F": "Syrup",
+        "G": "296",
+        "H": "330"
+      },
+      {
+        "A": "120 ml",
+        "B": "Ceelin Plus",
+        "C": "Ascorbic Acid  + Zinc",
+        "E": "1",
+        "F": "Syrup",
+        "G": "156",
+        "H": "180"
+      },
+      {
+        "A": "250 ml",
+        "B": "Marlum-C",
+        "C": "Ascorbic Acid + Zinc ",
+        "F": "Syrup",
+        "G": "55",
+        "H": "125"
+      },
+      {
+        "A": "120 ml",
+        "B": "Enhanzee",
+        "C": "Ascorbic Acid + Zinc ",
+        "F": "Syrup",
+        "G": "45",
+        "H": "85"
+      },
+      {
+        "A": "5 g",
+        "B": "Vicks Vaporub",
+        "C": "Camphor, Menthol Eucalyptus Oil",
+        "E": "7",
+        "F": "Ointment",
+        "G": "27",
+        "H": "33"
+      },
+      {
+        "A": "25 mg ",
+        "B": "Captobes",
+        "C": "Captopril",
+        "F": "Tablet"
+      },
+      {
+        "A": "60 ml",
+        "B": "Paracough / Ceascol",
+        "C": "Carbocisteine 250 mg",
+        "F": "Syrup",
+        "H": "48"
+      },
+      {
+        "A": "15 ml",
+        "B": "Nomocof / Ceascol",
+        "C": "Carbocisteine 50 mg",
+        "F": "Syrup",
+        "H": "48"
+      },
+      {
+        "A": "30 pcs",
+        "B": "Carvida 6.25",
+        "C": "Carvedilol 6.25 mg",
+        "F": "Tablet",
+        "H": "8"
+      },
+      {
+        "A": "60 ml",
+        "B": "Eliclor",
+        "C": "Cefaclor 250 mg",
+        "F": "Suspension",
+        "H": "195"
+      },
+      {
+        "A": "10 ml",
+        "B": "Edixin",
+        "C": "Cefalexin 100 mg",
+        "F": "Drops",
+        "H": "45"
+      },
+      {
+        "A": "60 ml",
+        "B": "Edixin",
+        "C": "Cefalexin 125 mg",
+        "F": "Suspension",
+        "H": "45"
+      },
+      {
+        "A": "60 ml",
+        "B": "Edixin",
+        "C": "Cefalexin Monohydrate 250 mg",
+        "F": "Suspension",
+        "H": "48"
+      },
+      {
+        "A": "50 ml",
+        "B": "Sqcef",
+        "C": "Cefuroxime 250 mg",
+        "F": "Suspension",
+        "H": "325"
+      },
+      {
+        "A": "200 mg ",
+        "B": "Celekop",
+        "C": "Celecoxib",
+        "F": "Capsule"
+      },
+      {
+        "A": "15 ml",
+        "B": "Regizine",
+        "C": "Cetirizine 2.5 mg",
+        "F": "Drops",
+        "H": "45"
+      },
+      {
+        "A": "15 ml",
+        "B": "Regizine",
+        "C": "Cetirizine 5 mg",
+        "F": "Syrup",
+        "H": "60"
+      },
+      {
+        "A": "10 mg ",
+        "B": "Ceticit",
+        "C": "Cetirizine Dihydrochloride",
+        "F": "Tablet"
+      },
+      {
+        "A": "10 ml",
+        "B": "Allecur P",
+        "C": "Cetirizine Hydrochloride 2.5 mg",
+        "F": "Drops",
+        "H": "45"
+      },
+      {
+        "A": "120 ml",
+        "B": "Myteekid",
+        "C": "CGF",
+        "F": "Syrup",
+        "H": "120"
+      },
+      {
+        "A": "25 mg",
+        "B": "Vertex",
+        "C": "Cinnarizine",
+        "F": "Tablet"
+      },
+      {
+        "A": "60 ml",
+        "B": "Claritone",
+        "C": "Clarithromycin 50 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "60 ml",
+        "B": "Dialox / Myreclox",
+        "C": "Cloxacillin 250 mg",
+        "F": "Suspension",
+        "H": "48"
+      },
+      {
+        "A": "60 ml",
+        "B": "Nocloxol",
+        "C": "Cloxacillin Sodium 125 mg",
+        "F": "Suspension",
+        "H": "45"
+      },
+      {
+        "A": "60 ml",
+        "B": "Regizole",
+        "C": "Cotrimoxazole 240 mg",
+        "F": "Suspension",
+        "H": "55"
+      },
+      {
+        "A": "60 ml",
+        "B": "Regizole",
+        "C": "Cotrimoxazole 400 mg",
+        "F": "Suspension",
+        "H": "60"
+      },
+      {
+        "A": "100 pcs",
+        "B": "Curafen",
+        "C": "Diclofenac Sodium 100 mg",
+        "F": "Tablet",
+        "H": "3"
+      },
+      {
+        "A": "100 pcs",
+        "B": "Dicyrine",
+        "C": "Dicycloverine Hydrochloride 10 mg",
+        "F": "Tablet"
+      },
+      {
+        "A": "60 ml",
+        "B": "Histamox",
+        "C": "Diphenhydramine Hydrochloride 12.5 mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "60 ml",
+        "B": "Erythromycin ",
+        "C": "Erythromycin Ethylsuccinate 200 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "100 pcs",
+        "B": "Ferolitab",
+        "C": "Ferrous Sulfate + Folic Acid 300 mg",
+        "F": "Tablet"
+      },
+      {
+        "A": "60 ml",
+        "B": "Pluradec",
+        "C": "Guafenesin + Phenyl + Hydrochloride +Chlorphenamine + Maleate 100 mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "60 ml",
+        "B": "Iztaid",
+        "C": "Levocetirizine Hydrochloride 2.5 mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "10 mg ",
+        "B": "Lorato",
+        "C": "Loratidine",
+        "F": "Tablet"
+      },
+      {
+        "A": "100 pcs",
+        "B": "Angel-50",
+        "C": "Losartan Potassium 50 mg",
+        "F": "Tablet"
+      },
+      {
+        "A": "60 ml",
+        "B": "Aciflam",
+        "C": "Mefenamic Acid 50 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "25 ml",
+        "B": "El Shaddai",
+        "C": "Menthol Oil ",
+        "E": "6",
+        "F": "Liquid",
+        "G": "12",
+        "H": "20"
+      },
+      {
+        "A": "500 mg ",
+        "B": "Formet",
+        "C": "Metformin Hydrochloride",
+        "F": "Tablet"
+      },
+      {
+        "A": "25 ml",
+        "B": "Efficascent Oil Extreme",
+        "C": "Methyl Salicylate Camphor+ Menthol",
+        "E": "10",
+        "F": "Liquid",
+        "G": "38",
+        "H": "45"
+      },
+      {
+        "A": "25 ml",
+        "B": "Efficascent Oil Extra",
+        "C": "Methyl Salicylate Camphor+ Menthol",
+        "E": "10",
+        "F": "Liquid",
+        "G": "32",
+        "H": "38"
+      },
+      {
+        "A": "25 ml",
+        "B": "Efficascent Oil Regular",
+        "C": "Methyl Salicylate Camphor+ Menthol",
+        "E": "6",
+        "F": "Liquid",
+        "G": "27",
+        "H": "33"
+      },
+      {
+        "A": "80 mcg",
+        "B": "Katinko Ointment",
+        "C": "Methyl Salicylate Camphor+ Menthol",
+        "E": "11",
+        "F": "Ointment",
+        "G": "32",
+        "H": "38"
+      },
+      {
+        "A": "60 ml",
+        "B": "Motillex",
+        "C": "Metoclopramide Hydrochloride 5mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "60 ml",
+        "B": "Ambidazol",
+        "C": "Metronidazole 125 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "500 mg",
+        "B": "Feralac",
+        "C": "Moringa Oleifera Lam Malunggay",
+        "F": "Capsule"
+      },
+      {
+        "A": "30 ml",
+        "B": "Z-nyst",
+        "C": "Nystatin",
+        "F": "Suspension"
+      },
+      {
+        "A": "500 mg",
+        "B": "Philpara",
+        "C": "Paracetamol",
+        "F": "Tablet"
+      },
+      {
+        "A": "15 ml",
+        "B": "Biogesic",
+        "C": "Paracetamol",
+        "E": "1",
+        "F": "Drops",
+        "G": "84",
+        "H": "95"
+      },
+      {
+        "A": "60 ml",
+        "B": "Biogesic 120 ml",
+        "C": "Paracetamol",
+        "E": "2",
+        "F": "Syrup"
+      },
+      {
+        "A": "60 ml",
+        "B": "Biogesic 250 ml",
+        "C": "Paracetamol",
+        "E": "1",
+        "F": "Syrup"
+      },
+      {
+        "A": "15 ml",
+        "B": "Calpol",
+        "C": "Paracetamol",
+        "E": "3",
+        "F": "Drops"
+      },
+      {
+        "A": "10 ml",
+        "B": "Tempra",
+        "C": "Paracetamol",
+        "E": "0",
+        "F": "Drops",
+        "G": "82",
+        "H": "92"
+      },
+      {
+        "A": "15 ml",
+        "B": "Para100",
+        "C": "Paracetamol 100 mg",
+        "F": "Drops"
+      },
+      {
+        "A": "60 ml",
+        "B": "Tempra",
+        "C": "Paracetamol 120m g",
+        "E": "2",
+        "F": "Syrup",
+        "G": "100",
+        "H": "135"
+      },
+      {
+        "A": "60 ml",
+        "B": "Rapamol 125 / Para125",
+        "C": "Paracetamol 125 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "60 ml",
+        "B": "Myremol",
+        "C": "Paracetamol 250 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "60 ml",
+        "B": "Regimol / Milgesic",
+        "C": "Paracetamol 250 mg",
+        "F": "Suspension"
+      },
+      {
+        "A": "60 ml",
+        "B": "Tempra",
+        "C": "Paracetamol 250mg",
+        "E": "2",
+        "F": "Syrup"
+      },
+      {
+        "A": "100 pcs",
+        "B": "Symdex-D Forte",
+        "C": "Phenyl + Hydrochloride +Chlorphenamine + Maleate + Paracetamol 25 mg",
+        "F": "Tablet"
+      },
+      {
+        "A": "100 pcs",
+        "B": "Symdex-D",
+        "C": "Phenyl + Hydrochloride +Chlorphenamine + Maleate + Paracetamol 25 mg",
+        "F": "Tablet"
+      },
+      {
+        "A": "15 ml",
+        "B": "Symdex-D",
+        "C": "Phenyl + Hydrochloride +Chlorphenamine + Maleate + Paracetamol 6.25 mg",
+        "F": "Drops"
+      },
+      {
+        "A": "60 ml",
+        "B": "Symdex-D",
+        "C": "Phenyl + Hydrochloride +Chlorphenamine + Maleate + Paracetamol 6.25 mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "60 ml ",
+        "B": "Disudrin",
+        "C": "Phenylephrine Chlorpenamine Maleate",
+        "E": "3",
+        "F": "Syrup",
+        "G": "133",
+        "H": "155"
+      },
+      {
+        "A": "10 ml",
+        "B": "Disudrin",
+        "C": "Phenylephrine Chlorpenamine Maleate",
+        "E": "4",
+        "F": "Drops",
+        "G": "122",
+        "H": "140"
+      },
+      {
+        "A": "60 ml",
+        "B": "Neozep",
+        "C": "Phenylephrine Chlorpenamine Maleate Paracetamol",
+        "E": "2",
+        "F": "Syrup",
+        "G": "109",
+        "H": "125"
+      },
+      {
+        "A": "10 ml ",
+        "B": "Neozep",
+        "C": "Phenylephrine Chlorpenamine Maleate Paracetamol",
+        "E": "3",
+        "F": "Drops",
+        "G": "109",
+        "H": "120"
+      },
+      {
+        "A": "15 ml",
+        "B": "Sinudrin",
+        "C": "Phenylpropanolamine  6.25 mg",
+        "F": "Drops"
+      },
+      {
+        "A": "60 ml",
+        "B": "Dekonrex",
+        "C": "Phenylpropanolamine Hydrochloride 12.5 mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "2 mg/ 100 mg/ 8 mg",
+        "B": "Vento Broncho",
+        "C": "Salbutamol Guaifenesin Bromexine HCI",
+        "F": "Capsule"
+      },
+      {
+        "A": "60 ml",
+        "B": "Ventomax",
+        "C": "Salbutamol Sulfate 2 mg",
+        "F": "Syrup"
+      },
+      {
+        "A": "500 mg ",
+        "B": "Awanay Forte",
+        "C": "Sambong Leaf",
+        "F": "Tablet"
+      },
+      {
+        "A": "425 mg",
+        "B": "Biofitea",
+        "C": "Senna Leaves ",
+        "E": "50",
+        "F": "Powder",
+        "G": "5.4",
+        "H": "10"
+      },
+      {
+        "A": "240 ml",
+        "B": "Cherifer",
+        "C": "Taurine&CGF",
+        "E": "1",
+        "F": "Syrup",
+        "G": "317",
+        "H": "357"
+      },
+      {
+        "A": "120 ml",
+        "B": "Ofplemed",
+        "C": "Vitex negundo L. (Lagundi) Leaf 300 mg",
+        "F": "Syrup"
+      }
+    ]
+  }
+}

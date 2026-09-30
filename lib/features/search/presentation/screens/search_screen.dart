@@ -189,9 +189,9 @@ class _MedicineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Label and severity come back together from the model so a healthy count
-    // can never be rendered in the error colour, or the other way round.
-    final (stockLabel, isStockWarning) = medicine.stockLine;
+    // Label and state come back together from the model so a healthy count can
+    // never be rendered in the error colour, or the other way round.
+    final (stockLabel, stockState) = medicine.stockLine;
 
     return Padding(
       // Tighter than the single-line row it replaced: the stock line adds
@@ -219,9 +219,15 @@ class _MedicineRow extends StatelessWidget {
                 Text(
                   stockLabel,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: isStockWarning
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
+                    // An uncounted item is muted rather than flagged: nothing is
+                    // wrong, the number is simply missing, and colouring it like
+                    // a shortage would cry wolf across a whole imported list.
+                    color: switch (stockState) {
+                      StockState.outOfStock || StockState.low =>
+                        theme.colorScheme.error,
+                      StockState.unknown => theme.colorScheme.outline,
+                      StockState.available => theme.colorScheme.onSurfaceVariant,
+                    },
                   ),
                 ),
               ],

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 
@@ -122,6 +123,7 @@ void main() {
     const five = MedicineModel(name: 'X', priceCentavos: 100, stock: 5);
     const six = MedicineModel(name: 'X', priceCentavos: 100, stock: 6);
     const plenty = MedicineModel(name: 'X', priceCentavos: 100, stock: 40);
+    const uncounted = MedicineModel(name: 'X', priceCentavos: 100, stock: null);
 
     test('is not part of item identity', () {
       // The one that matters most in this file. A shelf count is state, not
@@ -147,23 +149,78 @@ void main() {
       expect(five.isOutOfStock, isFalse);
     });
 
-    test('reports a count and whether to colour it as a warning', () {
-      expect(empty.stockLine, ('Out of stock', true));
-      expect(one.stockLine, ('1 in stock · low', true));
-      expect(five.stockLine, ('5 in stock · low', true));
-      expect(six.stockLine, ('6 in stock', false));
-      expect(plenty.stockLine, ('40 in stock', false));
+    test('reports a count, the label and the state to colour it from', () {
+      expect(empty.stockLine, ('Out of stock', StockState.outOfStock));
+      expect(one.stockLine, ('1 in stock · low', StockState.low));
+      expect(five.stockLine, ('5 in stock · low', StockState.low));
+      expect(six.stockLine, ('6 in stock', StockState.available));
+      expect(plenty.stockLine, ('40 in stock', StockState.available));
     });
 
-    test('a placeholder count is seeded for every line', () {
-      expect(repository.all().where((m) => m.stock > 0), hasLength(57));
+    test('an uncounted line is unknown, not out of stock', () {
+      // The distinction the whole nullable stock change turns on. A freshly
+      // imported product has no count because nobody took one, and calling that
+      // "out of stock" would block the sale of things that are on the shelf.
+      expect(uncounted.isStockUnknown, isTrue);
+      expect(uncounted.stockState, StockState.unknown);
+      expect(uncounted.isOutOfStock, isFalse);
+      expect(uncounted.isLowStock, isFalse);
+      expect(uncounted.stockLine, ('Not counted', StockState.unknown));
     });
 
-    test('the seed covers all three states so each is reviewable', () {
-      final all = repository.all();
+    test('a count of zero is out of stock, not merely unknown', () {
+      // The other half: unknown must not swallow the one state that is a real
+      // answer, or nothing would ever be reported as unavailable again.
+      expect(empty.isStockUnknown, isFalse);
+      expect(empty.stockState, StockState.outOfStock);
+    });
 
-      expect(all.where((m) => m.isOutOfStock), hasLength(7));
-      expect(all.where((m) => m.isLowStock), hasLength(9));
+    test('a count still does not make the line unorderable by being absent', () {
+      expect(OrderProvider.capFor(uncounted), OrderProvider.maxQuantity);
+      expect(OrderProvider.capFor(empty), 0);
+    });
+  });
+
+  group('searchable spellings', () {
+    const withAlias = MedicineModel(
+      name: 'Cetirizine',
+      priceCentavos: 400,
+      stock: null,
+      aliases: ['ceterizine', 'Ceterezine'],
+    );
+    const brand = MedicineModel(
+      name: 'Dolfenal',
+      priceCentavos: 300,
+      stock: null,
+      genericKey: 'diclofenac',
+    );
+
+    test('finds a line by a spelling the counter has actually used', () {
+      expect(withAlias.matches('ceterizine'), isTrue);
+      expect(withAlias.matches('CETEREZINE'), isTrue);
+    });
+
+    test('finds a brand by its generic, and a generic by its brand', () {
+      expect(brand.matches('diclofenac'), isTrue);
+    });
+
+    test('an alias does not create a second line', () {
+      // Same name and price is one item however many ways it can be typed.
+      const same = MedicineModel(
+        name: 'Cetirizine',
+        priceCentavos: 400,
+        stock: 3,
+        aliases: ['ceterizine'],
+      );
+      expect(withAlias, same);
+    });
+
+    test('an uncounted line is still findable by name and price', () {
+      // Being uncounted must not make a line unfindable, or a fresh import
+      // would hand the counter a list nothing can be looked up in.
+      const uncountedX = MedicineModel(name: 'X', priceCentavos: 6500, stock: null);
+      expect(uncountedX.matches('x'), isTrue);
+      expect(uncountedX.matches('65'), isTrue);
     });
   });
 }

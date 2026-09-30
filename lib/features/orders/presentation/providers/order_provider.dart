@@ -43,11 +43,20 @@ class OrderProvider extends ChangeNotifier {
   /// of this" and "you may have one" are different answers, and rounding 0 up
   /// to 1 would hand out stock the shelf does not have.
   ///
+  /// An item nobody has counted ([MedicineModel.isStockUnknown]) caps at
+  /// [maxQuantity] instead of zero. Not knowing the count is not the same as
+  /// having none, and a null that fell through as 0 would block ordering every
+  /// product in an imported catalogue -- the app would refuse the sale of things
+  /// that are almost certainly on the shelf, on the strength of a number nobody
+  /// entered. The 99 ceiling is still there to catch a mistyped quantity.
+  ///
   /// Static so the quantity sheet and the orders list can ask the same question
   /// without needing a provider instance to hand.
-  static int capFor(MedicineModel medicine) => medicine.stock < minQuantity
-      ? 0
-      : medicine.stock.clamp(minQuantity, maxQuantity);
+  static int capFor(MedicineModel medicine) {
+    final stock = medicine.stock;
+    if (stock != null && stock < minQuantity) return 0;
+    return (stock ?? maxQuantity).clamp(minQuantity, maxQuantity);
+  }
 
   final List<OrderLineModel> _lines = [];
 

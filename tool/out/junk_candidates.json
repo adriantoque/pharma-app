@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Bl",
+    "key": "bl",
+    "units": 30.0,
+    "occurrences": 29,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "mef",
+    "key": "mef",
+    "units": 25.0,
+    "occurrences": 6,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "PT",
+    "key": "pt",
+    "units": 13.0,
+    "occurrences": 12,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "RDL",
+    "key": "rdl",
+    "units": 5.0,
+    "occurrences": 5,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "ph",
+    "key": "ph",
+    "units": 4.0,
+    "occurrences": 2,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "Off",
+    "key": "off",
+    "units": 2.0,
+    "occurrences": 1,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "Set",
+    "key": "set",
+    "units": 1.0,
+    "occurrences": 1,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "ors",
+    "key": "ors",
+    "units": 1.0,
+    "occurrences": 1,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "rld",
+    "key": "rld",
+    "units": 1.0,
+    "occurrences": 1,
+    "reason": "too short or too few letters to be a product name"
+  },
+  {
+    "name": "z",
+    "key": "z",
+    "units": 1.0,
+    "occurrences": 1,
+    "reason": "too short or too few letters to be a product name"
+  }
+]
