@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shown from process start until the first Flutter frame, so the splash
+     covers the Firebase bootstrap too.
+
+     This is a duplicate of assets/images/bgtheme.png: an Android layer-list
+     cannot reach the Flutter asset bundle, so the image has to exist as a real
+     resource as well. Keep the two in sync.
+
+     'fill' scales the image to the whole window. It does not distort on a
+     screen whose aspect matches the image's (0.500, e.g. 720x1440); on other
+     ratios it stretches slightly. 'center' over a matching solid colour would
+     avoid that at the cost of insetting the artwork. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/bgtheme" />
+    </item>
+</layer-list>

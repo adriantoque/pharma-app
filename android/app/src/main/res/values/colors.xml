@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ (API 31) replaces the launch window with a system splash
+         that takes a solid background colour and a masked icon, so a full-bleed
+         image is not possible there. This is the average colour of
+         bgtheme.png, so those devices get a cream flash instead of a white one
+         and it matches the artwork the Flutter splash then shows. -->
+    <color name="splash_background">#DEDFCE</color>
+</resources>

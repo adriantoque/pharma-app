@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See drawable/launch_background.xml. Identical content; kept in step with it
+     because Android picks drawable-v21 on API 21+. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/bgtheme" />
+    </item>
+</layer-list>

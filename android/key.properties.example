@@ -1,0 +1,14 @@
+# Copy to android/key.properties and fill in. Never commit either this file or
+# the keystore it points at — both are already listed in android/.gitignore.
+#
+# Generate a keystore with:
+#   keytool -genkey -v -keystore ~/pharmaguide-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias pharmaguide
+#
+# Then register the SHA-1 and SHA-256 of this keystore in the Firebase console
+# under Project settings > Your apps > Android app > Google services, otherwise
+# Google sign-in fails at runtime with a developer error.
+storePassword=
+keyPassword=
+keyAlias=pharmaguide
+storeFile=/absolute/path/to/pharmaguide-release.jks

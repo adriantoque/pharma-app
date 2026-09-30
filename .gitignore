@@ -30,7 +30,9 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+# Unanchored on purpose: matches at any depth, so Gradle's android/build/ is
+# covered alongside the Flutter output in ./build/.
+build/
 /coverage/
 /flutter_temp/
 *.dart.js
@@ -49,3 +51,18 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Firebase client configuration
+#
+# Regenerate per machine with `flutterfire configure`. These hold the project's
+# API key and app ids; they are client identifiers rather than secrets, since
+# access is governed by Firestore and Auth security rules, but they are per
+# developer and per Firebase project so they stay out of the repository the
+# same way the signing key in android/key.properties does.
+lib/firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Local debugging leftovers
+scanlog.txt
+flutter_01.png
