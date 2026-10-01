@@ -79,6 +79,11 @@ flutter:
 
   assets:
     - assets/images/
+    # The price list rebuilt from `Daily Sales Tracker.xlsx` by
+    # `tool/import_sales_tracker.dart`, seeded into Firestore on first run. The
+    # spreadsheet itself is not an asset: the app reads JSON, never a
+    # spreadsheet.
+    - assets/data/medicines_seed.json
 
   fonts:
     - family: PlayfairDisplay

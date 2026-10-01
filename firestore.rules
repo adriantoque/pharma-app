@@ -1,0 +1,76 @@
+rules_version = '2';
+
+// PharmaGuide keeps everything under the signed-in user's own path, so the only
+// question the rules ever have to answer is "is this your account". Nothing is
+// readable without signing in, and one account can never see another's
+// catalogue or sales.
+//
+// Deploy with:
+//   firebase deploy --only firestore:rules
+//
+// This is deliberately not in the repository's build path. The rules are the one
+// thing here that is not reviewable in a pull request and not testable by
+// `flutter test`, so applying them is a deliberate act at the console rather than
+// something a deploy script does behind your back.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The price list. Identified by a hash of the name and price rather than an
+    // auto id, so re-importing the spreadsheet updates the existing lines and
+    // leaves the stock counts in place.
+    match /users/{userId}/medicines/{medicineId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validMedicine();
+      allow delete: if isOwner(userId);
+    }
+
+    // Sales history, for the reports screen. Not yet written by the app; the
+    // rules are here so the collection is not left open by accident when it is.
+    match /users/{userId}/sales/{saleId} {
+      allow read, write: if isOwner(userId) && validSale();
+    }
+
+    // Everything else is closed. A document placed outside users/{uid} by
+    // mistake is unreadable rather than quietly public.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+
+  function isOwner(userId) {
+    return request.auth != null && request.auth.uid == userId;
+  }
+
+  // A price-list line, checked field by field.
+  //
+  // The stock check is the one that matters: a negative or non-integer count
+  // would render as a nonsense label, and `isOutOfStock` treats a negative
+  // number as orderable. The expiry is a `yyyy-MM-dd` string or nothing, because
+  // a shelf expiry is a date with no time of day.
+  function validMedicine() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['name', 'priceCentavos', 'stock'])
+      && data.name is string
+      && data.name.size() > 0
+      && data.name.size() <= 60
+      && data.priceCentavos is int
+      && data.priceCentavos >= 0
+      && (data.stock == null || (data.stock is int && data.stock >= 0))
+      && (!data.keys().hasAny(['expiryDate'])
+        || data.expiryDate == null
+        || data.expiryDate is string);
+  }
+
+  // A sale line. The quantity is a number rather than an int because the
+  // workbook has a couple of half-tablet lines, and rounding those up here
+  // would put a number in the reports that the counter never sold.
+  function validSale() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['date', 'quantity', 'priceCentavos'])
+      && data.date is string
+      && data.quantity is number
+      && data.quantity > 0
+      && data.priceCentavos is int
+      && data.priceCentavos >= 0;
+  }
+}

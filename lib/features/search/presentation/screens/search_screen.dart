@@ -4,12 +4,19 @@ import 'package:provider/provider.dart';
 import '../../data/models/medicine_model.dart';
 import '../../data/repositories/medicine_repository.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
+import '../providers/medicine_provider.dart';
 import '../widgets/quantity_sheet.dart';
 
 /// Search tab: looks a medicine up in the pharmacy price list.
 ///
-/// Filtering happens against [MedicineRepository] rather than inside the widget,
-/// so swapping the static list for Firestore later touches no UI code.
+/// Reads the catalogue from [MedicineProvider] and keeps only the query here, so
+/// the filtering rule stays on the model and the list stays on the provider: a
+/// filter held in the widget would have to be re-applied on every catalogue
+/// change to stay correct.
+///
+/// [repository] exists for tests, which inject a static list. It is read once, on
+/// first build, and ignored afterwards: swapping it mid-session would be a
+/// different catalogue from the one the order screen is holding.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, this.repository = const StaticMedicineRepository()});
 
@@ -22,12 +29,17 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<MedicineModel> _results = const [];
+
+  /// The catalogue used when the widget is given one directly, as tests do.
+  ///
+  /// Null on the real app, where [MedicineProvider] is the source.
+  MedicineRepository? _static;
+  String _query = '';
 
   @override
-  void initState() {
-    super.initState();
-    _results = widget.repository.all();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _static ??= widget.repository;
   }
 
   @override
@@ -38,7 +50,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onQueryChanged(String query) {
-    setState(() => _results = widget.repository.search(query));
+    setState(() => _query = query);
     // Without this the list keeps its old offset, so clearing a search would
     // strand the user part-way down the alphabet instead of at the top.
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
@@ -94,8 +106,17 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final total = widget.repository.all().length;
-    final query = _controller.text.trim();
+    final static = _static;
+
+    // Watched, not read: a stock count typed on the inventory screen and the
+    // first read of the catalogue both have to repaint this list.
+    final live = static == null ? context.watch<MedicineProvider>() : null;
+
+    final results = static?.search(_query) ?? live!.search(_query);
+    final total = static?.all().length ?? live!.all().length;
+    final isLoading = live?.isLoading ?? false;
+    final error = live?.error;
+    final query = _query.trim();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Search'), centerTitle: true),
@@ -126,9 +147,14 @@ class _SearchScreenState extends State<SearchScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                query.isEmpty
-                    ? '$total items'
-                    : '${_results.length} of $total items',
+                // Suppressed while the catalogue is still loading, because
+                // "0 items" is a statement about the pharmacy and the truth is
+                // that nobody has asked yet.
+                isLoading
+                    ? 'Loading the price list...'
+                    : query.isEmpty
+                        ? '$total items'
+                        : '${results.length} of $total items',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -136,34 +162,98 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           Expanded(
-            child: _results.isEmpty
-                ? _NoResults(query: query)
-                : ListView.separated(
-                    controller: _scrollController,
-                    itemCount: _results.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    itemBuilder: (context, index) {
-                      final medicine = _results[index];
-                      // Watched, not read: the row's control is driven by the
-                      // quantity, so it has to rebuild when the order changes.
-                      final quantity = context
-                          .watch<OrderProvider>()
-                          .quantityOf(medicine);
+            child: switch ((error, isLoading)) {
+              (final String message, _) => _CatalogueError(
+                message: message,
+                onRetry: () => live?.clearError(),
+              ),
+              (_, true) => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              _ =>
+                results.isEmpty
+                    ? _NoResults(query: query)
+                    : ListView.separated(
+                        controller: _scrollController,
+                        itemCount: results.length,
+                        separatorBuilder: (context, index) => const Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
+                        itemBuilder: (context, index) {
+                          final medicine = results[index];
+                          // Watched, not read: the row's control is driven by
+                          // the quantity, so it has to rebuild when the order
+                          // changes.
+                          final quantity = context
+                              .watch<OrderProvider>()
+                              .quantityOf(medicine);
 
-                      return _MedicineRow(
-                        medicine: medicine,
-                        quantity: quantity,
-                        onAdd: () => _addItem(medicine),
-                        onRemove: () => _removeItem(medicine, quantity),
-                      );
-                    },
-                  ),
+                          return _MedicineRow(
+                            medicine: medicine,
+                            quantity: quantity,
+                            onAdd: () => _addItem(medicine),
+                            onRemove: () => _removeItem(medicine, quantity),
+                          );
+                        },
+                      ),
+            },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown when the catalogue could not be read at all.
+///
+/// A whole screen that says so, rather than an empty list: an empty price list
+/// is indistinguishable from a pharmacy that stocks nothing, and the first thing
+/// anyone would do about that is start deleting products.
+class _CatalogueError extends StatelessWidget {
+  const _CatalogueError({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'The price list did not load',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: onRetry,
+                child: const Text('Dismiss'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

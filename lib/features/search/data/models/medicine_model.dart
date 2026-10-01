@@ -169,6 +169,159 @@ class MedicineModel {
   /// there is no floating-point rounding to reason about.
   String get formattedPrice => formatCentavos(priceCentavos);
 
+  /// Stable Firestore document id for this line, derived from its identity.
+  ///
+  /// Derived rather than a Firestore auto-id because the price list is imported
+  /// from a spreadsheet and the import will be re-run: an auto-id would give
+  /// every import a fresh set of documents and leave the pharmacy holding
+  /// several copies of one product, each with its own stock count. Hashing the
+  /// identity makes a re-import an update instead.
+  ///
+  /// FNV-1a rather than [Object.hashCode], because a string's `hashCode` is only
+  /// guaranteed stable within one process, and an id that moved between runs
+  /// would re-create every document and orphan the stock counts again.
+  ///
+  /// The name goes in exactly as written, capitals included, so correcting a
+  /// name yields a different id. That is deliberate: a corrected name is a
+  /// different document, and retiring the old one is the pharmacist's call
+  /// rather than something the app does silently.
+  String get documentId {
+    var hash = 0x811c9dc5;
+    for (final unit in '$name|$priceCentavos'.codeUnits) {
+      hash = ((hash ^ unit) * 0x01000193) & 0xFFFFFFFF;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
+
+  /// The Firestore representation.
+  ///
+  /// `stock` and `expiryDate` are written as explicit nulls rather than omitted,
+  /// so a document cannot keep a stale count from an earlier import that decided
+  /// the line was uncounted.
+  ///
+  /// [documentId] is deliberately absent: the id is the document's path, and
+  /// repeating it inside would be a second place for the same value to be wrong.
+  Map<String, dynamic> toFirestore() => {
+        'name': name,
+        'priceCentavos': priceCentavos,
+        'stock': stock,
+        'aliases': aliases,
+        'genericKey': genericKey,
+        // A plain `yyyy-MM-dd` string rather than a Timestamp: a shelf expiry is
+        // a date with no time of day, and a timestamp would invent one.
+        'expiryDate': _formatDate(expiryDate),
+      };
+
+  /// Reads a document written by [toFirestore] or by the importer.
+  ///
+  /// Tolerates a missing or wrongly typed field -- a number stored as a double,
+  /// a date as a Timestamp, an expiry as a Timestamp -- because a price list
+  /// that came out of a spreadsheet is exactly the kind of data that arrives
+  /// with the wrong type in one field. An unreadable field becomes null, which is
+  /// the honest reading: the app cannot tell an uncounted item from one whose
+  /// count it failed to parse, and both have to read as uncounted.
+  factory MedicineModel.fromFirestore(Map<String, dynamic> data) {
+    return MedicineModel(
+      name: data['name'] as String? ?? '',
+      priceCentavos: _readInt(data['priceCentavos']),
+      // Read as nullable, unlike the price. A count that cannot be parsed is
+      // *not* a count of zero, and reading it as one would mark a stocked item
+      // out of stock on the strength of a bad field.
+      stock: _readIntOrNull(data['stock']),
+      aliases: [
+        for (final alias in (data['aliases'] as List?) ?? const [])
+          if (alias is String && alias.isNotEmpty) alias,
+      ],
+      genericKey: data['genericKey'] as String?,
+      expiryDate: _readDate(data['expiryDate']),
+    );
+  }
+
+  /// A whole number, or 0 when there is not one.
+  ///
+  /// Zero rather than null is right for a price: a line with no usable price is
+  /// not a line anybody can sell, and it must still sort and compare. Stock does
+  /// not get that luxury, which is why it goes through [_readIntOrNull].
+  static int _readInt(Object? value) => _readIntOrNull(value) ?? 0;
+
+  /// A whole number, or null when [value] is not one.
+  static int? _readIntOrNull(Object? value) => switch (value) {
+        int v => v,
+        // Covers double as well, so it has to come after int but before nothing
+        // else numeric.
+        num v => v.round(),
+        String v => int.tryParse(v),
+        _ => null,
+      };
+
+  /// A shelf expiry, from either the `yyyy-MM-dd` string [toFirestore] writes or
+  /// a Firestore Timestamp put there by hand in the console.
+  static DateTime? _readDate(Object? value) => switch (value) {
+        DateTime v => DateTime(v.year, v.month, v.day),
+        String v => _parseDate(v),
+        _ => null,
+      };
+
+  /// Parsed by hand rather than with [DateTime.parse] so an unpadded `2025-6-5`
+  /// is still read, and so a value that is not a date at all yields null instead
+  /// of throwing. An expiry that cannot be read shows as no expiry rather than
+  /// as a wrong one.
+  ///
+  /// Anything after a `T` or a space is dropped first, so the full ISO form a
+  /// document written outside this app arrives as -- `2027-03-09T14:30:00Z` --
+  /// still resolves to 9 March, which is the date the pharmacist wrote down.
+  static DateTime? _parseDate(String value) {
+    final date = value.split(RegExp('[T ]')).first;
+    final parts = date.split('-');
+    if (parts.length != 3) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return DateTime(year, month, day);
+  }
+
+  static String? _formatDate(DateTime? value) => value == null
+      ? null
+      : '${value.year.toString().padLeft(4, '0')}-'
+          '${value.month.toString().padLeft(2, '0')}-'
+          '${value.day.toString().padLeft(2, '0')}';
+
+  /// A shelf expiry as the `yyyy-MM-dd` string that is stored, or null for none.
+  ///
+  /// Public because the store writes the expiry on its own, merging just that one
+  /// key, and two places each formatting the date is how a line ends up stored
+  /// two different ways.
+  static String? formatExpiry(DateTime? value) => _formatDate(value);
+
+  /// The same line with some fields replaced.
+  ///
+  /// Present for the optimistic update the provider paints before Firestore
+  /// confirms: replacing the whole object is what makes that safe, because a
+  /// model is immutable and there is nothing else for the store to write back
+  /// into. Passing null for a field leaves it alone, so a caller cannot blank a
+  /// stock count by omitting it -- clearing one is done with [setStock]'s own
+  /// null, which is the one place a null means "no value".
+  MedicineModel copyWith({
+    String? name,
+    int? priceCentavos,
+    int? stock,
+    List<String>? aliases,
+    String? genericKey,
+    DateTime? expiryDate,
+  }) {
+    return MedicineModel(
+      name: name ?? this.name,
+      priceCentavos: priceCentavos ?? this.priceCentavos,
+      stock: stock ?? this.stock,
+      aliases: aliases ?? this.aliases,
+      genericKey: genericKey ?? this.genericKey,
+      expiryDate: expiryDate ?? this.expiryDate,
+    );
+  }
+
+
   /// Two entries are the same item when the name and the price both match, per
   /// the class doc: `Amox` at 4.00 is not `Amox` at 45.00, and `DIATABS` at
   /// 11.00 is not `Diatabs` at 7.00 even though only the capitalisation differs.
@@ -189,6 +342,19 @@ class MedicineModel {
 
   @override
   int get hashCode => Object.hash(name, priceCentavos);
+
+  /// The order a price list is shown in: alphabetical ignoring case, then
+  /// cheapest first.
+  ///
+  /// The second key is what keeps a repeated name in a sensible order, so `Amox`
+  /// reads 4.00 then 45.00 rather than arbitrarily. It lives on the model
+  /// because the static list, the Firestore store and the provider all sort the
+  /// same way, and three copies of a sort order is three chances for the list to
+  /// come back in a different order depending on where it was read.
+  static int compareByNameThenPrice(MedicineModel a, MedicineModel b) {
+    final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    return byName != 0 ? byName : a.priceCentavos.compareTo(b.priceCentavos);
+  }
 
   /// Whether this item should appear for [query].
   ///

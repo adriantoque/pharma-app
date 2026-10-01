@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,8 @@ import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/data/repositories/firebase_auth_repository.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/orders/presentation/providers/order_provider.dart';
+import 'features/search/data/repositories/firestore_medicine_store.dart';
+import 'features/search/presentation/providers/medicine_provider.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -94,8 +97,27 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
       key: const ValueKey('app'),
       providers: [
         Provider<AuthRepository>(create: (_) => FirebaseAuthRepository()),
+        // One Firestore handle for the whole app. FirebaseFirestore.instance is
+        // already a singleton, so this is a shared handle rather than a shared
+        // database, and every store can be built from the same object.
+        Provider<FirebaseFirestore>(
+          create: (_) => FirebaseFirestore.instance,
+        ),
         ChangeNotifierProvider<AuthProvider>(
           create: (ctx) => AuthProvider(ctx.read<AuthRepository>()),
+        ),
+        // Above the router, so the price list outlives a tab switch. Built from a
+        // factory because the store is scoped to a user id, and signing in as
+        // somebody else has to give it a different one.
+        ChangeNotifierProvider<MedicineProvider>(
+          create: (ctx) {
+            final firestore = ctx.read<FirebaseFirestore>();
+            return MedicineProvider(
+              auth: ctx.read<AuthProvider>(),
+              storeFor: (uid) =>
+                  FirestoreMedicineStore(firestore: firestore, uid: uid),
+            );
+          },
         ),
         // Above the router, so the order outlives a tab switch. Constructed
         // against auth so signing out empties it.

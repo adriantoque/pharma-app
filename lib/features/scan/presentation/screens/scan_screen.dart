@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/data/repositories/medicine_repository.dart';
+import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../search/presentation/widgets/quantity_sheet.dart';
 import '../../data/camera_prescription_camera.dart';
 import '../../data/mlkit_text_recognizer.dart';
@@ -33,12 +34,18 @@ import '../../domain/prescription_recognizer.dart';
 class ScanScreen extends StatefulWidget {
   const ScanScreen({
     super.key,
-    this.repository = const StaticMedicineRepository(),
+    this.repository,
     this.recognizer,
     this.camera,
   });
 
-  final MedicineRepository repository;
+  /// The catalogue a handwritten line is matched against.
+  ///
+  /// Null in the app, where the live [MedicineProvider] is used instead, so that
+  /// a scan searches the same hundreds of products the counter actually stocks
+  /// rather than the 64-line list baked into the binary. The tests pass a static
+  /// list, which keeps their suggestions predictable.
+  final MedicineRepository? repository;
 
   /// The printed-text reader, injected by the tests. Left null in the app,
   /// where the state builds the real platform-backed one.
@@ -58,8 +65,17 @@ class _ScanScreenState extends State<ScanScreen> {
   late final PrescriptionCamera _camera =
       widget.camera ?? CameraPrescriptionCamera();
 
-  late final PrescriptionMatcher _matcher =
-      PrescriptionMatcher(widget.repository);
+  /// Built on first use rather than in a field initialiser, because it needs the
+  /// provider and `context.read` is not valid during field initialisation.
+  ///
+  /// Read once and held. The catalogue is a few hundred lines and a scan matches
+  /// against it per line, so rebuilding the matcher for every keystroke would
+  /// re-normalise the whole list each time; a line corrected mid-scan is matched
+  /// against the same matcher, which is the same list the suggestions already
+  /// came from.
+  late final PrescriptionMatcher _matcher = PrescriptionMatcher(
+    widget.repository ?? context.read<MedicineProvider>(),
+  );
 
   /// Null until the camera has been asked about, so the pane can say "opening"
   /// without a spinner that would never stop.
@@ -642,7 +658,7 @@ class _SuggestionRow extends StatelessWidget {
     final medicine = suggestion.medicine;
     // Label and severity come back together from the model so a healthy count
     // can never be rendered in the error colour.
-    final (stockLabel, isStockWarning) = medicine.stockLine;
+    final (stockLabel, stockState) = medicine.stockLine;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -662,9 +678,17 @@ class _SuggestionRow extends StatelessWidget {
                   '$stockLabel · '
                   '${(suggestion.confidence * 100).round()}% match',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: isStockWarning
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
+                    // Matched to the search row: a shortage is called out, an
+                    // uncounted item is merely muted, so a whole scan full of
+                    // imported-but-uncounted products does not read as an
+                    // inventory alert.
+                    color: switch (stockState) {
+                      StockState.outOfStock || StockState.low =>
+                        theme.colorScheme.error,
+                      StockState.unknown => theme.colorScheme.outline,
+                      StockState.available =>
+                        theme.colorScheme.onSurfaceVariant,
+                    },
                   ),
                 ),
               ],

@@ -6,14 +6,21 @@
 // Run from the repository root. Nothing here ships in the app: the workbook is
 // a build-time input, and the app reads JSON, never a spreadsheet.
 //
-// Outputs, all under `tool/out/`:
-//   medicines_seed.json     the price list, one entry per (name, price) pair
-//   sales_seed.json         every sale line, for the reports screen
-//   merge_review.csv        name merges, flagged applied or needs-review
-//   excluded_sources.json   sheets left out, with the reason and the raw rows
-//   junk_candidates.json    lines kept as sales but not offered as products
+// Outputs:
+//   assets/data/medicines_seed.json   the price list, one entry per (name, price)
+//                                      pair. This one ships in the app: it is the
+//                                      asset the app seeds Firestore from, written
+//                                      here rather than copied so there is no
+//                                      second copy to fall out of step.
+//   tool/out/sales_seed.json          every sale line, for the reports screen
+//   tool/out/merge_review.csv         name merges, applied or needs-review
+//   tool/out/excluded_sources.json    sheets left out, with the reason and the
+//                                      rows that were skipped
+//   tool/out/junk_candidates.json     lines kept as sales but not offered as
+//                                      products
+//   tool/out/fractional_quantity.json quantities that are not whole numbers
 //
-// The point of the two review files is that nothing in the source is silently
+// The point of the review files is that nothing in the source is silently
 // dropped. A line the tool will not turn into a product is still recorded as a
 // sale, and a sheet it will not read at all is written out with the rows it
 // skipped, so a person can disagree with any of it and recover the line.
@@ -26,8 +33,16 @@ import 'package:excel/excel.dart';
 /// Workbook to read, relative to the repository root.
 const String sourceFile = 'Daily Sales Tracker.xlsx';
 
-/// Directory the generated files are written to.
+/// Where the generated review files are written.
 const String outputDir = 'tool/out';
+
+/// Where the seed the app reads is written.
+///
+/// A separate directory from [outputDir] because this is the one file that
+/// ships: it is registered as a Flutter asset, and keeping it in `tool/out`
+/// would put app data under a directory named for a development tool.
+const String seedDir = 'assets/data';
+const String seedFile = '$seedDir/medicines_seed.json';
 
 /// Sales run from July to September, and the workbook records no year anywhere,
 /// so it is stated here rather than guessed. Change this when the next year's
@@ -127,7 +142,6 @@ void main(List<String> args) {
   for (final entry in excel.tables.entries) {
     final name = entry.key;
     final sheet = entry.value;
-    if (sheet == null) continue;
 
     final reason = excludedSheets[name];
     if (reason != null) {
@@ -806,9 +820,14 @@ void _write(_ImportResult result, Map<String, _SkippedSheet> skipped) {
   final out = Directory(outputDir);
   if (!out.existsSync()) out.createSync(recursive: true);
 
-  File('$outputDir/medicines_seed.json').writeAsStringSync(
-    '${const JsonEncoder.withIndent('  ').convert(result.products)}\n',
-  );
+  final seedOut = Directory(seedDir);
+  if (!seedOut.existsSync()) seedOut.createSync(recursive: true);
+
+  final seed = '${const JsonEncoder.withIndent('  ').convert(result.products)}\n';
+  File(seedFile).writeAsStringSync(seed);
+  // The same bytes in the review directory, so the file being reviewed is the
+  // file that ships rather than a near-identical one.
+  File('$outputDir/medicines_seed.json').writeAsStringSync(seed);
 
   File('$outputDir/merge_review.csv').writeAsStringSync(_mergeCsv(result.merges));
   File('$outputDir/junk_candidates.json').writeAsStringSync(
@@ -940,8 +959,9 @@ void _report(
   });
   stdout
     ..writeln('')
-    ..writeln('  wrote $outputDir/medicines_seed.json, sales_seed.json, '
-        'merge_review.csv, excluded_sources.json, junk_candidates.json');
+    ..writeln('  wrote $seedFile (ships in the app) and in $outputDir: '
+        'sales_seed.json, merge_review.csv, excluded_sources.json, '
+        'junk_candidates.json, fractional_quantity.json');
 }
 
 String _peso(int centavos) => 'P${(centavos / 100).toStringAsFixed(2)}';
