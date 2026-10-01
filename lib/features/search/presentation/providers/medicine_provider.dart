@@ -6,13 +6,15 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/medicine_model.dart';
 import '../../data/repositories/medicine_repository.dart';
 import '../../data/repositories/medicine_store.dart';
+import '../../data/sync/sync_status.dart';
+import '../../data/sync/sync_status_source.dart';
 
 /// The live price list, held for the signed-in user.
 ///
 /// Implements [MedicineRepository] as well as carrying the subscription, so the
 /// prescription matcher can be pointed straight at this: the matcher needs a
 /// snapshot of the catalogue, and re-reading the provider gives it the same
-/// lines the search screen is showing rather than a second, possibly older copy.
+/// lines the dashboard is showing rather than a second, possibly older copy.
 class MedicineProvider extends ChangeNotifier implements MedicineRepository {
   /// [storeFor] is a factory rather than a store because the store is scoped to
   /// a user id that only exists once sign-in has resolved, and it has to be
@@ -33,7 +35,32 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
   late final MedicineStore Function(String uid) _storeFor;
 
   StreamSubscription<List<MedicineModel>>? _subscription;
+  StreamSubscription<SyncStatus>? _syncSubscription;
   MedicineStore? _store;
+
+  /// How the catalogue relates to the server right now.
+  ///
+  /// Read by the offline banner above the navigation bar. Lives here rather than
+  /// in a provider of its own because this class already owns the store, and the
+  /// store is created per signed-in account -- a second provider would have to
+  /// reach in here to reach it.
+  ///
+  /// Starts as [SyncStatus.unknown], not as online. Before the first snapshot
+  /// nothing has been measured, and claiming a working connection the app has not
+  /// tested is precisely the cheerful green tick that hides a dead one. A store
+  /// that cannot report a status at all is a different case and is given
+  /// [SyncStatus.localOnly]: the bundled catalogue and the static list have no
+  /// server to lose, so reporting unknown forever would leave a banner on screen
+  /// saying nothing useful.
+  SyncStatus _syncStatus = SyncStatus.unknown;
+
+  SyncStatus get syncStatus => _syncStatus;
+
+  /// The account the current [_store] was built for.
+  ///
+  /// Tracked rather than inferred from whether a store exists, because a store
+  /// being non-null says nothing about *whose* it is.
+  String? _uid;
 
   List<MedicineModel> _medicines = const [];
   bool _isLoading = false;
@@ -58,7 +85,10 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
 
   @override
   List<MedicineModel> search(String query) {
-    if (query.trim().isEmpty) return _medicines;
+    // Unmodifiable on both paths, including the empty query a search box shows
+    // before anything is typed. Returning the live list there would let a screen
+    // that sorts its results reorder the provider's own catalogue in place.
+    if (query.trim().isEmpty) return List.unmodifiable(_medicines);
     final results = _medicines.where((item) => item.matches(query)).toList()
       ..sort(MedicineModel.compareByNameThenPrice);
     return List.unmodifiable(results);
@@ -70,26 +100,45 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
   void _onAuthChanged() {
     final user = _auth?.user;
     if (user == null) {
-      _subscription?.cancel();
-      _subscription = null;
-      _store = null;
+      _releaseStore();
+      _uid = null;
       _replace(const [], loading: false);
       return;
     }
 
     // Auth also fires while a cold start is still resolving, and rebuilding the
     // subscription on each of those events would throw away a catalogue that had
-    // already loaded. Only a change of user is worth reacting to.
-    if (_store != null) {
-      return;
-    }
+    // already loaded. Only a *different* user is worth reacting to -- a refresh
+    // of the same account must leave what is already on screen alone.
+    if (_uid == user.id) return;
+
+    // A different user, and not via a sign-out: on a shared counter tablet the
+    // session can be replaced underneath the app. The old subscription is
+    // cancelled first, or the previous account's catalogue can still arrive and
+    // land in this one's screen -- the exact leak the class doc warns about.
+    _subscription?.cancel();
+    _subscription = null;
+    _releaseStore();
+    _uid = user.id;
 
     _isLoading = true;
     _error = null;
-    _safeNotify();
+    _replace(const [], loading: true);
 
     final store = _storeFor(user.id);
     _store = store;
+
+    // Held separately from [_store], which is typed as the plain interface: this
+    // is where a store that can report its own reachability gets noticed. A store
+    // that cannot reports nothing and has nothing to lose either, so it is given
+    // the local-only answer instead of being left on an unknown that never ends.
+    switch (store) {
+      case final SyncStatusSource source:
+        _syncStatus = SyncStatus.unknown;
+        _watchSyncStatus(source);
+      case _:
+_syncStatus = SyncStatus.unknown;
+    }
     _subscription = store.watchAll().listen(
           _replace,
           onError: (Object error, StackTrace stackTrace) {
@@ -98,6 +147,40 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
             _safeNotify();
           },
         );
+  }
+
+  /// Follows how [source] is getting on with its server.
+  ///
+  /// Cancels the previous store's stream first, so a subscription belonging to an
+  /// account that has been signed out cannot report into the new one's banner.
+  void _watchSyncStatus(SyncStatusSource source) {
+    _syncSubscription?.cancel();
+    _syncSubscription = null;
+
+    _syncSubscription = source.watchSyncStatus().listen((status) {
+      if (_syncStatus == status) return;
+      _syncStatus = status;
+      _safeNotify();
+    });
+  }
+
+  /// Lets go of the current store: its catalogue stream, its sync stream, and the
+  /// resources behind it.
+  ///
+  /// The store is built per signed-in account and a shared counter tablet is
+  /// signed in and out all day, so without this each session would leave a stream
+  /// controller and its listeners behind for as long as the process lived.
+  void _releaseStore() {
+    _subscription?.cancel();
+    _subscription = null;
+    _syncSubscription?.cancel();
+    _syncSubscription = null;
+
+    final store = _store;
+    _store = null;
+    if (store case final DisposableStore disposable) disposable.dispose();
+
+    _syncStatus = SyncStatus.localOnly;
   }
 
   void _replace(List<MedicineModel> medicines, {bool? loading}) {
@@ -121,6 +204,11 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
   /// trip completes. If the write fails the change is rolled back to the value
   /// Firestore last confirmed, and the error is surfaced -- a count that silently
   /// did not save is how a shelf and the app drift apart for a month.
+  ///
+  /// A count typed with no connection does *not* fail. The store queues it and
+  /// resolves straight away, so the optimistic value stands and the offline
+  /// banner is what says it is not on the server yet. Only a write the store
+  /// actually rejects -- refused by the security rules, say -- is rolled back.
   Future<void> setStock(MedicineModel medicine, int? stock) async {
     final store = _store;
     if (store == null) return;
@@ -135,7 +223,7 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
 
     try {
       await store.setStock(medicine, stock);
-      _error = null;
+      _clearError();
     } catch (error) {
       _replace(previous);
       _error = _describe(error);
@@ -157,7 +245,7 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
 
     try {
       await store.setExpiry(medicine, expiry);
-      _error = null;
+      _clearError();
     } catch (error) {
       _replace(previous);
       _error = _describe(error);
@@ -171,6 +259,7 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
     if (store == null) return;
     try {
       await store.upsertAll(medicines);
+      _clearError();
     } catch (error) {
       _error = _describe(error);
       _safeNotify();
@@ -179,6 +268,16 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
 
   /// Clears a reported error, once a screen has shown it.
   void clearError() {
+    if (_error == null) return;
+    _error = null;
+    _safeNotify();
+  }
+
+  /// Drops a stale error after a write that worked.
+  ///
+  /// Notifies only when there was something to drop, so a routine stock count
+  /// does not cost a second rebuild of every screen watching this provider.
+  void _clearError() {
     if (_error == null) return;
     _error = null;
     _safeNotify();
@@ -222,8 +321,7 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
     _disposed = true;
     _auth?.removeListener(_onAuthChanged);
     _auth = null;
-    _subscription?.cancel();
-    _subscription = null;
+    _releaseStore();
     super.dispose();
   }
 }

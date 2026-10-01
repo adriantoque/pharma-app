@@ -43,7 +43,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       // transparent for contrast.
       elevation: 3,
       indicatorColor: scheme.secondaryContainer,
-      // Keeps all five labels visible at every size; the default hides them on
+      // Keeps all four labels visible at every size; the default hides them on
       // short viewports, which is how a destination ends up as an unlabelled
       // icon.
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,

@@ -4,10 +4,13 @@ import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
+import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
+import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
 import 'package:pharmaguide/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers/fake_auth_repository.dart';
+import 'helpers/fake_medicine_store.dart';
 
 /// Guards the one coupling in the app that fails silently.
 ///
@@ -20,17 +23,23 @@ import 'helpers/fake_auth_repository.dart';
 void main() {
   late FakeAuthRepository repository;
   late AuthProvider auth;
+  late FakeMedicineStore store;
 
   setUp(() async {
     repository = FakeAuthRepository();
     auth = AuthProvider(repository);
     await auth.ready;
     await auth.login(email: 'a@b.com', password: 'secret');
+    // Seeded with the static price list because one of the markers below is the
+    // Search tab's item count, and an empty catalogue would break it for a reason
+    // that has nothing to do with navigation.
+    store = FakeMedicineStore(initial: const StaticMedicineRepository().all());
   });
 
   tearDown(() {
     auth.dispose();
     repository.dispose();
+    store.dispose();
   });
 
   Future<void> pumpApp(WidgetTester tester) async {
@@ -39,10 +48,16 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
-        // Search and Orders watch the order, so tapping those tabs without it
-        // throws instead of failing a useful assertion.
-        child: ChangeNotifierProvider<OrderProvider>(
-          create: (_) => OrderProvider(),
+        // Search, Orders, Inventory and Expiring all read one of these, so
+        // tapping those destinations without them throws instead of failing a
+        // useful assertion.
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<OrderProvider>(create: (_) => OrderProvider()),
+            ChangeNotifierProvider<MedicineProvider>(
+              create: (_) => MedicineProvider(auth: auth, storeFor: (_) => store),
+            ),
+          ],
           child: MaterialApp.router(
             routerConfig: router,
             theme: buildAppTheme(Brightness.light),
@@ -61,11 +76,10 @@ void main() {
     // would be circular: a tab relabelled or moved to the wrong branch would
     // still pass, because the expectation would have moved with it.
     final expected = <({String label, Finder marker})>[
-      (label: 'Home', marker: find.text('Real Time Inventory')),
-      (label: 'Search', marker: find.text('64 items')),
-      (label: 'Scan', marker: find.widgetWithText(AppBar, 'Scan')),
+      (label: 'Home', marker: find.text('Expiring Meds')),
+      (label: 'Inventory', marker: find.widgetWithText(AppBar, 'Inventory')),
       (label: 'Orders', marker: find.text('Nothing in this order yet')),
-      (label: 'Profile', marker: find.byTooltip('Sign out')),
+      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Reports')),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.
@@ -109,8 +123,9 @@ void main() {
     await pumpApp(tester);
 
     // Material 3 caps NavigationBar at five destinations, so this test is also
-    // the canary for a sixth tab needing a different layout.
-    expect(AppShell.destinations, hasLength(5));
+    // the canary for a sixth tab needing a different layout. The bar is now at
+    // four, so the headroom to the cap is larger than it was.
+    expect(AppShell.destinations, hasLength(4));
     expect(tester.takeException(), isNull);
   });
 }

@@ -1,14 +1,14 @@
-/// Seeds the authenticated user's Firestore catalogue from the bundled JSON.
-///
-/// Written here so it can be run once, after signing in, in case Firebase is set
-/// up after the app was first built. The helper reads
-/// `assets/data/medicines_seed.json` and writes all lines in batches using the
-/// document id derived by [MedicineModel.documentId], so a second run updates
-/// rather than duplicates.
-///
-/// Usage:
-///   - Sign in to the app.
-///   - From the root of the repository: `dart run tool/seed_firestore.dart`
+// Seeds the authenticated user's Firestore catalogue from the bundled JSON.
+//
+// Written here so it can be run once, after signing in, in case Firebase is set
+// up after the app was first built. The helper reads
+// `assets/data/medicines_seed.json` and writes all lines in batches using the
+// document id derived by [MedicineModel.documentId], so a second run updates
+// rather than duplicates.
+//
+// Usage:
+//   - Sign in to the app.
+//   - From the root of the repository: `dart run tool/seed_firestore.dart`
 
 import 'dart:convert';
 import 'dart:io';
@@ -16,9 +16,8 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-
-import '../lib/features/search/data/models/medicine_model.dart';
-import '../lib/firebase_options.dart';
+import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:pharmaguide/firebase_options.dart';
 
 Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

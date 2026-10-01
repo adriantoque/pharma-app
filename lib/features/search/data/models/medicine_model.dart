@@ -8,6 +8,11 @@ import '../../../../core/utils/currency.dart';
 /// zero would put every product out of stock and make the price list useless;
 /// reading it as some plausible number would be inventing a count nobody took.
 /// It therefore stays visibly uncounted until a member of staff types one in.
+///
+/// Stand-in for "this argument was not passed" in [MedicineModel.copyWith], where
+/// null is a real value rather than an absence. See there for why.
+const _keep = Object();
+
 enum StockState {
   /// Never counted. The item is orderable -- the shelf may well hold some -- but
   /// the app does not know, and says so instead of guessing.
@@ -300,24 +305,31 @@ class MedicineModel {
   /// Present for the optimistic update the provider paints before Firestore
   /// confirms: replacing the whole object is what makes that safe, because a
   /// model is immutable and there is nothing else for the store to write back
-  /// into. Passing null for a field leaves it alone, so a caller cannot blank a
-  /// stock count by omitting it -- clearing one is done with [setStock]'s own
-  /// null, which is the one place a null means "no value".
+  /// into.
+  ///
+  /// The nullable fields take an [Object] default rather than a null one, because
+  /// null is a value they legitimately hold: `copyWith(stock: null)` means the
+  /// count was cleared, which is what the stock sheet's "Not counted" control
+  /// does. With a null default the two cases -- field left alone, field cleared
+  /// -- would be indistinguishable and `x ?? this.stock` would silently keep the
+  /// old count, so a staff member clearing a number would watch it come back.
+  /// The sentinel keeps them apart; an argument that is not passed leaves the
+  /// field as it was.
   MedicineModel copyWith({
     String? name,
     int? priceCentavos,
-    int? stock,
+    Object? stock = _keep,
     List<String>? aliases,
-    String? genericKey,
-    DateTime? expiryDate,
+    Object? genericKey = _keep,
+    Object? expiryDate = _keep,
   }) {
     return MedicineModel(
       name: name ?? this.name,
       priceCentavos: priceCentavos ?? this.priceCentavos,
-      stock: stock ?? this.stock,
+      stock: identical(stock, _keep) ? this.stock : stock as int?,
       aliases: aliases ?? this.aliases,
-      genericKey: genericKey ?? this.genericKey,
-      expiryDate: expiryDate ?? this.expiryDate,
+      genericKey: identical(genericKey, _keep) ? this.genericKey : genericKey as String?,
+      expiryDate: identical(expiryDate, _keep) ? this.expiryDate : expiryDate as DateTime?,
     );
   }
 

@@ -2,17 +2,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'bootstrap/bootstrap_failure_screen.dart';
 import 'bootstrap/firebase_bootstrap.dart';
 import 'bootstrap/splash_screen.dart';
+import 'core/connectivity/connection_source.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/data/repositories/firebase_auth_repository.dart';
+import 'features/auth/data/repositories/offline_session.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/orders/data/repositories/local_order_draft_store.dart';
+import 'features/orders/data/repositories/order_draft_store.dart';
 import 'features/orders/presentation/providers/order_provider.dart';
 import 'features/search/data/repositories/firestore_medicine_store.dart';
+import 'features/search/data/repositories/local_medicine_store.dart';
+import 'features/search/data/repositories/seeded_medicine_store.dart';
+import 'features/search/data/sync/pending_write_queue.dart';
 import 'features/search/presentation/providers/medicine_provider.dart';
 import 'routing/app_router.dart';
 
@@ -96,6 +104,10 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
     return MultiProvider(
       key: const ValueKey('app'),
       providers: [
+        // The operating system's answer about the network, read once for the
+        // whole app. Firestore will take tens of seconds of its own backoff to
+        // admit a lost connection; this is what puts the banner up before then.
+        Provider<ConnectionSource>(create: (_) => PlatformConnectionSource()),
         Provider<AuthRepository>(create: (_) => FirebaseAuthRepository()),
         // One Firestore handle for the whole app. FirebaseFirestore.instance is
         // already a singleton, so this is a shared handle rather than a shared
@@ -103,27 +115,67 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         Provider<FirebaseFirestore>(
           create: (_) => FirebaseFirestore.instance,
         ),
-        ChangeNotifierProvider<AuthProvider>(
-          create: (ctx) => AuthProvider(ctx.read<AuthRepository>()),
-        ),
+         Provider<OfflineSession>(
+           create: (_) => StoredOfflineSession(
+             readStorage: () async =>
+                 (await SharedPreferences.getInstance()).getString('offlineMode'),
+             writeStorage: (value) async => (await SharedPreferences.getInstance())
+                 .setString('offlineMode', value ?? ''),
+           ),
+         ),
+         ChangeNotifierProvider<AuthProvider>(
+           create: (ctx) => AuthProvider(
+             ctx.read<AuthRepository>(),
+             offlineSession: ctx.read<OfflineSession>(),
+           ),
+         ),
         // Above the router, so the price list outlives a tab switch. Built from a
         // factory because the store is scoped to a user id, and signing in as
         // somebody else has to give it a different one.
-        ChangeNotifierProvider<MedicineProvider>(
-          create: (ctx) {
-            final firestore = ctx.read<FirebaseFirestore>();
-            return MedicineProvider(
-              auth: ctx.read<AuthProvider>(),
-              storeFor: (uid) =>
-                  FirestoreMedicineStore(firestore: firestore, uid: uid),
-            );
-          },
-        ),
-        // Above the router, so the order outlives a tab switch. Constructed
-        // against auth so signing out empties it.
-        ChangeNotifierProvider<OrderProvider>(
-          create: (ctx) => OrderProvider(auth: ctx.read<AuthProvider>()),
-        ),
+        //
+        // Wrapped in SeededMedicineStore so the bundled price list is on screen
+        // before any network call finishes, and so a brand new account seeds
+        // itself instead of sitting empty until somebody runs
+        // tool/seed_firestore.dart from a laptop.
+         ChangeNotifierProvider<MedicineProvider>(
+           create: (ctx) {
+             final firestore = ctx.read<FirebaseFirestore>();
+             return MedicineProvider(
+               auth: ctx.read<AuthProvider>(),
+               storeFor: (uid) {
+                 if (uid == AuthProvider.offlineUserId) {
+                   return LocalMedicineStore();
+                 }
+                 return SeededMedicineStore(
+                   remote: FirestoreMedicineStore(
+                     firestore: firestore,
+                     uid: uid,
+                     connection: ctx.read<ConnectionSource>(),
+                     queue: _queueFor(uid),
+                   ),
+                 );
+               },
+             );
+           },
+         ),
+        // Above the router, so the order outlives a tab switch -- and, with the
+        // draft store, outlives the app closing. Constructed against auth so
+        // signing out empties it and signing back in picks the basket up again.
+         ChangeNotifierProvider<OrderProvider>(
+           create: (ctx) => OrderProvider(
+             auth: ctx.read<AuthProvider>(),
+             catalogue: ctx.read<MedicineProvider>(),
+             draftFor: (uid) {
+               if (uid == AuthProvider.offlineUserId) {
+                 return LocalOrderDraftStore();
+               }
+               return FirestoreOrderDraftStore(
+                 firestore: ctx.read<FirebaseFirestore>(),
+                 uid: uid,
+               );
+             },
+           ),
+         ),
         Provider<GoRouter>(
           create: (ctx) =>
               createAppRouter(refreshListenable: ctx.read<AuthProvider>()),
@@ -131,6 +183,26 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         ),
       ],
       child: const App(),
+    );
+  }
+
+  /// The app's own record of writes the server has not confirmed, for one
+  /// account.
+  ///
+  /// Kept in preferences under a key namespaced by uid: a shared counter tablet
+  /// is signed in and out all day, and one pharmacist's unsent stock counts must
+  /// not turn up as another's.
+  ///
+  /// A read failure is not fatal -- [StoredPendingWriteQueue] falls back to an
+  /// empty queue, which costs the second copy of each write and nothing else,
+  /// because Firestore's own queue is still behind it.
+  static PendingWriteQueue _queueFor(String uid) {
+    final key = 'pendingWrites/$uid';
+    return StoredPendingWriteQueue(
+      readStorage: () async =>
+          (await SharedPreferences.getInstance()).getString(key),
+      writeStorage: (value) async =>
+          (await SharedPreferences.getInstance()).setString(key, value),
     );
   }
 }

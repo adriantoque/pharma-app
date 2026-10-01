@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/screens/search_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -25,7 +26,14 @@ void main() {
         value: order,
         // The row controls watch the order, so the screen cannot be built
         // standalone any more.
-        child: const MaterialApp(home: SearchScreen()),
+        child: const MaterialApp(
+          // The static list is passed in rather than left to the provider, which
+          // is what the constructor argument is for: these tests are about row
+          // layout, filtering and the stock line, and a fixed catalogue is what
+          // makes the counts below assertable. The provider path is covered in
+          // medicine_provider_test.dart.
+          home: SearchScreen(repository: StaticMedicineRepository()),
+        ),
       ),
     );
     await tester.pumpAndSettle();

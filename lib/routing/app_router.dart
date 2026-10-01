@@ -12,21 +12,24 @@ import '../features/dashboard/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
-import '../features/search/presentation/screens/search_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
   static const String home = '/home';
-  static const String search = '/search';
-  static const String scan = '/scan';
+  static const String inventory = '/inventory';
   static const String orders = '/orders';
-  static const String profile = '/profile';
+  static const String reports = '/reports';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
   /// the tile the user tapped from.
-  static const String homeInventory = '/home/inventory';
-  static const String homeReports = '/home/reports';
+  ///
+  /// Documentation only. A `GoRoute` nested under `home` is declared with a
+  /// *relative* path, so the route that actually resolves is `home` plus the
+  /// child's own literal -- not the string below. These are here so the pushed
+  /// pages can be read off without tracing the router.
   static const String homeExpiring = '/home/expiring';
+  static const String homeScan = '/home/scan';
+  static const String homeProfile = '/home/profile';
 }
 
 /// Builds the app router. The caller owns the returned instance and is
@@ -59,6 +62,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           return atLogin ? null : AppRoutes.login;
         case AuthStatus.authenticated:
           return atLogin ? AppRoutes.home : null;
+        case AuthStatus.offline:
+          return atLogin ? AppRoutes.home : null;
         case AuthStatus.unknown:
           return null;
       }
@@ -81,22 +86,23 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 builder: (context, state) => const DashboardScreen(),
                 // Nested under Home so each tile pushes a page onto the Home
                 // branch: the bottom bar keeps Home selected and the back arrow
-                // has somewhere to go.
+                // has somewhere to go. Inventory and Reports are tabs in their own
+                // right, so they are top-level branches below instead.
                 routes: [
-                  GoRoute(
-                    path: 'inventory',
-                    name: 'home-inventory',
-                    builder: (context, state) => const InventoryScreen(),
-                  ),
-                  GoRoute(
-                    path: 'reports',
-                    name: 'home-reports',
-                    builder: (context, state) => const ReportsScreen(),
-                  ),
                   GoRoute(
                     path: 'expiring',
                     name: 'home-expiring',
                     builder: (context, state) => const ExpiringMedsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'scan',
+                    name: 'home-scan',
+                    builder: (context, state) => const ScanScreen(),
+                  ),
+                  GoRoute(
+                    path: 'profile',
+                    name: 'home-profile',
+                    builder: (context, state) => const ProfileScreen(),
                   ),
                 ],
               ),
@@ -105,18 +111,9 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.search,
-                name: 'search',
-                builder: (context, state) => const SearchScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.scan,
-                name: 'scan',
-                builder: (context, state) => const ScanScreen(),
+                path: AppRoutes.inventory,
+                name: 'inventory',
+                builder: (context, state) => const InventoryScreen(),
               ),
             ],
           ),
@@ -132,9 +129,9 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.profile,
-                name: 'profile',
-                builder: (context, state) => const ProfileScreen(),
+                path: AppRoutes.reports,
+                name: 'reports',
+                builder: (context, state) => const ReportsScreen(),
               ),
             ],
           ),

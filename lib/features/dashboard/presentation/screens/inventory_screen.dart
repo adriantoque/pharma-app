@@ -6,7 +6,7 @@ import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../widgets/stock_sheet.dart';
 
-/// Reached from the Home tile "Real Time Inventory".
+/// Reached from the bottom-nav Inventory tab.
 ///
 /// Where the shelf counts are actually taken. The price list knows what
 /// everything costs and, for the imported lines, nothing at all about how many
@@ -79,7 +79,37 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final visible = _visible(catalogue);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Real Time Inventory'), centerTitle: true),
+      // Inventory is a tab root now, so it centres its title like the other
+      // three. The pages still pushed from a Home tile -- Expiring Meds, Scan,
+      // Profile -- stay leading-aligned so they read as children of Home rather
+      // than as another destination.
+      appBar: AppBar(
+        title: const Text('Inventory'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Bulk count entry (coming soon)',
+            icon: const Icon(Icons.checklist_outlined),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Bulk count entry — coming soon')),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Export counted list (coming soon)',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Export CSV — coming soon')),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Scan barcode to find product (coming soon)',
+            icon: const Icon(Icons.qr_code_scanner_outlined),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Barcode scan — coming soon')),
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

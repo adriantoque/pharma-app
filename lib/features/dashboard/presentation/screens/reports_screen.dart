@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/feature_placeholder.dart';
 
-/// Reached from the Home tile "Sales & Reports".
+/// Reached from its own bottom-nav tab.
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
 

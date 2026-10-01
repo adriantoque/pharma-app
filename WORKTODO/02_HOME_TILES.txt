@@ -1,0 +1,207 @@
+================================================================================
+TASK 02 - HOME TILES
+================================================================================
+Part of: the four-tab bottom bar. See 00_INDEX.txt.
+Status:  tracked in 00_INDEX.txt PROGRESS. This file is static -- edit the
+        index, not this line.
+Note:    01 and 02 are a MERGE UNIT. Land both in one commit -- see 00_INDEX.
+
+--------------------------------------------------------------------------------
+OBJECTIVE
+--------------------------------------------------------------------------------
+Retire the two Home tiles that are now bottom-bar tabs, add the two that lost
+their tab, and stop the inventory count arithmetic from being dead code.
+
+Before:  Real Time Inventory -> Sales & Reports -> Expiring Meds
+After:   Expiring Meds -> Scan Prescription -> Profile           (decision D3)
+
+Search gets no tile. Home's inline search field is the only search now, which
+is the entire point of dropping SearchScreen in task 01.
+
+
+--------------------------------------------------------------------------------
+YOU OWN THESE FILES. NOBODY ELSE MAY TOUCH THEM IN THIS TASK.
+--------------------------------------------------------------------------------
+  lib/features/dashboard/presentation/screens/dashboard_screen.dart  (the work)
+  lib/features/search/presentation/widgets/medicine_row.dart         (comment)
+  lib/features/search/presentation/providers/medicine_provider.dart  (comment)
+
+--------------------------------------------------------------------------------
+YOU DO NOT OWN - DO NOT EDIT
+--------------------------------------------------------------------------------
+  lib/routing/app_router.dart                                  -> task 01
+  lib/core/navigation/app_shell.dart                           -> task 01
+  lib/features/search/presentation/screens/search_screen.dart   -> task 01 deletes
+  lib/features/dashboard/presentation/screens/inventory_screen.dart  -> task 03
+  lib/features/dashboard/presentation/screens/reports_screen.dart    -> task 03
+  lib/features/scan/presentation/screens/scan_screen.dart            -> task 03
+  lib/features/profile/presentation/screens/profile_screen.dart      -> task 03
+  lib/core/theme/app_theme.dart                                  -> task 03
+  test/nav_alignment_test.dart                                   -> task 04
+  test/widget_test.dart                                         -> task 04
+  test/search_screen_test.dart                                   -> task 05
+
+Conventions in force: C3 (tab roots centre their title; pushed children
+lead-align -- so no title changes here), C4 (Home's test marker is now
+`find.text('Expiring Meds')`, which is why that tile is kept).
+
+
+--------------------------------------------------------------------------------
+CHECKLIST
+--------------------------------------------------------------------------------
+dashboard_screen.dart -- tiles
+
+  [ ] DELETE the "Real Time Inventory" tile (currently lines 153-159) and the
+      SizedBox that follows it.
+
+  [ ] DELETE the "Sales & Reports" tile (currently lines 160-165) and the
+      SizedBox that follows it.
+
+      Careful: both of these push routes task 01 has already deleted. Leaving
+      either in place means a tile that lands the user on the router error
+      page. Their removal is the reason 01 and 02 cannot be separated.
+
+  [ ] KEEP the "Expiring Meds" tile unchanged -- icon, title, subtitle,
+      `context.pushNamed('home-expiring')`. Decision D3 puts it first and C4
+      depends on it being the first thing on Home.
+
+  [ ] ADD two tiles after it, matching the existing DashboardTile shape exactly
+      (icon, title, subtitle, onTap):
+
+          DashboardTile(
+            icon: Icons.qr_code_scanner_outlined,
+            title: 'Scan Prescription',
+            subtitle: 'Handwrite or photograph a prescription',
+            onTap: () => context.pushNamed('home-scan'),
+          ),
+          const SizedBox(height: 12),
+          DashboardTile(
+            icon: Icons.person_outline,
+            title: 'Profile',
+            subtitle: 'Your account and sign out',
+            onTap: () => context.pushNamed('home-profile'),
+          ),
+
+      The icons are carried over from the tabs task 01 removed, for the same
+      reason given there: continuity for anyone who learned the old bar.
+
+  [ ] The three tiles plus two 12dp gaps fit in a 360x720 viewport. If you add
+      the at-a-glance line below and the list no longer fits, the ListView
+      scrolls -- that is fine and expected. Do not compress the tiles to make it
+      fit.
+
+dashboard_screen.dart -- decision D1, the at-a-glance line
+
+  [ ] Lines 85-87 compute `counted`, `countedCount` and `totalValue` for the
+      Inventory tile's subtitle. With that tile gone they are dead locals and
+      `flutter analyze` will flag all three.
+
+  [ ] DECIDED (D1): do not delete them. Render them above the tiles, in the
+      existing `if (query.isEmpty)` block so the line only shows in the browse
+      state and never competes with search results. Something on the order of:
+
+          Text(
+            '$countedCount of $total counted - ${formatCentavos(totalValue)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+
+  [ ] Match the surrounding style. The tile subtitles use
+      `bodySmall` + `onSurfaceVariant`; so should this. `formatCentavos` is
+      already imported at line 5.
+
+  [ ] Leave `expiredCount` and `expiringSoonCount` exactly as they are. The
+      Expiring Meds tile still uses them.
+
+  [ ] Take a `theme` local in build() if one is not already there. The current
+      build() has no `Theme.of(context)` binding; if you need it, add
+      `final theme = Theme.of(context);` and use it for this line only. Do not
+      restyle the existing tiles.
+
+dashboard_screen.dart -- comments
+
+  [ ] The class doc at lines 14-17 says: "Home tab with inline search and
+      quick-access tiles. The search section mirrors [SearchScreen] but lives on
+      the Home branch so users can look up and add medicines without switching
+      tabs."
+
+      That is now wrong in a specific way. There is no SearchScreen, and there
+      is nothing to "switch tabs" from. Rewrite it to say what is true: this
+      screen is both the pharmacy's search box and its navigation hub, because
+      the bar no longer has a Search destination.
+
+  [ ] The comment at line 16 imports a doc reference to a class that task 01 is
+      deleting in the same commit. Leaving a `[SearchScreen]` bracket reference
+      to a dead class produces a dartdoc warning.
+
+medicine_row.dart -- comment only
+
+  [ ] Line 7: "Shared between [SearchScreen] and the inline search on
+      [DashboardScreen]."
+
+      After task 01, DashboardScreen is the ONLY consumer of MedicineRow,
+      CatalogueError, NoResults, ResultsCount and SearchField. The widget does
+      not stop being "shared" in any meaningful sense -- all five widgets are
+      imported via a `show` clause in one import -- but the sentence is now
+      false. Say that the dashboard owns the search UI, and that the widgets
+      are split out of it for legibility.
+
+  [ ] Do NOT delete, rename, or restructure any widget in this file. All five
+      are used by DashboardScreen and tested by task 05.
+
+medicine_provider.dart -- comment only
+
+  [ ] Lines 15-17: "...re-reading the provider gives it the same lines the
+      search screen is showing rather than a second, possibly older copy."
+
+      "the search screen" no longer exists as a thing with a tab. Reword to
+      "the same lines the dashboard is showing". The substance of the comment --
+      why the matcher reads the provider rather than the model -- is correct and
+      must survive the edit.
+
+
+--------------------------------------------------------------------------------
+DO NOT "FIX WHILE YOU'RE IN THERE"
+--------------------------------------------------------------------------------
+  - The inline search's `Expanded(flex: query.isEmpty ? 0 : 1)` at line 110.
+    It is load-bearing and task 05's tests are written against its behaviour.
+    Leave it exactly as it is.
+  - The `hintText: 'Search medicines...'` on the search field. Task 01 deleted
+    SearchScreen, which had no custom hint either. No change needed; do not
+    invent one.
+  - The absence of `autofocus` on the search field. Settled: no autofocus. A
+    keyboard over the tiles on every Home visit would be wrong.
+  - The search field's empty-query behaviour. `catalogue.search('')` returns the
+    whole catalogue unmodifiable; the tiles show because of the flex, not
+    because the list is empty. Untouched.
+  - inventory_screen.dart / reports_screen.dart titles             -> task 03
+  - The K1 `recognizeButton` test breakage                    -> out of scope
+  - feature_placeholder.dart                                     -> K2, already dead
+
+
+--------------------------------------------------------------------------------
+DONE WHEN
+--------------------------------------------------------------------------------
+  [ ] `flutter analyze` reports no new issues -- in particular no "unused
+      local variable" for counted / countedCount / totalValue, because they are
+      now rendered rather than deleted.
+  [ ] Home shows, in order: the at-a-glance count line, Expiring Meds, Scan
+      Prescription, Profile. (Or the count line after the tiles -- your call,
+      but it must not be inside the search-results state.)
+  [ ] Every tile on Home pushes somewhere real. No tile lands on the router
+      error page.
+  [ ] Scan Prescription opens ScanScreen; Profile opens ProfileScreen; Expiring
+      Meds opens ExpiringMedsScreen. All three show a back arrow.
+  [ ] Typing a query still replaces the tiles with results, and clearing it
+      brings them back.
+  [ ] This change and task 01's are committed together.
+
+
+--------------------------------------------------------------------------------
+DEPENDENCIES
+--------------------------------------------------------------------------------
+  Blocked by: task 01 (the routes its tiles push to are created there).
+  Blocks:     tasks 04 and 05. Task 04 needs `Expiring Meds` to be Home's
+              marker (convention C4); task 05 repoints search_screen_test.dart
+              at this screen and depends on its exact layout.

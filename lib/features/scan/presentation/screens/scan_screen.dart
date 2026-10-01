@@ -84,6 +84,14 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _isReading = false;
   String? _error;
 
+  /// Whether the last failure was the missing model rather than the photo.
+  ///
+  /// The two want opposite things from the same button. A misread photo is worth
+  /// asking about again immediately; a model that could not be downloaded is not,
+  /// and pressing it again on a phone with no signal only produces the same
+  /// failure while the message says it will work this time.
+  bool _errorNeedsConnection = false;
+
   /// Every reading ML Kit offered, per line, so a corrected line can be
   /// re-matched without the photo being read again.
   List<List<String>> _candidates = const [];
@@ -126,8 +134,21 @@ class _ScanScreenState extends State<ScanScreen> {
       _cameraReady = null;
       _cameraError = null;
       _error = null;
+      _errorNeedsConnection = false;
     });
     unawaited(_initCamera());
+  }
+
+  /// Records a failure the way the screen will later describe it.
+  ///
+  /// One place so the flag that decides the wording can never get out of step
+  /// with the message it belongs to.
+  void _reportError(PrescriptionRecognitionException error) {
+    if (!mounted) return;
+    setState(() {
+      _error = error.message;
+      _errorNeedsConnection = error.isOffline;
+    });
   }
 
   /// Takes the photo the preview is showing and reads it.
@@ -139,7 +160,7 @@ class _ScanScreenState extends State<ScanScreen> {
       bytes = await _camera.takePicture();
     } on PrescriptionRecognitionException catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.message);
+      _reportError(error);
       return;
     }
     await _readBytes(bytes);
@@ -155,7 +176,7 @@ class _ScanScreenState extends State<ScanScreen> {
       bytes = await _camera.pickFromGallery();
     } on PrescriptionRecognitionException catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.message);
+      _reportError(error);
       return;
     }
     if (bytes == null) return; // the user backed out of the picker
@@ -166,6 +187,7 @@ class _ScanScreenState extends State<ScanScreen> {
     setState(() {
       _isReading = true;
       _error = null;
+      _errorNeedsConnection = false;
     });
 
     try {
@@ -186,10 +208,8 @@ class _ScanScreenState extends State<ScanScreen> {
       });
     } on PrescriptionRecognitionException catch (error) {
       if (!mounted) return;
-      setState(() {
-        _isReading = false;
-        _error = error.message;
-      });
+      _reportError(error);
+      setState(() => _isReading = false);
     }
   }
 
@@ -263,7 +283,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget build(BuildContext context) {
     final canScanOnPlatform = _recognizer.isSupported && _camera.isSupported;
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan'), centerTitle: true),
+      appBar: AppBar(title: const Text('Scan')),
       body: Column(
         children: [
           const _Intro(),
@@ -278,6 +298,7 @@ class _ScanScreenState extends State<ScanScreen> {
             if (_error case final error?)
               _ErrorCard(
                 message: error,
+                needsConnection: _errorNeedsConnection,
                 onRetry: _scan,
               ),
           ] else
@@ -482,10 +503,18 @@ class _Notice extends StatelessWidget {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message, required this.onRetry});
+  const _ErrorCard({
+    required this.message,
+    required this.onRetry,
+    this.needsConnection = false,
+  });
 
   final String message;
   final VoidCallback onRetry;
+
+  /// The failure was the model download rather than the photograph, so retrying
+  /// is worth nothing until the device has a connection again.
+  final bool needsConnection;
 
   @override
   Widget build(BuildContext context) {
@@ -503,13 +532,24 @@ class _ErrorCard extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              message,
+              // Says what has to change before the button will do anything. A
+              // retry that cannot possibly succeed, offered without saying so, is
+              // worse than no button: it teaches the user that the app does not
+              // know what went wrong.
+              needsConnection
+                  ? '$message\nWaiting for a connection — text recognition needs to '
+                        'download its model once, then it works offline.'
+                  : message,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onErrorContainer,
               ),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
+          TextButton(
+            key: const Key('retryReadingButton'),
+            onPressed: onRetry,
+            child: Text(needsConnection ? 'Try again' : 'Retry'),
+          ),
         ],
       ),
     );

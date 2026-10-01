@@ -59,7 +59,33 @@ class ExpiringMedsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Expiring Meds'), centerTitle: true),
+      // Leading-aligned, as the other pages pushed from a Home tile are.
+      appBar: AppBar(
+        title: const Text('Expiring Meds'),
+        actions: [
+          IconButton(
+            tooltip: 'Expiry notifications (coming soon)',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Expiry notifications — coming soon')),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Batch expiry entry (coming soon)',
+            icon: const Icon(Icons.add_task_outlined),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Batch expiry entry — coming soon')),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Export expiring list (coming soon)',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Export CSV — coming soon')),
+            ),
+          ),
+        ],
+      ),
       body: switch ((catalogue.error, catalogue.isLoading)) {
         (final String message, _) => _Body(
             icon: Icons.cloud_off_outlined,

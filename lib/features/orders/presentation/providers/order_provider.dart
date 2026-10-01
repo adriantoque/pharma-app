@@ -1,19 +1,47 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/lifecycle/disposable_store.dart';
 import '../../../../core/utils/currency.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
+import '../../../search/data/repositories/medicine_repository.dart';
 import '../../data/models/order_line_model.dart';
+import '../../data/repositories/order_draft_store.dart';
 
 /// The order being built up in the signed-in area.
 ///
-/// Deliberately in memory: it is created by `main.dart` above the router, so it
-/// survives switching tabs, and it is thrown away when the app exits. There is
-/// no order repository yet, so persisting this means adding one and swapping the
-/// provider's internals, the same seam [MedicineRepository] already provides for
-/// the price list.
+/// Created by `main.dart` above the router, so it survives switching tabs.
+///
+/// ## Surviving the app closing
+///
+/// A basket that is only in memory is a basket that disappears if the tablet
+/// sleeps, the battery goes, or Android kills the process -- which it will, given
+/// long enough, and routinely on a cheap device under memory pressure. A
+/// customer standing at the counter with a part-built order does not care why.
+///
+/// So when the app has somewhere to put it, the order is written through an
+/// [OrderDraftStore] on every change and read back when the account signs in
+/// again. [draftFor] is optional and [auth] may be null, so a caller with neither
+/// -- which is every test -- keeps a basket that lasts exactly as long as the
+/// process, exactly as before.
+///
+/// The catalogue is handed in too, for the same reason: a restored line carries
+/// a medicine's identity and nothing else, and the identity has to be matched
+/// against the price list that is actually on screen before the shelf's count is
+/// believed.
 class OrderProvider extends ChangeNotifier {
-  OrderProvider({AuthProvider? auth}) {
+  OrderProvider({
+    AuthProvider? auth,
+    OrderDraftStore Function(String uid)? draftFor,
+    MedicineRepository? catalogue,
+  })  // A named parameter cannot be private, so these two cannot be initializing
+      // formals.
+      // ignore: prefer_initializing_formals
+      : _draftFor = draftFor,
+        // ignore: prefer_initializing_formals
+        _catalogue = catalogue {
     // A shared counter tablet is signed in and out all day, and a basket left
     // behind by the last user is both a privacy problem and a confusing screen.
     // Watching auth is cheaper than trying to clear the order from the sign-out
@@ -23,6 +51,10 @@ class OrderProvider extends ChangeNotifier {
       // Called on the parameter, not on [_auth]: a nullable field is not promoted
       // by an assignment, so `auth` is the only name the analyzer will accept.
       auth.addListener(_onAuthChanged);
+      // Run once rather than waiting for the first auth event. A cold start
+      // resolves auth asynchronously, and without this the draft would not be
+      // read until something else happened to make the provider speak.
+      _onAuthChanged();
     }
   }
 
@@ -61,6 +93,23 @@ class OrderProvider extends ChangeNotifier {
   final List<OrderLineModel> _lines = [];
 
   AuthProvider? _auth;
+  final OrderDraftStore Function(String uid)? _draftFor;
+  final MedicineRepository? _catalogue;
+
+  OrderDraftStore? _draftStore;
+  StreamSubscription<List<OrderLineModel>>? _draftSubscription;
+
+  /// The account the current draft belongs to.
+  String? _uid;
+
+  /// Whether the stored draft has been read in yet.
+  ///
+  /// Only used to avoid saving a draft that is about to be overwritten by it. The
+  /// alternative -- writing the empty order on sign-in and then restoring over
+  /// the top of it -- works, and quietly destroys the draft on any device whose
+  /// stored copy arrives a moment after the write does.
+  bool _restored = false;
+
   bool _disposed = false;
 
   /// The lines, oldest first, safe to hand to a widget: callers cannot reorder
@@ -118,33 +167,7 @@ class OrderProvider extends ChangeNotifier {
       _lines[index] = _lines[index].copyWith(quantity: capped);
     }
     _safeNotify();
-  }
-
-  /// Sets the quantity of [medicine] to [quantity], removing the line if it is
-  /// less than [minQuantity], more than the item has in stock, or the item is
-  /// not in the order at all.
-  void setQuantity(MedicineModel medicine, int quantity) {
-    final index = _indexOf(medicine);
-    if (index == -1) return;
-
-    final capped = _capTo(medicine, quantity);
-    if (capped < minQuantity) {
-      _lines.removeAt(index);
-    } else {
-      _lines[index] = _lines[index].copyWith(quantity: capped);
-    }
-    _safeNotify();
-  }
-
-  /// Removes every unit of [medicine]. A no-op if it is not in the order, so
-  /// two taps in a row cannot notify for nothing.
-  void remove(MedicineModel medicine) => setQuantity(medicine, 0);
-
-  /// Empties the order.
-  void clear() {
-    if (_lines.isEmpty) return;
-    _lines.clear();
-    _safeNotify();
+    _saveDraft();
   }
 
   int _indexOf(MedicineModel medicine) {
@@ -165,10 +188,140 @@ class OrderProvider extends ChangeNotifier {
     return cap < quantity ? cap : quantity;
   }
 
+  /// Sets the quantity of [medicine] to [quantity], removing the line if it is
+  /// less than [minQuantity], more than the item has in stock, or the item is
+  /// not in the order at all.
+  void setQuantity(MedicineModel medicine, int quantity) {
+    final index = _indexOf(medicine);
+    if (index == -1) return;
+
+    final capped = _capTo(medicine, quantity);
+    if (capped < minQuantity) {
+      _lines.removeAt(index);
+    } else {
+      _lines[index] = _lines[index].copyWith(quantity: capped);
+    }
+    _safeNotify();
+    _saveDraft();
+  }
+
+  /// Removes every unit of [medicine]. A no-op if it is not in the order, so
+  /// two taps in a row cannot notify for nothing.
+  void remove(MedicineModel medicine) => setQuantity(medicine, 0);
+
+/// Empties the order.
+  void clear() {
+    if (_lines.isEmpty) return;
+    _lines.clear();
+    _safeNotify();
+    _saveDraft();
+  }
+
+  /// Switches the draft store over when the account changes, and drops the
+  /// previous account's basket on the way out.
+  ///
+  /// The stored draft is left alone on the way out, deliberately. It is written
+  /// under `users/{uid}` and the security rules keep it there, so nobody else can
+  /// read it, and deleting it would throw away a part-built order over a session
+  /// the user did not mean to end.
   void _onAuthChanged() {
-    // Only a *change* to signed-out empties the order. Auth also fires while
-    // resolving a cold start, and that must not wipe a basket mid-session.
-    if (_auth?.status == AuthStatus.unauthenticated) clear();
+    final user = _auth?.user;
+
+    if (user == null) {
+      // Only a signed-*out* state empties the order. Auth also fires while
+      // resolving a cold start, where the status is still `unknown` and the user
+      // is perfectly signed in, and that must not wipe a basket mid-session.
+      if (_auth?.status != AuthStatus.unauthenticated) return;
+      _releaseDraft();
+      _lines.clear();
+      _safeNotify();
+      return;
+    }
+
+    // A different user is worth reacting to; a refresh of the same one is not.
+    // On a shared counter tablet the session can be replaced underneath the app,
+    // and a store still pointed at the previous account would either throw or
+    // quietly save one user's basket over another's.
+    if (_uid == user.id) return;
+    _releaseDraft();
+    _uid = user.id;
+    _lines.clear();
+    _safeNotify();
+    _attachDraft(user.id);
+  }
+
+  void _attachDraft(String uid) {
+    final draftFor = _draftFor;
+    if (draftFor == null) return;
+
+    final store = draftFor(uid);
+    _draftStore = store;
+    _draftSubscription = store.watchDraft().listen(_adoptDraft);
+  }
+
+  /// Puts a stored draft on screen, matched against the live price list.
+  ///
+  /// A restored line carries a name and a price and nothing else, and
+  /// [MedicineModel]'s identity rule is exactly those two fields -- so the live
+  /// catalogue's entry is the one that goes back in, bringing its own stock count,
+  /// aliases and expiry with it. That is the whole point: a basket restored
+  /// tomorrow must be capped by tomorrow's shelf, not by a count copied out of a
+  /// document yesterday.
+  ///
+  /// A line whose product is no longer in the price list keeps the stored copy,
+  /// with no count. Silently deleting somebody's line because the catalogue moved
+  /// under it would be worse than showing them something they can see and remove,
+  /// and with no count it falls back to the ordinary order limit rather than
+  /// claiming the shelf is empty.
+  void _adoptDraft(List<OrderLineModel> draft) {
+    if (_disposed) return;
+    _restored = true;
+
+    final catalogue = _catalogue;
+    _lines
+      ..clear()
+      ..addAll([
+        for (final line in draft)
+          line.copyWith(medicine: _resolve(catalogue, line.medicine)),
+      ]);
+    _safeNotify();
+  }
+
+  /// The catalogue's copy of [stored], or [stored] itself if it has none.
+  static MedicineModel _resolve(
+    MedicineRepository? catalogue,
+    MedicineModel stored,
+  ) {
+    if (catalogue == null) return stored;
+    for (final medicine in catalogue.all()) {
+      if (medicine == stored) return medicine;
+    }
+    return stored;
+  }
+
+  /// Writes the current order out, if there is anywhere to write it.
+  ///
+  /// Silent on failure, because Firestore resolves a write the moment it has been
+  /// applied locally and the only thing that can fail here is the security rules.
+  /// A basket that could not be saved has still been built, and turning that into
+  /// an error would mean throwing away what the pharmacist did in favour of
+  /// telling them it did not work.
+  ///
+  /// Held back until [_restored], for the reason on that field.
+  void _saveDraft() {
+    final store = _draftStore;
+    if (store == null || !_restored) return;
+    unawaited(store.save(List<OrderLineModel>.unmodifiable(_lines)));
+  }
+
+  void _releaseDraft() {
+    unawaited(_draftSubscription?.cancel());
+    _draftSubscription = null;
+    final store = _draftStore;
+    _draftStore = null;
+    if (store case final DisposableStore disposable) disposable.dispose();
+    _uid = null;
+    _restored = false;
   }
 
   /// Notifying a disposed ChangeNotifier throws, and the auth listener is only
@@ -184,6 +337,7 @@ class OrderProvider extends ChangeNotifier {
     _disposed = true;
     _auth?.removeListener(_onAuthChanged);
     _auth = null;
+    _releaseDraft();
     super.dispose();
   }
 }

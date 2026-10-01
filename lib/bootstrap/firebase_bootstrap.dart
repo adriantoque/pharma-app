@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../firebase_options.dart';
@@ -27,6 +28,7 @@ abstract final class FirebaseBootstrap {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      _enableOfflineCache();
       return const FirebaseBootstrapResult.success();
     } on UnsupportedError catch (e) {
       return FirebaseBootstrapResult.failure(
@@ -43,5 +45,27 @@ abstract final class FirebaseBootstrap {
     return text
         .replaceFirst(RegExp(r'^(Exception|Bad state|Unsupported error):\s*'), '')
         .trim();
+  }
+
+  /// Puts Firestore's cache on disk, so a device that loses its connection keeps
+  /// working rather than going blank.
+  ///
+  /// Android and iOS already default to a disk-backed cache, but the entire
+  /// offline story rests on this one setting and it is not the sort of default
+  /// that should be left to an SDK bump. Said out loud here instead, once.
+  ///
+  /// Part of bootstrap rather than something a provider arranges on demand,
+  /// because the settings are ignored once the first query has gone out -- and
+  /// `main.dart` builds a `FirebaseFirestore` provider as soon as this resolves.
+  static void _enableOfflineCache() {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      // Considerably more than the catalogue needs: the seed is 490 lines, a few
+      // hundred kilobytes, so the LRU threshold never comes near it and a device
+      // that has been offline for days still finds its price list on disk.
+      // Bounded anyway, because this is a cache and an unbounded one on a cheap
+      // counter tablet is a slow way to run out of storage.
+      cacheSizeBytes: 16 * 1024 * 1024,
+    );
   }
 }

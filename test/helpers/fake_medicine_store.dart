@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_store.dart';
+import 'package:pharmaguide/features/search/data/sync/sync_status.dart';
+import 'package:pharmaguide/features/search/data/sync/sync_status_source.dart';
 
 /// An in-memory [MedicineStore] for the provider tests.
 ///
@@ -29,11 +31,19 @@ class FakeMedicineStore implements MedicineStore {
   /// "loading" rather than "empty" while a read is outstanding.
   bool silent = false;
 
+  /// When set, [watchAll] fails with this instead of emitting, as a Firestore
+  /// query does when the device cannot reach the network.
+  Object? readError;
+
   @override
   Stream<List<MedicineModel>> watchAll() async* {
+    if (readError != null) throw readError!;
     if (!silent) yield _sorted();
     yield* _controller.stream;
   }
+
+  /// Fails every read with [error] from now on.
+  void failReads(Object error) => readError = error;
 
   @override
   Future<void> setStock(MedicineModel medicine, int? stock) async {
@@ -94,7 +104,46 @@ class FakeMedicineStore implements MedicineStore {
   List<MedicineModel> _sorted() =>
       List.of(_medicines)..sort(MedicineModel.compareByNameThenPrice);
 
+  /// Whether the provider disposed this store, which it must do when an account is
+  /// signed out. Left off the class's declared interface on purpose: most tests
+  /// have no interest in it, and this keeps them from having to stub a method they
+  /// do not think about.
+  bool disposed = false;
+
   void dispose() {
+    disposed = true;
     if (!_controller.isClosed) unawaited(_controller.close());
+  }
+}
+
+/// A [MedicineStore] that can report its own reachability, as the real ones do.
+///
+/// Separate from [FakeMedicineStore] because [SyncStatusSource] is opt-in: a store
+/// with no server behind it should be able to say so by simply not implementing it,
+/// and a fake that implemented it everywhere would stop proving that.
+class FakeSyncingMedicineStore extends FakeMedicineStore
+    implements SyncStatusSource {
+  FakeSyncingMedicineStore({super.initial, SyncStatus? status})
+      : _status = status ?? SyncStatus.localOnly;
+
+  final StreamController<SyncStatus> _syncController =
+      StreamController<SyncStatus>.broadcast();
+
+  SyncStatus _status;
+
+  /// The status a new subscriber is handed before any live update, so a test can
+  /// pin the starting state without racing a broadcast controller.
+  SyncStatus get status => _status;
+
+  /// Reports a new status the way a snapshot or a transport failure would.
+  void report(SyncStatus status) {
+    _status = status;
+    if (!_syncController.isClosed) _syncController.add(status);
+  }
+
+  @override
+  Stream<SyncStatus> watchSyncStatus() async* {
+    yield _status;
+    yield* _syncController.stream;
   }
 }

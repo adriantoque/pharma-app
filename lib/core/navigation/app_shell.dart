@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../features/search/data/sync/sync_status.dart';
+import '../../features/search/presentation/providers/medicine_provider.dart';
 import '../widgets/app_background.dart';
 import '../widgets/content_panel.dart';
+import '../widgets/offline_banner.dart';
+import '../widgets/offline_mode_banner.dart';
 
 /// Hosts the persistent bottom navigation bar for the signed-in area.
 ///
@@ -25,14 +30,9 @@ class AppShell extends StatelessWidget {
       label: 'Home',
     ),
     NavigationDestination(
-      icon: Icon(Icons.search_outlined),
-      selectedIcon: Icon(Icons.search),
-      label: 'Search',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.qr_code_scanner_outlined),
-      selectedIcon: Icon(Icons.qr_code_scanner),
-      label: 'Scan',
+      icon: Icon(Icons.inventory_2_outlined),
+      selectedIcon: Icon(Icons.inventory_2),
+      label: 'Inventory',
     ),
     NavigationDestination(
       icon: Icon(Icons.receipt_long_outlined),
@@ -40,9 +40,9 @@ class AppShell extends StatelessWidget {
       label: 'Orders',
     ),
     NavigationDestination(
-      icon: Icon(Icons.person_outline),
-      selectedIcon: Icon(Icons.person),
-      label: 'Profile',
+      icon: Icon(Icons.bar_chart_outlined),
+      selectedIcon: Icon(Icons.bar_chart),
+      label: 'Reports',
     ),
   ];
 
@@ -67,15 +67,29 @@ class AppShell extends StatelessWidget {
           bottom: false,
           child: ContentPanel(child: navigationShell),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
-          // Tapping the already-active tab returns it to its root, so a user who
-          // drilled into a sub-screen is not stranded there.
-          onDestinationSelected: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          ),
-          destinations: destinations,
+        // The banner goes above the bar rather than below it: a connection notice
+        // belongs with the content, and the bar is the one thing on screen that
+        // must stay exactly where it is while the user is typing a count.
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OfflineModeBanner(),
+            OfflineBanner(
+              status: context.select<MedicineProvider, SyncStatus>(
+                (provider) => provider.syncStatus,
+              ),
+            ),
+            NavigationBar(
+              selectedIndex: navigationShell.currentIndex,
+              // Tapping the already-active tab returns it to its root, so a user
+              // who drilled into a sub-screen is not stranded there.
+              onDestinationSelected: (index) => navigationShell.goBranch(
+                index,
+                initialLocation: index == navigationShell.currentIndex,
+              ),
+              destinations: destinations,
+            ),
+          ],
         ),
       ),
     );

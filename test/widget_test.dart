@@ -10,25 +10,39 @@ import 'package:pharmaguide/features/auth/data/models/user_model.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/auth/presentation/screens/auth_landing_screen.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
+import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
+import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
 import 'package:pharmaguide/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers/fake_auth_repository.dart';
+import 'helpers/fake_medicine_store.dart';
 
 void main() {
   late FakeAuthRepository repository;
   AuthProvider? provider;
 
+  /// The catalogue every screen in this file reads.
+  ///
+  /// Seeded with the static price list rather than left empty: a couple of the
+  /// routing tests assert that a tab is showing a real list, and an empty
+  /// catalogue would let those pass for the wrong reason.
+  late FakeMedicineStore store;
+
   /// Builds the provider *after* any fake behaviour has been configured, since
   /// the AuthProvider starts resolving the session in its constructor.
   AuthProvider createProvider() => provider = AuthProvider(repository);
 
-  setUp(() => repository = FakeAuthRepository());
+  setUp(() {
+    repository = FakeAuthRepository();
+    store = FakeMedicineStore(initial: const StaticMedicineRepository().all());
+  });
 
   tearDown(() {
     provider?.dispose();
     provider = null;
     repository.dispose();
+    store.dispose();
   });
 
   test('starts unknown and settles on unauthenticated', () async {
@@ -144,6 +158,20 @@ void main() {
     await Future<void>.delayed(Duration.zero);
   });
 
+  /// Puts a [MedicineProvider] over the tree, as main.dart does.
+///
+/// AppShell reads `syncStatus` from it for the offline banner, so any test that
+/// pumps the real chrome needs one. Backed by the in-memory [store] and the
+/// same fake auth provider, so it settles the same way the app does.
+Widget medicineProvider({required Widget child}) =>
+    ChangeNotifierProvider<MedicineProvider>(
+      create: (_) => MedicineProvider(
+        auth: provider!,
+        storeFor: (_) => store,
+      ),
+      child: child,
+    );
+
   Future<void> pumpApp(WidgetTester tester, AuthProvider auth) async {
     final router = createAppRouter(refreshListenable: auth);
     addTearDown(router.dispose);
@@ -156,9 +184,11 @@ void main() {
         // like a routing bug rather than a missing test provider.
         child: ChangeNotifierProvider<OrderProvider>(
           create: (_) => OrderProvider(),
-          child: MaterialApp.router(
-            routerConfig: router,
-            theme: buildAppTheme(Brightness.light),
+          child: medicineProvider(
+            child: MaterialApp.router(
+              routerConfig: router,
+              theme: buildAppTheme(Brightness.light),
+            ),
           ),
         ),
       ),
@@ -183,7 +213,9 @@ void main() {
         value: auth,
         child: ChangeNotifierProvider<OrderProvider>(
           create: (_) => OrderProvider(),
-          child: Provider<GoRouter>.value(value: router, child: const App()),
+          child: medicineProvider(
+            child: Provider<GoRouter>.value(value: router, child: const App()),
+          ),
         ),
       ),
     );
@@ -459,13 +491,14 @@ void main() {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      expect(find.text('Real Time Inventory'), findsOneWidget);
+      expect(find.text('Expiring Meds'), findsOneWidget);
       expect(find.text('Welcome to'), findsNothing);
     });
 
-    // Regression: the home screen previously had no way to sign out. Sign-out
-    // now lives on the Profile tab, so the user has to navigate there first.
-    testWidgets('signing out from the profile tab returns to login', (
+// Regression: the home screen previously had no way to sign out. Sign-out
+    // now lives on the Profile page pushed from a Home tile, so the user has to
+    // navigate there first.
+    testWidgets('signing out from the profile page returns to login', (
       tester,
     ) async {
       final auth = createProvider();
@@ -474,9 +507,9 @@ void main() {
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      expect(find.text('Real Time Inventory'), findsOneWidget);
+      expect(find.text('Expiring Meds'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.person_outline));
+      await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Sign out'));
@@ -487,7 +520,7 @@ void main() {
       expect(find.text('Welcome to'), findsOneWidget);
     });
 
-    testWidgets('the bottom bar switches between the tabs', (tester) async {
+testWidgets('the bottom bar switches between the tabs', (tester) async {
       final auth = createProvider();
       await auth.ready;
       await auth.login(email: 'a@b.com', password: 'secret');
@@ -505,28 +538,28 @@ void main() {
       int selectedIndex() =>
           tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 
-      await tester.tap(tab('Search'));
+      await tester.tap(tab('Inventory'));
       await tester.pumpAndSettle();
-      // The Search tab is a real price list now, not a placeholder.
-      expect(find.text('64 items'), findsOneWidget);
-      expect(find.text('Alcohol'), findsOneWidget);
       expect(selectedIndex(), 1);
+      expect(find.text('Live stock levels across the pharmacy'), findsOneWidget);
 
-      await tester.tap(tab('Scan'));
+      await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
-      // Under the test binding ML Kit's platform channel is missing, so the
-      // model-gate card is what renders. Reaching here at all is the
-      // assertion: it must not throw.
-      expect(find.widgetWithText(AppBar, 'Scan'), findsOneWidget);
       expect(selectedIndex(), 2);
+      expect(find.text('Nothing in this order yet'), findsOneWidget);
+
+      await tester.tap(tab('Reports'));
+      await tester.pumpAndSettle();
+      expect(selectedIndex(), 3);
+      expect(find.widgetWithText(AppBar, 'Reports'), findsOneWidget);
 
       await tester.tap(tab('Home'));
       await tester.pumpAndSettle();
-      expect(find.text('Real Time Inventory'), findsOneWidget);
       expect(selectedIndex(), 0);
+      expect(find.text('Expiring Meds'), findsOneWidget);
     });
 
-    testWidgets('orders sits at index 3 and pushes profile to 4', (
+    testWidgets('orders sits at index 2 and reports at 3', (
       tester,
     ) async {
       final auth = createProvider();
@@ -546,18 +579,17 @@ void main() {
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
       expect(find.text('Nothing in this order yet'), findsOneWidget);
-      expect(selectedIndex(), 3);
+      expect(selectedIndex(), 2);
 
-      // The regression this guards: inserting a branch shifts every later one,
-      // so Profile has to move from index 3 to 4 or the bar highlights Orders
-      // while showing the Profile screen.
-      await tester.tap(tab('Profile'));
+      // The regression this guards: inserting or removing a branch shifts every
+      // later one, so the bar would highlight one tab while showing another.
+      await tester.tap(tab('Reports'));
       await tester.pumpAndSettle();
-      expect(find.byTooltip('Sign out'), findsOneWidget);
-      expect(selectedIndex(), 4);
+      expect(find.widgetWithText(AppBar, 'Reports'), findsOneWidget);
+      expect(selectedIndex(), 3);
     });
 
-    testWidgets('the bar shows five destinations in order on a 360dp phone', (
+    testWidgets('the bar shows four destinations in order on a 360dp phone', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(360, 720);
@@ -571,19 +603,19 @@ void main() {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // Five slots across 360dp is 72dp each, and "Profile" is the longest
+      // Four slots across 360dp is 90dp each, and "Inventory" is the longest
       // label, so this proves the bar does not clip on the narrowest screen the
       // app is expected to run on.
-      expect(AppShell.destinations, hasLength(5));
+      expect(AppShell.destinations, hasLength(4));
       expect(
         AppShell.destinations.map((d) => d.label),
-        ['Home', 'Search', 'Scan', 'Orders', 'Profile'],
+        ['Home', 'Inventory', 'Orders', 'Reports'],
       );
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a home tile pushes a child page and back returns home', (
+testWidgets('a home tile pushes a child page and back returns home', (
       tester,
     ) async {
       final auth = createProvider();
@@ -595,9 +627,9 @@ void main() {
 
       // The tiles are children of the Home branch, so they push rather than
       // switch tabs: Home stays selected and a back arrow appears.
-      await tester.tap(find.text('Real Time Inventory'));
+      await tester.tap(find.text('Expiring Meds'));
       await tester.pumpAndSettle();
-      expect(find.text('Real Time Inventory coming next'), findsOneWidget);
+      expect(find.text('Expiring Meds'), findsOneWidget);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         0,
@@ -606,11 +638,11 @@ void main() {
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text('Live stock levels across the pharmacy'), findsOneWidget);
+      expect(find.text('Expiring Meds'), findsOneWidget);
 
-      await tester.tap(find.text('Expiring Meds'));
+      await tester.tap(find.text('Scan Prescription'));
       await tester.pumpAndSettle();
-      expect(find.text('Expiring Meds coming next'), findsOneWidget);
+      expect(find.text('Scan'), findsOneWidget);
     });
   });
 
@@ -627,7 +659,7 @@ void main() {
       matching: find.text(label),
     );
 
-    testWidgets('the five tab titles sit on the centreline', (tester) async {
+    testWidgets('the four tab titles sit on the centreline', (tester) async {
       final auth = createProvider();
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
@@ -665,12 +697,12 @@ void main() {
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
 
-      await tester.tap(find.text('Real Time Inventory'));
+      await tester.tap(find.text('Expiring Meds'));
       await tester.pumpAndSettle();
 
       final width =
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
-      final centre = tester.getCenter(appBarTitle('Real Time Inventory')).dx;
+      final centre = tester.getCenter(appBarTitle('Expiring Meds')).dx;
 
       // Not a pixel-exact bound on purpose: the point is that it sits well
       // left of the middle, which is what a leading-aligned title does.
@@ -741,7 +773,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Email'), findsNothing);
-      expect(find.text('Real Time Inventory'), findsOneWidget);
+      expect(find.text('Expiring Meds'), findsOneWidget);
       expect(repository.loginAttempts, 1);
     });
   });

@@ -241,8 +241,44 @@ void main() {
       expect(updated.aliases, line.aliases);
     });
 
+    test('leaves a field alone when the argument is not passed', () {
+      final updated = line.copyWith(name: 'Cetirizine');
+
+      expect(updated.stock, 12);
+      expect(updated.genericKey, 'Cetirizine');
+      expect(updated.expiryDate, isNull);
+    });
+
+    test('clears a count when null is passed', () {
+      // The stock sheet's "Not counted" control resolves to a null stock, and
+      // this is the line it goes through on the way to the optimistic update. A
+      // null that quietly meant "keep the old value" would put the count back
+      // after a member of staff had deliberately cleared it.
+      expect(line.copyWith(stock: null).stock, isNull);
+      expect(line.copyWith(stock: 12).copyWith(stock: null).stock, isNull);
+    });
+
+    test('clears an expiry when null is passed', () {
+      final dated = line.copyWith(expiryDate: DateTime(2026, 3));
+
+      expect(dated.expiryDate, DateTime(2026, 3));
+      expect(dated.copyWith(expiryDate: null).expiryDate, isNull);
+    });
+
+    test('clears a generic link when null is passed', () {
+      expect(line.copyWith(genericKey: null).genericKey, isNull);
+    });
+
+    test('distinguishes not counting from being out of stock', () {
+      // The two states a pharmacy must never confuse: one is a missing count,
+      // the other is a counted empty shelf, and only the second blocks an order.
+      expect(line.copyWith(stock: null).stockState, StockState.unknown);
+      expect(line.copyWith(stock: 0).stockState, StockState.outOfStock);
+    });
+
     test('keeps the identity, so the update lands on the same document', () {
       expect(line.copyWith(stock: 99).documentId, line.documentId);
+      expect(line.copyWith(stock: null).documentId, line.documentId);
     });
   });
 }

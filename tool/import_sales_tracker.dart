@@ -44,6 +44,14 @@ const String outputDir = 'tool/out';
 const String seedDir = 'assets/data';
 const String seedFile = '$seedDir/medicines_seed.json';
 
+/// The sales history, also bundled.
+///
+/// Read by the app and computed over in memory rather than written to Firestore:
+/// the records describe months that have already happened, so storing them would
+/// cost reads to answer a question whose answer does not change, and a report
+/// that needs the network is a report nobody can produce at the counter.
+const String salesSeedFile = '$seedDir/sales_seed.json';
+
 /// Sales run from July to September, and the workbook records no year anywhere,
 /// so it is stated here rather than guessed. Change this when the next year's
 /// sheets land.
@@ -866,7 +874,12 @@ void _writeSales(List<SaleLine> sales) {
         'sourceSheet': sale.sheet,
       },
   ];
-  File('$outputDir/sales_seed.json').writeAsStringSync('${encoder.convert(rows)}\n');
+  final json = '${encoder.convert(rows)}\n';
+  File(salesSeedFile).writeAsStringSync(json);
+  // The same bytes in the review directory, so the file being reviewed is the
+  // file that ships.
+  File('$outputDir/sales_seed.json').writeAsStringSync(json);
+
 
   // Half a tablet is not a quantity a pharmacy can dispense, so these two lines
   // are data-entry errors rather than sales. They are written out with the exact
@@ -959,9 +972,10 @@ void _report(
   });
   stdout
     ..writeln('')
-    ..writeln('  wrote $seedFile (ships in the app) and in $outputDir: '
-        'sales_seed.json, merge_review.csv, excluded_sources.json, '
-        'junk_candidates.json, fractional_quantity.json');
+    ..writeln('  wrote $seedFile and $salesSeedFile (ship in the app) and in '
+        '$outputDir: medicines_seed.json, sales_seed.json, merge_review.csv, '
+        'excluded_sources.json, junk_candidates.json, '
+        'fractional_quantity.json');
 }
 
 String _peso(int centavos) => 'P${(centavos / 100).toStringAsFixed(2)}';

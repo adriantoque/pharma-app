@@ -1,0 +1,165 @@
+Installing PharmaGuide on an Android device
+============================================
+
+Package: pharmaguide 1.0.0+1
+Run every command from the project root:
+  D:\DEVELOPMENT_FILES_FOLDER\PharmaGuide
+
+
+1. Prerequisites
+----------------
+- Flutter SDK on PATH.      Check:  flutter --version
+- Android SDK + platform tools.  Check:  adb version
+- JDK 17 (what Android Gradle Plugin needs here).  Check:  java -version
+- USB debugging enabled on the phone, and the phone authorised on this PC.
+
+  Turn it on:  Settings > About phone > tap "Build number" 7 times
+               Settings > System > Developer options > USB debugging ON
+
+
+2. One-time setup
+-----------------
+  flutter doctor -v
+
+Fix whatever it flags. Only "Android toolchain" and the device entry are
+required for this project. If Flutter itself is missing, the standard install
+is:
+  git clone https://github.com/flutter/flutter.git -b stable
+  then add <flutter>/bin to the system PATH.
+
+
+3. Get the app onto the phone
+-----------------------------
+Pick ONE of the three options below.
+
+3a. USB, debug build (fastest for development)
+  flutter pub get
+  flutter build apk --debug
+  adb install -r build\app\outputs\flutter-apk\app-debug.apk
+
+  -r reinstalls over an existing copy and keeps its data.
+  Or install straight from the build:
+  flutter install
+
+3b. USB, release build (what you would hand to a pharmacist)
+  flutter build apk --release
+  adb install -r build\app\outputs\flutter-apk\app-release.apk
+
+  Release needs signing. Either let Flutter use debug keys for a local check
+  with:
+    flutter build apk --release
+  or configure a real key first, see section 6.
+
+3c. Over the air, no cable
+  flutter build apk --release
+  adb install -r build\app\outputs\flutter-apk\app-release.apk   (if adb is reachable)
+
+  Fully wireless:
+    flutter build apk --release
+    copy the apk to the phone (Drive, email, USB cable) and open it there.
+    Android will ask you to allow installing from that source. Turn on
+    "Install unknown apps" for whichever app you are opening the apk from.
+
+
+4. Finding the APK
+------------------
+Debug:   build\app\outputs\flutter-apk\app-debug.apk
+Release: build\app\outputs\flutter-apk\app-release.apk
+
+Split per ABI (smaller files, wider device coverage):
+  flutter build apk --split-per-abi
+  -> build\app\outputs\flutter-apk\app-arm64-v8a-release.apk
+     build\app\outputs\flutter-apk\app-armeabi-v7a-release.apk
+     build\app\outputs\flutter-apk\app-x86_64-release.apk
+
+App Bundle for Play Store upload:
+  flutter build appbundle --release
+  -> build\app\outputs\bundle\release\app-release.aab
+
+
+5. Common problems
+------------------
+adb: no devices found
+  Unlock the phone, accept the "Allow USB debugging" prompt, then run adb devices.
+  If it lists as "unauthorized", revoke USB debugging in developer options,
+  replug, and accept again.
+
+flutter: command not found
+  Flutter is not on PATH. See section 2.
+
+INSTALL_FAILED_UPDATE_INCOMPATIBLE
+  An existing install was signed with a different key. Uninstall it first:
+    adb uninstall <applicationId>
+  Find the id in android\app\build.gradle (namespace / applicationId).
+
+INSTALL_FAILED_VERSION_DOWNGRADE
+  The phone already has a higher version. Use --versionCode or uninstall first:
+    adb install -r -d build\app\outputs\flutter-apk\app-release.apk
+
+INSTALL_FAILED_INSUFFICIENT_STORAGE
+  Free space on the device, then retry.
+
+MissingPluginException or blank screen on first run
+  Stop and reinstall, the build may be stale:
+    flutter clean
+    flutter pub get
+    flutter run
+
+Gradle / JDK errors during the build
+  Make sure java -version reports 17. Point the build at a specific JDK if needed:
+    set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+
+Camera or storage permission prompts misbehaving
+  Permissions are declared in android\app\src\main\AndroidManifest.xml.
+  Camera is needed for prescription scanning.
+
+
+6. Release signing
+------------------
+Keytool (ships with the JDK):
+  keytool -genkey -v -keystore C:\keys\pharmaguide.jks ^
+    -keyalg RSA -keysize 2048 -validity 10000 -alias pharmaguide
+
+Then create android\key.properties (do NOT commit this file):
+  storePassword=<keystore password>
+  keyPassword=<key password>
+  keyAlias=pharmaguide
+  storeFile=C:\keys\pharmaguide.jks
+
+And reference it in android\app\build.gradle inside the signingConfigs block:
+  signingConfigs {
+      release {
+          storeFile file(project.findProperty('storeFile'))
+          storePassword project.findProperty('storePassword')
+          keyAlias project.findProperty('keyAlias')
+          keyPassword project.findProperty('keyPassword')
+      }
+  }
+  buildTypes {
+      release { signingConfig signingConfigs.release }
+  }
+
+Back up the keystore. Without it you cannot ship an update to an already
+installed app: Play Store and Android both require every release of an app to
+be signed with the same key.
+
+
+7. First run on device
+----------------------
+- The app needs network access on first launch to reach Firebase.
+- Prescription scanning needs its model downloaded once while online; it is
+  cached locally afterwards.
+- The new "Continue offline" button at the bottom of the login screen enters
+  local-only mode. Local work is saved on the device, and you leave that mode
+  from Profile > Exit offline mode.
+
+Logs, when something misbehaves:
+  adb logcat
+  adb logcat -s flutter
+  adb logcat *:E          (errors only)
+
+Clear app data, if you need a clean first-run state:
+  adb shell pm clear <applicationId>
+
+Uninstall:
+  adb uninstall <applicationId>

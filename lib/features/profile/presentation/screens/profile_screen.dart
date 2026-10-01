@@ -47,24 +47,56 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _confirmExitOffline(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      useRootNavigator: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exit offline mode?'),
+        content: const Text(
+          'Your on-device changes will remain on this phone, '
+          'but you will need to sign in to sync them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldExit != true) return;
+    // The router's redirect sends the user to the login screen.
+    await auth.exitOfflineMode();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final isOffline = auth.isOffline;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
-        // Set per screen rather than in AppBarTheme, so the pushed child pages
-        // keep their leading-aligned titles. Safe here despite the Sign out
-        // action: AppBar centres on the full toolbar width and only clamps when
-        // the title would collide with the trailing widgets.
-        centerTitle: true,
+        // Profile is now a pushed page (no longer a tab root), so its title
+        // is lead-aligned rather than centred.
         actions: [
           IconButton(
-            tooltip: 'Sign out',
-            onPressed: auth.isLoading ? null : () => _confirmLogout(context),
+            tooltip: isOffline ? 'Exit offline mode' : 'Sign out',
+            onPressed: auth.isLoading
+                ? null
+                : () => isOffline
+                    ? _confirmExitOffline(context)
+                    : _confirmLogout(context),
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -75,18 +107,27 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 36,
             child: Icon(
-              Icons.person,
+              isOffline ? Icons.cloud_off : Icons.person,
               size: 40,
               color: theme.colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            user?.name ?? 'Signed in',
+            isOffline ? 'Offline mode' : (user?.name ?? 'Signed in'),
             textAlign: TextAlign.center,
             style: theme.textTheme.titleLarge,
           ),
-          if (user?.email != null) ...[
+          if (isOffline) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Changes are saved on this device only.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ] else if (user?.email != null) ...[
             const SizedBox(height: 4),
             Text(
               user!.email!,
@@ -101,8 +142,12 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 8),
           ListTile(
             leading: const Icon(Icons.logout),
-            title: const Text('Sign out'),
-            onTap: auth.isLoading ? null : () => _confirmLogout(context),
+            title: Text(isOffline ? 'Exit offline mode' : 'Sign out'),
+            onTap: auth.isLoading
+                ? null
+                : () => isOffline
+                    ? _confirmExitOffline(context)
+                    : _confirmLogout(context),
           ),
         ],
       ),
