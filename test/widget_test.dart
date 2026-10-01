@@ -541,7 +541,7 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await tester.tap(tab('Inventory'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 1);
-      expect(find.text('Live stock levels across the pharmacy'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Inventory'), findsOneWidget);
 
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();

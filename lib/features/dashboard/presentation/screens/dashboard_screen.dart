@@ -116,11 +116,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               (_, true) => const Center(child: CircularProgressIndicator()),
               _ =>
-                results.isEmpty
-                    ? query.isEmpty
-                        ? const SizedBox.shrink()
-                        : NoResults(query: query)
-                    : ListView.separated(
+                query.isEmpty
+                    ? const SizedBox.shrink()
+                    : results.isEmpty
+                        ? NoResults(query: query)
+                        : ListView.separated(
                         controller: _scrollController,
                         padding: const EdgeInsets.only(bottom: 16),
                         itemCount: results.length,

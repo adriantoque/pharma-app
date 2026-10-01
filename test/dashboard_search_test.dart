@@ -1,57 +1,101 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pharmaguide/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
-import 'package:pharmaguide/features/search/presentation/screens/search_screen.dart';
+import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
 import 'package:provider/provider.dart';
+
+import 'helpers/fake_auth_repository.dart';
+import 'helpers/fake_medicine_store.dart';
 
 void main() {
   // Matches the test device: 720x1440 at 320dpi is 360x720 logical.
   const phoneSize = Size(360, 720);
 
+  late FakeAuthRepository repository;
+  late AuthProvider auth;
+  late FakeMedicineStore store;
   late OrderProvider order;
 
-  setUp(() => order = OrderProvider());
-  tearDown(() => order.dispose());
+  setUp(() async {
+    repository = FakeAuthRepository();
+    auth = AuthProvider(repository);
+    await auth.ready;
+    // Sign in first: MedicineProvider reads `auth.user` the moment it is
+    // constructed, so building it before the session exists yields a provider
+    // that never receives a catalogue.
+    await auth.login(email: 'a@b.com', password: 'secret');
+    // Seeded with the fixed 64-item price list, the same trick
+    // nav_alignment_test.dart uses.
+    store = FakeMedicineStore(initial: const StaticMedicineRepository().all());
+    order = OrderProvider();
+  });
 
-  Future<void> pumpSearch(WidgetTester tester) async {
+  tearDown(() {
+    order.dispose();
+    store.dispose();
+    auth.dispose();
+    repository.dispose();
+  });
+
+  Future<void> pumpHome(WidgetTester tester, {String query = ''}) async {
     tester.view.physicalSize = phoneSize;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
+    final catalogue = MedicineProvider(auth: auth, storeFor: (_) => store);
+    addTearDown(catalogue.dispose);
+
+    // The real provider path, not a static list handed to the screen. The
+    // catalogue arrives as a stream event, so the seeded list depends on the
+    // pumpAndSettle below.
     await tester.pumpWidget(
       ChangeNotifierProvider<OrderProvider>.value(
         value: order,
-        // The row controls watch the order, so the screen cannot be built
-        // standalone any more.
-        child: const MaterialApp(
-          // The static list is passed in rather than left to the provider, which
-          // is what the constructor argument is for: these tests are about row
-          // layout, filtering and the stock line, and a fixed catalogue is what
-          // makes the counts below assertable. The provider path is covered in
-          // medicine_provider_test.dart.
-          home: SearchScreen(repository: StaticMedicineRepository()),
+        child: ChangeNotifierProvider<MedicineProvider>.value(
+          value: catalogue,
+          child: const MaterialApp(home: DashboardScreen()),
         ),
       ),
     );
     await tester.pumpAndSettle();
+
+    if (query.isNotEmpty) {
+      await tester.enterText(find.byType(TextField), query);
+      await tester.pumpAndSettle();
+    }
   }
 
-  testWidgets('renders the full list on a 360x720 phone', (tester) async {
-    await pumpSearch(tester);
+  testWidgets('the browse state shows the count, the tiles and no rows', (
+    tester,
+  ) async {
+    await pumpHome(tester);
 
     expect(find.text('64 items'), findsOneWidget);
-    // Only the rows inside the viewport are built, so the first alphabetic
-    // entries are what is on screen.
+    // The tiles are Home's quick access.
+    expect(find.text('Expiring Meds'), findsOneWidget);
+    expect(find.text('Scan Prescription'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+    // No result rows are built while nobody is searching.
+    expect(find.text('Alcohol'), findsNothing);
+  });
+
+  testWidgets('a query shows the first alphabetic row and formatted prices', (
+    tester,
+  ) async {
+    await pumpHome(tester, query: 'a');
+
     expect(find.text('Alcohol'), findsOneWidget);
     // Prices are formatted, not raw centavos.
     expect(find.text('₱65.00'), findsWidgets);
   });
 
   testWidgets('typing filters the list', (tester) async {
-    await pumpSearch(tester);
+    await pumpHome(tester);
 
     await tester.enterText(find.byType(TextField), 'amox');
     await tester.pumpAndSettle();
@@ -64,9 +108,11 @@ void main() {
   testWidgets('changing the query returns the list to the top', (
     tester,
   ) async {
-    await pumpSearch(tester);
+    await pumpHome(tester, query: 'v');
 
-    // Scroll to the far end of the price list.
+    // A broad query that still matches enough to scroll; the browse state has
+    // no scrolling list at all, and an empty-query finder would match the
+    // zero-height results list *and* the tiles list and throw on the fling.
     await tester.fling(find.byType(ListView), const Offset(0, -4000), 4000);
     await tester.pumpAndSettle();
     expect(find.text('vicks'), findsOneWidget);
@@ -80,8 +126,8 @@ void main() {
     expect(find.text('vicks'), findsNothing);
   });
 
-  testWidgets('the clear button restores the full list', (tester) async {
-    await pumpSearch(tester);
+  testWidgets('the clear button restores the browse state', (tester) async {
+    await pumpHome(tester);
 
     await tester.enterText(find.byType(TextField), 'amox');
     await tester.pumpAndSettle();
@@ -91,14 +137,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('64 items'), findsOneWidget);
-    // Amox 500mg is the 8th item, so it is still on the first screenful; the
-    // thing to check is that the list is showing from the top again.
-    expect(find.text('Alcohol'), findsOneWidget);
-    expect(find.text('vicks'), findsNothing);
+    // Clearing hands the space back to the tiles, which is what Home shows when
+    // nobody is searching -- not the full result list.
+    expect(find.text('Expiring Meds'), findsOneWidget);
+    expect(find.text('Alcohol'), findsNothing);
   });
 
   testWidgets('shows a no-match message and a way back', (tester) async {
-    await pumpSearch(tester);
+    await pumpHome(tester);
 
     await tester.enterText(find.byType(TextField), 'zzzz');
     await tester.pumpAndSettle();
@@ -108,7 +154,7 @@ void main() {
   });
 
   testWidgets('a price query finds every item at that price', (tester) async {
-    await pumpSearch(tester);
+    await pumpHome(tester);
 
     await tester.enterText(find.byType(TextField), '22.00');
     await tester.pumpAndSettle();
@@ -118,7 +164,7 @@ void main() {
   });
 
   testWidgets('a long name does not overflow a narrow row', (tester) async {
-    await pumpSearch(tester);
+    await pumpHome(tester);
 
     // The longest name in the catalog next to the widest price, on the
     // narrowest screen the app supports.
@@ -133,19 +179,21 @@ void main() {
   group('adding an item to the order', () {
     // The catalog lists the same name at several prices, so every one of these
     // names the item by its tooltip, which carries both the name and the price
-    // that identify it.
+    // that identify it. 'Alcohol' as the initial query keeps the three Alcohol
+    // rows on screen; each tooltip is exact, so the patterns stay unique.
+    const alcoholQuery = 'Alcohol';
 
     testWidgets('the row offers an add button while the item is not ordered', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       expect(find.byTooltip('Add Alcohol'), findsOneWidget);
       expect(order.isEmpty, isTrue);
     });
 
     testWidgets('tapping it opens the quantity sheet', (tester) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -160,7 +208,7 @@ void main() {
     });
 
     testWidgets('dismissing the sheet adds nothing', (tester) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -175,7 +223,7 @@ void main() {
     testWidgets('confirming adds one unit and switches the control to remove', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -191,7 +239,7 @@ void main() {
     });
 
     testWidgets('a typed quantity is what gets added', (tester) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -204,7 +252,7 @@ void main() {
     });
 
     testWidgets('the stepper walks the quantity up and down', (tester) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -228,7 +276,7 @@ void main() {
     testWidgets('the stepper stops at the cap rather than exceeding it', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -252,7 +300,7 @@ void main() {
     testWidgets('tapping the quantity control takes the item back out', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: alcoholQuery);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
@@ -271,7 +319,7 @@ void main() {
     testWidgets('an added item keeps its row readable on a narrow phone', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester);
 
       await tester.enterText(find.byType(TextField), 'paracetamol');
       await tester.pumpAndSettle();
@@ -289,7 +337,7 @@ void main() {
 
   group('the stock line on a row', () {
     Future<void> searchFor(WidgetTester tester, String query) async {
-      await pumpSearch(tester);
+      await pumpHome(tester);
       await tester.enterText(find.byType(TextField), query);
       await tester.pumpAndSettle();
     }
@@ -379,8 +427,12 @@ void main() {
   });
 
   group('the sheet follows the shelf', () {
+    // ALAGAD CAP is seeded at 3, which is the point of all three of these. A
+    // query keeps its single row on screen rather than burying it.
+    const shelfQuery = 'ALAGAD CAP';
+
     testWidgets('a low-stock item is capped at what it has', (tester) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: shelfQuery);
       // Seeded at 3.
       await tester.tap(find.byTooltip('Add ALAGAD CAP'));
       await tester.pumpAndSettle();
@@ -394,7 +446,7 @@ void main() {
     testWidgets('the stepper stops at the shelf, not at the order limit', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: shelfQuery);
       await tester.tap(find.byTooltip('Add ALAGAD CAP'));
       await tester.pumpAndSettle();
 
@@ -419,7 +471,7 @@ void main() {
     testWidgets('an order past the shelf is trimmed on the way in', (
       tester,
     ) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: shelfQuery);
       await tester.tap(find.byTooltip('Add ALAGAD CAP'));
       await tester.pumpAndSettle();
       // A typed amount the shelf cannot supply. The field takes it, the order
@@ -439,9 +491,8 @@ void main() {
       expect(order.formattedTotal, '₱12.00');
     });
 
-
     testWidgets('a healthy item still gets the order limit', (tester) async {
-      await pumpSearch(tester);
+      await pumpHome(tester, query: 'Alcohol');
       await tester.tap(find.byTooltip('Add Alcohol'));
       await tester.pumpAndSettle();
 
