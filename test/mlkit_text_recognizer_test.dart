@@ -1,55 +1,191 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/test/flutter_test.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/features/scan/data/mlkit_text_recognizer.dart';
 import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
 
-/// Focused test for [MlKitTextRecognizer].
+/// The plugin talks over this channel, so it can be stood in for without a
+/// device. Named here rather than imported, because the plugin keeps it
+/// private.
+const _pluginChannel = MethodChannel('google_mlkit_text_recognizer');
+
+/// One line as the native side would report it.
 ///
-/// This test covers the core logic of the recognizer without requiring a full
-/// MethodChannel mock. The plugin channel interaction (MissingPluginException,
-/// PlatformException) is tested at the integration level.
+/// `points` and `rect` are required by the plugin's own parser but nothing in
+/// this feature reads them, so the smallest legal shape is used.
+Map<String, Object?> _line(String text) => {
+  'text': text,
+  'rect': {'left': 0, 'top': 0, 'right': 1, 'bottom': 1},
+  'recognizedLanguages': ['en'],
+  'points': <Object?>[],
+  // The parser walks both unconditionally, so they must be present even empty.
+  'elements': <Object?>[],
+  'symbols': <Object?>[],
+};
+
+Map<String, Object?> _block(List<String> lines) => {
+  'text': lines.join('\n'),
+  'rect': {'left': 0, 'top': 0, 'right': 1, 'bottom': 1},
+  'recognizedLanguages': ['en'],
+  'points': <Object?>[],
+  'lines': [for (final line in lines) _line(line)],
+};
+
+/// Covers [MlKitTextRecognizer] against a mocked plugin channel.
 ///
-/// The following behaviors are verified:
-/// - [isSupported] returns `true` on platforms that are not Web.
-/// - [_checkUsable] throws [StateError] if the recognizer has been disposed.
-/// - An empty byte input returns an empty list.
-/// - The [recognize] method structure is valid.
+/// The native recognizer is the only part that needs a device, and it is
+/// reached over a [MethodChannel], so everything around it is testable here.
+/// What still needs hardware is whether ML Kit reads a real prescription
+/// correctly -- see the deferred integration test.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  /// Every method the recognizer sent to the plugin, in order.
+  final calls = <MethodCall>[];
+
+  setUp(() {
+    calls.clear();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_pluginChannel, (call) async {
+          calls.add(call);
+          if (call.method == 'vision#startTextRecognizer') {
+            return <String, Object?>{
+              'text': '',
+              'blocks': [
+                _block(['Amox 500mg', 'cefalexin']),
+              ],
+            };
+          }
+          // `vision#closeTextRecognizer` has no payload worth reading.
+          return null;
+        });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_pluginChannel, null);
+  });
+
   group('isSupported', () {
-    test('returns true on non-web platforms', () {
-      final recognizer = MlKitTextRecognizer();
-      expect(recognizer.isSupported, isTrue);
+    test('tracks whether this platform has a native recognizer', () {
+      expect(MlKitTextRecognizer().isSupported, !kIsWeb);
     });
   });
 
-  group('_checkUsable', () {
-    test('throws StateError if disposed', () {
-      final recognizer = MlKitTextRecognizer();
-      recognizer.dispose();
-      expect(() => recognizer._checkUsable(), throwsA(isA<StateError>()));
+  group('recognize', () {
+    test(
+      'returns one trimmed line per non-blank line the photo held',
+      () async {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(_pluginChannel, (call) async {
+              calls.add(call);
+              return <String, Object?>{
+                'text': '',
+                'blocks': [
+                  _block(['  Amox 500mg  ', '   ', 'cefalexin']),
+                  _block(['paracetamol']),
+                ],
+              };
+            });
+
+        final lines = await MlKitTextRecognizer().recognize(
+          Uint8List.fromList([1, 2, 3]),
+        );
+
+        expect(lines.map((line) => line.text), [
+          'Amox 500mg',
+          'cefalexin',
+          'paracetamol',
+        ]);
+      },
+    );
+
+    test(
+      'short-circuits on empty bytes without troubling the plugin',
+      () async {
+        final lines = await MlKitTextRecognizer().recognize(Uint8List(0));
+
+        expect(lines, isEmpty);
+        // Nothing was written or recognised, so the channel was never called.
+        expect(calls, isEmpty);
+      },
+    );
+
+    test('reports a missing plugin as an unsupported platform', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_pluginChannel, (call) async {
+            throw MissingPluginException('no implementation');
+          });
+
+      await expectLater(
+        MlKitTextRecognizer().recognize(Uint8List.fromList([1])),
+        throwsA(
+          isA<PrescriptionRecognitionException>()
+              .having(
+                (e) => e.isUnsupportedPlatform,
+                'isUnsupportedPlatform',
+                isTrue,
+              )
+              .having((e) => e.isOffline, 'isOffline', isFalse),
+        ),
+      );
+    });
+
+    test('reports a platform failure as needing a connection', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_pluginChannel, (call) async {
+            throw PlatformException(code: 'no-model');
+          });
+
+      await expectLater(
+        MlKitTextRecognizer().recognize(Uint8List.fromList([1])),
+        throwsA(
+          isA<PrescriptionRecognitionException>()
+              .having((e) => e.isOffline, 'isOffline', isTrue)
+              .having(
+                (e) => e.isUnsupportedPlatform,
+                'isUnsupportedPlatform',
+                isFalse,
+              )
+              // The code is carried through so the cause is not lost.
+              .having((e) => e.message, 'message', contains('no-model')),
+        ),
+      );
     });
   });
 
-  group('recognize with empty bytes', () {
-    test('returns empty list', () {
+  group('dispose', () {
+    test('stops the recognizer being used again', () async {
       final recognizer = MlKitTextRecognizer();
-      final result = recognizer.recognize(const Uint8List(0));
-      expect(result, isEmpty);
-    });
-  });
+      await recognizer.dispose();
 
-  group('recognize with valid input', () {
-    test('processes a simple image', () {
-      // Note: A full MethodChannel mock is needed to test the actual image
-      // processing path. This test verifies the method signature and basic
-      // flow are correct.
+      expect(
+        () => recognizer.recognize(Uint8List.fromList([1])),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('is idempotent, and releases the native side only once', () async {
       final recognizer = MlKitTextRecognizer();
-      // The recognize method is structured to handle MissingPluginException
-      // and PlatformException, which are tested at the integration level.
-      expect(recognizer.isSupported, isTrue);
+      await recognizer.recognize(Uint8List.fromList([1]));
+      calls.clear();
+
+      await recognizer.dispose();
+      await recognizer.dispose();
+
+      expect(
+        calls.where((c) => c.method == 'vision#closeTextRecognizer'),
+        hasLength(1),
+      );
+    });
+
+    test('does nothing when nothing was ever recognised', () async {
+      await MlKitTextRecognizer().dispose();
+
+      expect(
+        calls.where((c) => c.method == 'vision#closeTextRecognizer'),
+        isEmpty,
+      );
     });
   });
 }

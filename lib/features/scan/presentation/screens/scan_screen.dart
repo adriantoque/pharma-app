@@ -286,10 +286,15 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget _cameraSection() {
     if (_cameraReady == true) {
       final preview = _camera.preview;
+      // An error card below is worth more room than a live feed the user
+      // cannot act on while it is up, and on a short phone the two together
+      // overflow the column. Reclaim the preview's height only when there is
+      // something more important underneath it.
+      final previewHeight = _error == null ? 300.0 : 160.0;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(
-          height: 300,
+          height: previewHeight,
           child:
               preview ??
               Center(

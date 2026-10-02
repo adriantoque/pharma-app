@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
-import 'package:pharmaguide/features/scan/presentation/screens/scan_screen.dart';
 
 /// Controllable fake used by the scan widget tests, standing in for ML Kit's
 /// platform recognizer so the tests never depend on a downloaded model.
@@ -20,12 +20,16 @@ class FakePrescriptionRecognizer implements PrescriptionRecognizer {
   /// Lines handed back by [recognize].
   List<RecognizedLine> readings;
 
-  /// Recordings of what [recognize] was called with, in call order.
-  final List<List<InkLine>> recognizeCalls = [];
+  /// The bytes [recognize] was called with, in call order.
+  final List<Uint8List> recognizeCalls = [];
 
-  int recognizeCallsCount = 0;
+  /// Whether [dispose] has run.
+  ///
+  /// The screen releases the recognizer it was handed, so a test can assert
+  /// nothing built here outlives the tab.
+  bool disposed = false;
 
-  /// When set, the next [recognize] throws this instead of returning [readings].
+  /// When set, [recognize] throws this instead of returning [readings].
   Object? recognizeError;
 
   /// When true, [recognize] never completes until [completeRecognize] runs.
@@ -35,7 +39,6 @@ class FakePrescriptionRecognizer implements PrescriptionRecognizer {
 
   @override
   Future<List<RecognizedLine>> recognize(Uint8List imageBytes) async {
-    recognizeCallsCount++;
     recognizeCalls.add(imageBytes);
     if (recognizeError != null) throw recognizeError!;
     if (blockRecognize) {
@@ -45,25 +48,32 @@ class FakePrescriptionRecognizer implements PrescriptionRecognizer {
     return readings;
   }
 
-  @override
-  Future<bool> isModelReady() async => true;
+  /// Releases the gate [blockRecognize] opened.
+  ///
+  /// Safe to call when nothing is blocking, so a test does not have to track
+  /// whether it reached the await yet.
+  void completeRecognize() {
+    final gate = _recognizeGate;
+    _recognizeGate = null;
+    if (gate != null && !gate.isCompleted) gate.complete();
+  }
 
   @override
-  Future<void> ensureModel() async {}
-
-  @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    disposed = true;
+  }
 }
 
 /// A single-reading line, which is all most tests need.
-RecognizedLine reading(String text, {List<String>? candidates}) =>
-    RecognizedLine(candidates != null ? candidates : [text]);
+RecognizedLine reading(String text) => RecognizedLine(text);
 
-/// The lines a handwritten list of medicines would come back as.
-List<RecognizedLine> readingsOf(String first, [String? second, String? third]) => [
+/// The lines a printed list of medicines comes back as.
+List<RecognizedLine> readingsOf(
+  String first, [
+  String? second,
+  String? third,
+]) => [
   reading(first),
   if (second != null) reading(second),
   if (third != null) reading(third),
 ];
-
-void completeRecognize() {}
