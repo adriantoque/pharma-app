@@ -8,10 +8,11 @@ import '../features/auth/presentation/screens/auth_landing_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
 import '../features/dashboard/presentation/screens/inventory_screen.dart';
-import '../features/dashboard/presentation/screens/reports_screen.dart';
+import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
+import '../features/sales/presentation/screens/new_sale_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
@@ -30,6 +31,7 @@ abstract final class AppRoutes {
   static const String homeExpiring = '/home/expiring';
   static const String homeScan = '/home/scan';
   static const String homeProfile = '/home/profile';
+  static const String newSale = '/new-sale';
 }
 
 /// Builds the app router. The caller owns the returned instance and is
@@ -123,6 +125,11 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 path: AppRoutes.orders,
                 name: 'orders',
                 builder: (context, state) => const OrdersScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.newSale,
+                name: 'new-sale',
+                builder: (context, state) => const NewSaleScreen(),
               ),
             ],
           ),

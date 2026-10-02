@@ -6,40 +6,34 @@ import '../../search/data/models/medicine_model.dart';
 import '../../search/data/repositories/medicine_repository.dart';
 import '../domain/prescription_recognizer.dart';
 
-/// A catalog medicine that a line of handwriting could plausibly be naming.
+/// A catalog medicine that a scanned line could plausibly be naming.
 @immutable
 class PrescriptionSuggestion {
   const PrescriptionSuggestion({
     required this.medicine,
-    required this.reading,
     required this.confidence,
     this.lineIndex,
   });
 
   final MedicineModel medicine;
 
-  /// The reading that matched, which is not always the one ML Kit ranked
-  /// highest. Shown so the user can see what was understood.
-  final String reading;
-
-  /// How closely [reading] fits [medicine], from 0 to 1. This is a judgement
+  /// How closely the line fits [medicine], from 0 to 1. This is a judgement
   /// about the catalog, not ML Kit's own score, which the plugin documents as
   /// populated only for models that support it.
   final double confidence;
 
   /// The line this came from, or null when the reading was typed rather than
-  /// written.
+  /// scanned.
   final int? lineIndex;
 }
 
-/// Decides which catalog entry a line of handwriting is naming.
+/// Decides which catalog entry a scanned line is naming.
 ///
 /// The recognizer's own ranking is a good guess at generic text but a poor one
-/// for a short list of known medicines, so the catalog does the deciding here.
-/// ML Kit offers several readings per line; scoring every one of them against
-/// all 64 entries and taking the best is what turns a noisy reading such as
-/// "Amoxcilln 500" into the right medicine, because the catalog is the cheapest
-/// possible check on which reading was correct.
+/// for a short list of known medicines, so the catalog does the deciding here:
+/// scoring each line against every entry and taking the best is what turns a
+/// noisy reading such as "Amoxcilln 500" into the right medicine, because the
+/// catalog is the cheapest possible check on which reading was correct.
 ///
 /// Scoring is a blend of two comparisons, and the better of the two wins:
 /// whole-string edit distance, which is forgiving about a wrong character but
@@ -75,7 +69,7 @@ class PrescriptionMatcher {
 
   static final RegExp _hasLetter = RegExp('[a-z]');
 
-  /// Suggests medicines for every written line, in the order they were read.
+  /// Suggests medicines for every scanned line, in the order they were read.
   ///
   /// A medicine is offered once even if several lines name it, so the list is a
   /// set of candidates to choose from rather than a transcription. The user
@@ -92,7 +86,7 @@ class PrescriptionMatcher {
     for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       for (final suggestion in _rank(
         catalog,
-        lines[lineIndex].candidates,
+        lines[lineIndex].text,
         limit: perLine,
         threshold: threshold,
         lineIndex: lineIndex,
@@ -115,88 +109,71 @@ class PrescriptionMatcher {
   }) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return const [];
-    return _rank(_catalog(), [trimmed], limit: limit, threshold: threshold);
+    return _rank(_catalog(), trimmed, limit: limit, threshold: threshold);
   }
 
   /// The price list with its names normalised once, rather than once per reading
   /// per line.
-  List<
-    ({
-      MedicineModel medicine,
-      String normalised,
-      List<String> tokens,
-    })
-  >
+  List<({MedicineModel medicine, String normalised, List<String> tokens})>
   _catalog() {
     return [
       for (final medicine in repository.all())
         (
           medicine: medicine,
           normalised: _normalise(medicine.name),
-          tokens: [for (final token in _tokens(medicine.name)) _normalise(token)],
+          tokens: [
+            for (final token in _tokens(medicine.name)) _normalise(token),
+          ],
         ),
     ];
   }
 
-  /// The best-matching catalog entries for a set of readings, strongest first.
+  /// The best-matching catalog entries for one line, strongest first.
   List<PrescriptionSuggestion> _rank(
-    List<
-      ({
-        MedicineModel medicine,
-        String normalised,
-        List<String> tokens,
-      })
-    >
+    List<({MedicineModel medicine, String normalised, List<String> tokens})>
     catalog,
-    List<String> readings, {
+    String reading, {
     required int limit,
     required double threshold,
     int? lineIndex,
   }) {
-    final best = <MedicineModel, ({double score, String reading})>{};
+    final normalisedReading = _normalise(reading);
+    if (normalisedReading.isEmpty) return const [];
+    final readingTokens = [
+      for (final token in _tokens(reading)) _normalise(token),
+    ];
 
-    for (final reading in readings) {
-      final normalisedReading = _normalise(reading);
-      if (normalisedReading.isEmpty) continue;
-      final readingTokens = [
-        for (final token in _tokens(reading)) _normalise(token),
-      ];
+    final best = <MedicineModel, double>{};
+    for (final entry in catalog) {
+      if (entry.normalised.isEmpty) continue;
 
-      for (final entry in catalog) {
-        if (entry.normalised.isEmpty) continue;
+      final score = _similarity(
+        normalisedReading,
+        readingTokens,
+        entry.normalised,
+        entry.tokens,
+      );
+      if (score < threshold) continue;
 
-        final score = _similarity(
-          normalisedReading,
-          readingTokens,
-          entry.normalised,
-          entry.tokens,
-        );
-        if (score < threshold) continue;
-
-        // Keep the strongest reading that reached this medicine: the one worth
-        // showing the user is the one that explained the match.
-        final current = best[entry.medicine];
-        if (current == null || score > current.score) {
-          best[entry.medicine] = (score: score, reading: reading.trim());
-        }
-      }
+      final current = best[entry.medicine];
+      if (current == null || score > current) best[entry.medicine] = score;
     }
 
-    final ranked = best.entries.toList()..sort((a, b) {
-      final byScore = b.value.score.compareTo(a.value.score);
-      // Ties broken by name so the same input always offers the same order.
-      return byScore != 0
-          ? byScore
-          : a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase());
-    });
+    final ranked = best.entries.toList()
+      ..sort((a, b) {
+        final byScore = b.value.compareTo(a.value);
+        // Ties broken by name so the same input always offers the same order.
+        return byScore != 0
+            ? byScore
+            : a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase());
+      });
 
     return [
       for (final entry in ranked.take(limit))
         PrescriptionSuggestion(
           medicine: entry.key,
           lineIndex: lineIndex,
-          reading: entry.value.reading,
-          confidence: entry.value.score,
+          confidence: entry.value,
         ),
     ];
   }
@@ -217,8 +194,8 @@ class PrescriptionMatcher {
   ) {
     var score = _ratio(reading, name);
 
-    // Extra characters are the most common thing a handwritten name gets
-    // wrong, but they hurt a short name badly: "amox" against "amoxcilln" is
+    // Extra characters are the most common thing a scanned name gets wrong,
+    // but they hurt a short name badly: "amox" against "amoxcilln" is
     // only 0.44, so a real match like "Amox" dropped below the threshold
     // entirely and "Cloxacillin" won on a shared "cilln". Containment is the
     // evidence that both are the same word, so it acts as a floor.

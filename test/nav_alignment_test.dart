@@ -76,7 +76,7 @@ void main() {
     // would be circular: a tab relabelled or moved to the wrong branch would
     // still pass, because the expectation would have moved with it.
     final expected = <({String label, Finder marker})>[
-      (label: 'Home', marker: find.text('Expiring Meds')),
+      (label: 'Home', marker: find.text("Today's sales")),
       (label: 'Inventory', marker: find.widgetWithText(AppBar, 'Inventory')),
       (label: 'Orders', marker: find.text('Nothing in this order yet')),
       (label: 'Reports', marker: find.widgetWithText(AppBar, 'Reports')),

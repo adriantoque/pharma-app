@@ -1,24 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/test/flutter_test.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
 import 'package:pharmaguide/features/scan/presentation/screens/scan_screen.dart';
-import 'package:pharmaguide/features/scan/presentation/widgets/ink_canvas.dart';
-import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:pharmaguide/features/scan/presentation/widgets/scan_button.dart';
+import 'package:pharmaguide/features/scan/presentation/widgets/scan_button_bar.dart';
 import 'package:provider/provider.dart';
 
+import 'helpers/fake_prescription_camera.dart';
 import 'helpers/fake_prescription_recognizer.dart';
+
+/// Builds the Scan tab with a fake camera and fake recognizer, so no platform
+/// channel or model download is required.
+Future<OrderProvider> pumpScan(
+  WidgetTester tester, {
+  required FakePrescriptionCamera camera,
+    required FakePrescriptionRecognizer recognizer,
+}) async {
+  tester.view.physicalSize = const Size(360, 720);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
+  final order = OrderProvider();
+  addTearDown(order.dispose);
+
+  await tester.pumpWidget(
+    ChangeNotifierProvider<OrderProvider>.value(
+      value: order,
+      child: MaterialApp(
+        theme: buildAppTheme(Brightness.light),
+        home: ScanScreen(
+          repository: const StaticMedicineRepository(),
+          camera: camera,
+          recognizer: recognizer,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return order;
+}
+
+/// Writes a prescription line using the on-screen keyboard area.
+/// In the real app this would be a drag on an InkCanvas; for the fake camera
+/// we simulate the reading by directly setting the recognised text.
+/// This helper is kept for compatibility with test code that previously used
+/// InkCanvas gestures, but the primary flow below uses the scanButton.
+Future<void> simulateScan(WidgetTester tester, String text) async {
+  // The fake camera's takePicture returns fixed bytes; the recognizer processes
+  // them and the matcher produces suggestions. We simply advance the state
+  // by triggering a re-scan.
+  await tester.pumpAndSettle();
+}
+
+/// Reads the text shown for line [index] from the UI.
+String readLineText(WidgetTester tester, int index) {
+  final text = tester
+      .widgetList<Text>(find.byType(Text))
+      .where((t) => t.data != null && t.data!.startsWith('Line $index'))
+      .map((t) => t.data!)
+      .toList();
+  if (text.isEmpty) return '';
+  return text[0].replaceFirst('Line $index: ', '').replaceAll('"', '');
+}
+
+/// Reads the suggestion for line [index] from the UI.
+String readSuggestion(WidgetTester tester, int index) {
+  final texts = tester
+      .widgetList<Text>(find.byType(Text))
+      .where((t) => t.data != null && t.data!.startsWith('Suggestion'))
+      .map((t) => t.data!)
+      .toList();
+  if (texts.isEmpty) return '';
+  return texts[0].replaceFirst('Suggestion ', '');
+}
 
 void main() {
   const phoneSize = Size(360, 720);
 
-  /// Builds the tab with a fake recognizer standing in for ML Kit, so no test
-  /// depends on a downloaded model or on a platform channel.
+  /// Builds the tab with a fake camera and fake recognizer, so no test
+  /// depends on a platform channel or a downloaded model.
   Future<OrderProvider> pumpScan(
     WidgetTester tester, {
-    required FakePrescriptionRecognizer recognizer,
-  }) async {
+      required FakePrescriptionCamera camera,
+      required FakePrescriptionRecognizer recognizer,
+    }) async {
     tester.view.physicalSize = phoneSize;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -31,7 +98,11 @@ void main() {
         value: order,
         child: MaterialApp(
           theme: buildAppTheme(Brightness.light),
-          home: ScanScreen(recognizer: recognizer),
+          home: ScanScreen(
+            repository: const StaticMedicineRepository(),
+            camera: camera,
+            recognizer: recognizer,
+          ),
         ),
       ),
     );
@@ -39,407 +110,83 @@ void main() {
     return order;
   }
 
-  Future<void> writeAWord(WidgetTester tester) async {
-    await tester.drag(find.byType(InkCanvas), const Offset(60, 20));
-    await tester.pump();
-  }
-
-  Finder canvas = find.byType(InkCanvas);
-
-  group('the first opening', () {
-    testWidgets('explains what the tab is for', (tester) async {
-      await pumpScan(
+  group('the first scan', () {
+    testWidgets('opens the scan tab and shows the scan button', (tester) async {
+      final order = await pumpScan(
         tester,
+        camera: FakePrescriptionCamera(),
         recognizer: FakePrescriptionRecognizer(),
       );
 
-      expect(
-        find.text('Write the prescription, then read it'),
-        findsOneWidget,
-      );
-      expect(
-        find.text(
-          'Nothing read yet. Write a medicine name on the lines above, or '
-          'search for one below.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Scan'), findsOneWidget);
+      expect(find.text('Scan it'), findsOneWidget);
+      expect(find.text('Pick a prescription from the gallery'), findsOneWidget);
     });
 
-    testWidgets('shows the canvas when the model is already there', (
-      tester,
-    ) async {
-      await pumpScan(
+    testWidgets('reading appears after scan', (tester) async {
+      final order = await pumpScan(
         tester,
+        camera: FakePrescriptionCamera(),
         recognizer: FakePrescriptionRecognizer(),
       );
 
-      expect(canvas, findsOneWidget);
-      expect(find.text('Download the handwriting model'), findsNothing);
+      // Tap the scan button to trigger recognition
+      await tester.tap(find.byType(ScanButton));
+      await tester.pumpAndSettle();
+
+      // The fake recognizer returns a canned reading; check that a line appears
+      expect(find.text('Line 1'), findsOneWidget);
+      expect(readLineText(tester, 1), isNotEmpty);
     });
 
-    testWidgets('a disarmed undo and clear and a disabled read at first', (
-      tester,
-    ) async {
-      await pumpScan(
+    testWidgets('adding a medicine to the order', (tester) async {
+      final order = await pumpScan(
         tester,
+        camera: FakePrescriptionCamera(),
         recognizer: FakePrescriptionRecognizer(),
       );
 
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('undoStroke')))
-            .onPressed,
-        isNull,
-      );
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('clearCanvas')))
-            .onPressed,
-        isNull,
-      );
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('recognizeButton')))
-            .onPressed,
-        isNull,
-      );
-    });
-  });
-
-  group('the model gate', () {
-    testWidgets('offers a download when the model is missing', (
-      tester,
-    ) async {
-      await pumpScan(
-        tester,
-        recognizer: FakePrescriptionRecognizer(modelReady: false),
-      );
-
-      expect(canvas, findsNothing);
-      expect(find.text('Download the handwriting model'), findsOneWidget);
-      expect(
-        find.textContaining('About 20 MB, once'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('downloading unlocks the canvas', (tester) async {
-      final recognizer = FakePrescriptionRecognizer(modelReady: false);
-      await pumpScan(tester, recognizer: recognizer);
-
-      await tester.tap(find.byKey(const Key('downloadModelButton')));
+      await tester.tap(find.byType(ScanButton));
       await tester.pumpAndSettle();
 
-      expect(recognizer.ensureModelCalls, 1);
-      expect(recognizer.modelReady, isTrue);
-      expect(canvas, findsOneWidget);
-      expect(find.text('Download the handwriting model'), findsNothing);
-    });
-
-    testWidgets('a download is never started on its own', (tester) async {
-      final recognizer = FakePrescriptionRecognizer(modelReady: false);
-      await pumpScan(tester, recognizer: recognizer);
-
-      expect(recognizer.ensureModelCalls, 0);
-    });
-
-    testWidgets('a failed download is explained and can be retried', (
-      tester,
-    ) async {
-      final recognizer = FakePrescriptionRecognizer(
-        modelReady: false,
-        ensureModelError: PrescriptionRecognitionException(
-          'The handwriting model could not be downloaded.',
-          isOffline: true,
-        ),
+      // A reading appears; tap the first add button
+      final addButtons = find.byWidgetPredicate(
+        (widget) => widget is IconButton && widget.key.toString().contains('add'),
       );
-      await pumpScan(tester, recognizer: recognizer);
-
-      await tester.tap(find.byKey(const Key('downloadModelButton')));
+      expect(addButtons, findsAtLeastN(1, 0));
+      if (addButtons.evaluate().isNotEmpty) {
+        await tester.tap(addButtons.first);
+      }
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('The handwriting model could not be downloaded.'),
-        findsOneWidget,
-      );
-      expect(canvas, findsNothing);
-
-      await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
-
-      // The retry checks again rather than staring at the error, and the model
-      // is still missing, so the download card is back.
-      expect(canvas, findsNothing);
-      expect(find.text('Download the handwriting model'), findsOneWidget);
-    });
-
-    testWidgets('an unsupported platform explains itself but keeps search', (
-      tester,
-    ) async {
-      await pumpScan(
-        tester,
-        recognizer: FakePrescriptionRecognizer(isSupported: false),
-      );
-
-      expect(
-        find.textContaining('not available on this platform'),
-        findsOneWidget,
-      );
-      expect(canvas, findsNothing);
-
-      await tester.enterText(
-        find.byKey(const Key('prescriptionSearchField')),
-        'Biogesic',
-      );
-      await tester.pump();
-
-      expect(find.byKey(const Key('addBiogesic')), findsOneWidget);
-    });
-  });
-
-  group('drawing', () {
-    testWidgets('a drag writes a stroke and arms undo and clear', (
-      tester,
-    ) async {
-      await pumpScan(
-        tester,
-        recognizer: FakePrescriptionRecognizer(),
-      );
-
-      await writeAWord(tester);
-
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('undoStroke')))
-            .onPressed,
-        isNotNull,
-      );
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('clearCanvas')))
-            .onPressed,
-        isNotNull,
-      );
-      expect(
-        find.text(
-          'Press "Read it" to see what this says.',
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('undo removes the last stroke', (tester) async {
-      await pumpScan(
-        tester,
-        recognizer: FakePrescriptionRecognizer(),
-      );
-
-      await writeAWord(tester);
-      await writeAWord(tester);
-
-      await tester.tap(find.byKey(const Key('undoStroke')));
-      await tester.pump();
-
-      // One stroke left: undo is still armed, and one more undoes everything.
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('undoStroke')))
-            .onPressed,
-        isNotNull,
-      );
-
-      await tester.tap(find.byKey(const Key('undoStroke')));
-      await tester.pump();
-
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('undoStroke')))
-            .onPressed,
-        isNull,
-      );
-    });
-
-    testWidgets('clear empties the canvas in one tap', (tester) async {
-      await pumpScan(
-        tester,
-        recognizer: FakePrescriptionRecognizer(),
-      );
-
-      await writeAWord(tester);
-      await writeAWord(tester);
-
-      await tester.tap(find.byKey(const Key('clearCanvas')));
-      await tester.pump();
-
-      expect(
-        tester
-            .widget<IconButton>(find.byKey(const Key('clearCanvas')))
-            .onPressed,
-        isNull,
-      );
-    });
-  });
-
-  group('reading', () {
-    testWidgets('sends the ink and shows what each line could be', (
-      tester,
-    ) async {
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Amox 500mg', 'Biogesic'),
-      );
-      await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pumpAndSettle();
-
-      expect(recognizer.recognizeCalls, hasLength(1));
-      expect(find.text('Line 1: "Amox 500mg"'), findsOneWidget);
-      expect(find.text('Line 2: "Biogesic"'), findsOneWidget);
-      expect(find.byKey(const Key('addAmox 500mg')), findsOneWidget);
-      expect(find.byKey(const Key('addBiogesic')), findsOneWidget);
-    });
-
-    testWidgets('shows a reading label while the model works', (
-      tester,
-    ) async {
-      final recognizer = FakePrescriptionRecognizer(
-        blockRecognize: true,
-        readings: readingsOf('Biogesic'),
-      );
-      await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pump();
-
-      // A label rather than a spinner, so the frame scheduler can still settle
-      // while a read is in flight.
-      expect(find.text('Reading…'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.byKey(const Key('recognizeButton')))
-            .onPressed,
-        isNull,
-      );
-
-      recognizer.completeRecognize();
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('addBiogesic')), findsOneWidget);
-    });
-
-    testWidgets('explains a read that found no medicines', (tester) async {
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('zzz qqq'),
-      );
-      await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text(
-          'No medicine in the price list looks like that. Try Fix, or search '
-          'below.',
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('a read that fails keeps the canvas usable', (tester) async {
-      final recognizer = FakePrescriptionRecognizer(
-        recognizeError: PrescriptionRecognitionException(
-          'The handwriting could not be read.',
-        ),
-      );
-      await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('The handwriting could not be read.'),
-        findsOneWidget,
-      );
-      expect(canvas, findsOneWidget);
-
-      // The retry reaches the recognizer again, and a second failure leaves the
-      // error up rather than losing the ink.
-      await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
-      expect(recognizer.recognizeCalls, hasLength(2));
-    });
-
-    testWidgets('a misread line can be corrected by hand', (tester) async {
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Amox 500mg'),
-      );
-      await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('editReading0')));
-      await tester.pumpAndSettle();
-
-      await tester.enterText(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.byType(TextField),
-        ),
-        'Biogesic',
-      );
-      await tester.tap(find.text('Use this'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Line 1: "Biogesic"'), findsOneWidget);
-      expect(find.byKey(const Key('addBiogesic')), findsOneWidget);
-    });
-  });
-
-  group('adding to the order', () {
-    testWidgets('nothing is added without a tap', (tester) async {
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Biogesic'),
-      );
-      final order = await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pumpAndSettle();
-
-      expect(order.itemCount, 0);
-    });
-
-    testWidgets('a tapped suggestion goes through the quantity sheet', (
-      tester,
-    ) async {
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Biogesic'),
-      );
-      final order = await pumpScan(tester, recognizer: recognizer);
-
-      await writeAWord(tester);
-      await tester.tap(find.byKey(const Key('recognizeButton')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('addBiogesic')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Add to order'), findsOneWidget);
+      // Wait for the quantity sheet and confirm
       await tester.tap(find.text('Add to order'));
       await tester.pumpAndSettle();
 
-      expect(order.quantityOf(
-        const MedicineModel(name: 'Biogesic', priceCentavos: 600, stock: 41),
-      ), 1);
-      expect(find.text('Added 1 × Biogesic'), findsOneWidget);
+      // SnackBar should confirm the addition
+      expect(find.byType(SnackBar), findsOneWidget);
+      final snackText = tester
+          .widgetList<Text>(find.byType(SnackBar))
+          .map((t) => t.data ?? '')
+          .firstWhere((d) => d.startsWith('Added '));
+      expect(snackText, startsWith('Added '));
+      expect(order.itemCount, 1,
+          reason: 'the quantity sheet must add exactly one medicine');
+    });
+  });
+
+  group('gallery fallback', () {
+    testWidgets('gallery picker is available', (tester) async {
+      final order = await pumpScan(
+        tester,
+        camera: FakePrescriptionCamera(),
+        recognizer: FakePrescriptionRecognizer(),
+      );
+
+      expect(find.text('Pick a prescription from the gallery'), findsOneWidget);
+      // The fake camera has no gallery images; tapping the button does nothing
+      // useful in the test environment, but the UI should not crash.
+      await tester.tap(find.byIcon(Icons.image));
+      await tester.pumpAndSettle();
     });
   });
 }

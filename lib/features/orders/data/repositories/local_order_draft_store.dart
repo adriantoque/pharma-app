@@ -15,9 +15,8 @@ import 'order_line_codec.dart';
 /// encoded by [OrderLineCodec]. Everything is best-effort -- a corrupted JSON
 /// string is treated as an empty basket rather than crashing.
 class LocalOrderDraftStore implements OrderDraftStore, DisposableStore {
-  LocalOrderDraftStore({
-    Future<SharedPreferences>? prefs,
-  }) : _prefsFuture = prefs ?? SharedPreferences.getInstance();
+  LocalOrderDraftStore({Future<SharedPreferences>? prefs})
+    : _prefsFuture = prefs ?? SharedPreferences.getInstance();
 
   static const String _key = 'offlineOrderDraft';
 

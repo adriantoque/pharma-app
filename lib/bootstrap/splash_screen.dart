@@ -4,12 +4,12 @@ import '../../core/theme/app_theme.dart';
 
 /// Shown while Firebase initialises, before the real app is built.
 ///
-/// Renders the same `bgtheme.png` the Android launch background uses, so the
+/// Renders the same `bgtheme.jpg` the Android launch background uses, so the
 /// handoff from the native window to the first Flutter frame is invisible
 /// rather than a jump. [BoxFit.cover] and the launch background's `fill` agree
 /// exactly on a screen whose aspect matches the image's.
 class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key, this.imagePath = 'assets/images/bgtheme.png'});
+  const SplashScreen({super.key, this.imagePath = 'assets/images/bgtheme.jpg'});
 
   /// Overridable because a widget test has no asset manifest.
   final String imagePath;

@@ -112,9 +112,9 @@ void main() {
       // One suggestion per line, so this is only about which line wins.
       final suggestions = matcher.suggest(
         [
-          const RecognizedLine(['Amox 500mg']),
-          const RecognizedLine(['Biogesic']),
-          const RecognizedLine(['Paracetamol 125']),
+          const RecognizedLine('Amox 500mg'),
+          const RecognizedLine('Biogesic'),
+          const RecognizedLine('Paracetamol 125'),
         ],
         perLine: 1,
       );
@@ -128,7 +128,7 @@ void main() {
 
     test('offers alternatives within a line', () {
       final suggestions = matcher.suggest(
-        [const RecognizedLine(['Diatabs'])],
+        [const RecognizedLine('Diatabs')],
         perLine: 3,
       );
 
@@ -140,8 +140,8 @@ void main() {
 
     test('offers a medicine named twice only once', () {
       final suggestions = matcher.suggest([
-        const RecognizedLine(['Biogesic']),
-        const RecognizedLine(['Biogesic']),
+        const RecognizedLine('Biogesic'),
+        const RecognizedLine('Biogesic'),
       ], perLine: 1);
 
       expect(suggestions, hasLength(1));
@@ -149,8 +149,8 @@ void main() {
 
     test('keeps the lines in the order they were read', () {
       final suggestions = matcher.suggest([
-        const RecognizedLine(['nope zzz']),
-        const RecognizedLine(['Biogesic']),
+        const RecognizedLine('nope zzz'),
+        const RecognizedLine('Biogesic'),
       ]);
 
       expect(suggestions.single.lineIndex, 1);
@@ -161,26 +161,25 @@ void main() {
     test('lets the catalog pick the right one out of several readings', () {
       // The recognizer's own first choice is wrong, but the second reading
       // names a real medicine exactly, so it is the one worth showing.
-      final suggestions = matcher.suggest([
-        const RecognizedLine(['Amox 500ng', 'Amox 500mg']),
-      ]);
+      final suggestions = matcher.suggest(
+        [const RecognizedLine('Amox 500ng'), const RecognizedLine('Amox 500mg')],
+      );
 
       expect(suggestions.first.medicine.name, 'Amox 500mg');
-      expect(suggestions.first.reading, 'Amox 500mg');
     });
 
     test('still matches when the top reading is nonsense', () {
-      final suggestions = matcher.suggest([
-        const RecognizedLine(['qwerty', 'decolgen']),
-      ]);
+      final suggestions = matcher.suggest(
+        [const RecognizedLine('qwerty'), const RecognizedLine('decolgen')],
+      );
 
       expect(suggestions.single.medicine.name, 'decolgen');
     });
 
     test('skips a line that recognised nothing', () {
       final suggestions = matcher.suggest([
-        const RecognizedLine([]),
-        const RecognizedLine(['Biogesic']),
+        const RecognizedLine(''),
+        const RecognizedLine('Biogesic'),
       ]);
 
       expect(suggestions.single.medicine.name, 'Biogesic');

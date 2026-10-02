@@ -16,22 +16,19 @@ import '../../../search/data/models/medicine_model.dart';
 abstract final class OrderLineCodec {
   /// One line as stored.
   static Map<String, dynamic> toMap(OrderLineModel line) => {
-        'name': line.medicine.name,
-        'priceCentavos': line.medicine.priceCentavos,
-        'quantity': line.quantity,
-      };
+    'name': line.medicine.name,
+    'priceCentavos': line.medicine.priceCentavos,
+    'quantity': line.quantity,
+  };
 
   static List<Map<String, dynamic>> listToMaps(
     Iterable<OrderLineModel> lines,
-  ) =>
-      [for (final line in lines) toMap(line)];
+  ) => [for (final line in lines) toMap(line)];
 
   /// A whole stored basket, skipping the lines that cannot be read.
   static List<OrderLineModel> readList(Object? raw) {
     if (raw is! List) return const <OrderLineModel>[];
-    return [
-      for (final entry in raw) ?readLine(entry),
-    ];
+    return [for (final entry in raw) ?readLine(entry)];
   }
 
   /// One stored line back, or null for one that cannot be used.
@@ -63,9 +60,9 @@ abstract final class OrderLineCodec {
 
   /// A whole number, or null when [value] is not one.
   static int? readIntOrNull(Object? value) => switch (value) {
-        int v => v,
-        num v => v.round(),
-        String v => int.tryParse(v),
-        _ => null,
-      };
+    int v => v,
+    num v => v.round(),
+    String v => int.tryParse(v),
+    _ => null,
+  };
 }

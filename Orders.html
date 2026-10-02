@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orders</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+:root{--bg:#F2F6F5;--panel:#FFFFFF;--ink:#16303A;--mute:#5B7079;--line:#D5E0DE;--brand:#0E5A52;--brand-soft:#D7ECE8;--warn:#B7791F;--ok:#2E7D4F;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1E22;--panel:#16292E;--ink:#E3EEEC;--mute:#93AAA7;--line:#25403F;--brand:#5CC7B5;--brand-soft:#1B3A38;--warn:#E3A93B;--ok:#6CCB8E}}
+:root[data-theme="dark"]{--bg:#0F1E22;--panel:#16292E;--ink:#E3EEEC;--mute:#93AAA7;--line:#25403F;--brand:#5CC7B5;--brand-soft:#1B3A38;--warn:#E3A93B;--ok:#6CCB8E}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Source Sans 3",system-ui,sans-serif}
+.app{max-width:480px;margin:0 auto;min-height:100vh}
+.top{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:16px 16px 0;z-index:2}
+h1{font:700 1.6rem "Bricolage Grotesque",system-ui,sans-serif;margin:0 0 12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{flex:1;font:inherit;font-weight:600;color:var(--mute);background:none;border:0;border-bottom:3px solid transparent;padding:10px 6px;min-height:44px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--brand);border-bottom-color:var(--brand)}
+.tabs button:focus-visible,.act:focus-visible{outline:3px solid var(--warn);outline-offset:-3px}
+.cnt{display:inline-block;min-width:22px;padding:0 6px;margin-left:4px;border-radius:99px;background:var(--brand-soft);color:var(--brand);font-size:.8rem}
+.list{padding:14px 16px 32px;display:grid;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.head{display:flex;justify-content:space-between;align-items:start;gap:8px}
+.head b{font:700 1.05rem "Bricolage Grotesque",sans-serif}
+.meta{color:var(--mute);font-size:.9rem}
+.badge{font-size:.8rem;font-weight:600;padding:2px 10px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.s-new{color:var(--warn)}.s-approved{color:var(--ok)}
+ul{list-style:none;margin:10px 0;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+li{display:flex;justify-content:space-between;gap:12px;padding:2px 0}
+li span:last-child{color:var(--mute);white-space:nowrap}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.foot strong{font:700 1.15rem "Bricolage Grotesque",sans-serif}
+.act{font:inherit;font-weight:600;color:#fff;background:var(--brand);border:0;border-radius:10px;padding:0 18px;min-height:44px;cursor:pointer}
+:root[data-theme="dark"] .act{color:#0F1E22}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .act{color:#0F1E22}}
+.empty{text-align:center;color:var(--mute);padding:48px 16px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <h1>Orders</h1>
+    <div class="tabs" role="tablist" id="tabs"></div>
+  </div>
+  <div class="list" id="list" role="tabpanel"></div>
+</div>
+<script>
+const peso=n=>"₱"+n.toLocaleString("en-PH");
+const orders=[
+ {id:1048,who:"Maria Santos",time:"5 min ago",st:"new",items:[["Paracetamol 500mg",20],["Vitamin C 500mg",30]]},
+ {id:1047,who:"Jose Reyes",time:"22 min ago",st:"new",items:[["Amoxicillin 500mg",21],["Cetirizine 10mg",10]]},
+ {id:1046,who:"Ana Cruz",time:"1 hr ago",st:"new",items:[["Losartan 50mg",30],["Metformin 500mg",60]]},
+ {id:1045,who:"Pedro Lim",time:"2 hr ago",st:"new",items:[["Salbutamol inhaler",1]]},
+ {id:1044,who:"Liza Ramos",time:"Yesterday",st:"approved",items:[["Ibuprofen 400mg",10],["Loperamide 2mg",6]]},
+ {id:1043,who:"Ben Garcia",time:"Yesterday",st:"approved",items:[["Mefenamic acid 500mg",20]]}
+];
+const prices={"Paracetamol 500mg":2,"Vitamin C 500mg":6,"Amoxicillin 500mg":9,"Cetirizine 10mg":8,"Losartan 50mg":12,"Metformin 500mg":5,"Salbutamol inhaler":380,"Ibuprofen 400mg":7,"Loperamide 2mg":10,"Mefenamic acid 500mg":8};
+const label={new:"New",approved:"Approved"};
+const nextAct={new:["Approve","approved"]};
+const tabs=[["all","All"],["new","New"],["approved","Approved"]];
+let cur="all";
+const $=id=>document.getElementById(id);
+function total(o){return o.items.reduce((s,i)=>s+i[1]*prices[i[0]],0)}
+function render(){
+  $("tabs").innerHTML=tabs.map(t=>{const n=t[0]==="all"?orders.length:orders.filter(o=>o.st===t[0]).length;
+    return `<button role="tab" data-t="${t[0]}" aria-selected="${cur===t[0]}">${t[1]}<span class="cnt">${n}</span></button>`}).join("");
+  const rows=cur==="all"?orders:orders.filter(o=>o.st===cur);
+  $("list").innerHTML=rows.length?rows.map(o=>{const a=nextAct[o.st];
+    return `<article class="card"><div class="head"><div><b>Order #${o.id}</b><div class="meta">${o.who} · ${o.time}</div></div><span class="badge s-${o.st}">${label[o.st]}</span></div>
+    <ul>${o.items.map(i=>`<li><span>${i[0]}</span><span>× ${i[1]}</span></li>`).join("")}</ul>
+    <div class="foot"><strong>${peso(total(o))}</strong>${a?`<button class="act" data-id="${o.id}">${a[0]}</button>`:""}</div></article>`}).join("")
+    :`<div class="empty">No ${cur} orders right now.</div>`;
+}
+$("tabs").onclick=e=>{const b=e.target.closest("button");if(b){cur=b.dataset.t;render()}};
+$("list").onclick=e=>{const b=e.target.closest(".act");if(!b)return;
+  const o=orders.find(x=>x.id==b.dataset.id);o.st=nextAct[o.st][1];render()};
+render();
+</script>
+</body>
+</html>

@@ -8,7 +8,9 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/data/repositories/medicine_repository.dart';
 import '../../data/models/order_line_model.dart';
+import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_draft_store.dart';
+import '../../data/repositories/order_history_repository.dart';
 
 /// The order being built up in the signed-in area.
 ///
@@ -36,12 +38,14 @@ class OrderProvider extends ChangeNotifier {
     AuthProvider? auth,
     OrderDraftStore Function(String uid)? draftFor,
     MedicineRepository? catalogue,
-  })  // A named parameter cannot be private, so these two cannot be initializing
-      // formals.
-      // ignore: prefer_initializing_formals
-      : _draftFor = draftFor,
-        // ignore: prefer_initializing_formals
-        _catalogue = catalogue {
+    OrderHistoryRepository Function(String uid)? historyFor,
+  }) // A named parameter cannot be private, so these two cannot be initializing
+    // formals.
+    // ignore: prefer_initializing_formals
+    : _draftFor = draftFor,
+       // ignore: prefer_initializing_formals
+       _catalogue = catalogue,
+       _historyForFactory = historyFor {
     // A shared counter tablet is signed in and out all day, and a basket left
     // behind by the last user is both a privacy problem and a confusing screen.
     // Watching auth is cheaper than trying to clear the order from the sign-out
@@ -95,6 +99,7 @@ class OrderProvider extends ChangeNotifier {
   AuthProvider? _auth;
   final OrderDraftStore Function(String uid)? _draftFor;
   final MedicineRepository? _catalogue;
+  final OrderHistoryRepository Function(String uid)? _historyForFactory;
 
   OrderDraftStore? _draftStore;
   StreamSubscription<List<OrderLineModel>>? _draftSubscription;
@@ -209,12 +214,37 @@ class OrderProvider extends ChangeNotifier {
   /// two taps in a row cannot notify for nothing.
   void remove(MedicineModel medicine) => setQuantity(medicine, 0);
 
-/// Empties the order.
+  /// Empties the order.
   void clear() {
     if (_lines.isEmpty) return;
     _lines.clear();
     _safeNotify();
     _saveDraft();
+  }
+
+  /// Completes the current order, saves it to history, and clears the cart.
+  ///
+  /// Requires at least one item in the order.
+  /// Returns true on success, false if the order cannot be completed.
+  bool complete() {
+    if (isEmpty) return false;
+
+    final historyFactory = _historyForFactory;
+    if (historyFactory == null) return false;
+    if (_uid == null) return false;
+
+    final history = historyFactory(_uid!);
+    final order = OrderHistory(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      time: DateTime.now(),
+      status: OrderStatus.new_,
+      items: List.unmodifiable(_lines),
+      totalCentavos: totalCentavos,
+    );
+
+    unawaited(history.save(order));
+    clear();
+    return true;
   }
 
   /// Switches the draft store over when the account changes, and drops the

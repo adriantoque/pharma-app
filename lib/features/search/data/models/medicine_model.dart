@@ -117,7 +117,11 @@ class MedicineModel {
   /// Low but still orderable. Zero and unknown are excluded on purpose: "no
   /// stock" and "a little stock" are different problems and get different
   /// wording.
-  bool get isLowStock => stock != null && stock! > 0 && stock! <= lowStockThreshold;
+  ///
+  /// [isStockUnknown] items are included here so they appear in low stock
+  /// lists and demand attention (they need to be counted).
+  bool get isLowStock => stock != null && stock! > 0 && stock! <= lowStockThreshold 
+      || isStockUnknown;
 
   /// True when nobody has counted this line yet, which is the normal state for
   /// an imported product and the one the inventory screen exists to fix.

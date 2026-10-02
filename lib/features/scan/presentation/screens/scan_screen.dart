@@ -32,14 +32,9 @@ import '../../domain/prescription_recognizer.dart';
 /// what lets this whole flow run in a widget test: the real ones are platform
 /// channels, and the tests use fakes that return canned readings.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({
-    super.key,
-    this.repository,
-    this.recognizer,
-    this.camera,
-  });
+  const ScanScreen({super.key, this.repository, this.recognizer, this.camera});
 
-  /// The catalogue a handwritten line is matched against.
+  /// The catalogue a scanned line is matched against.
   ///
   /// Null in the app, where the live [MedicineProvider] is used instead, so that
   /// a scan searches the same hundreds of products the counter actually stocks
@@ -92,9 +87,7 @@ class _ScanScreenState extends State<ScanScreen> {
   /// failure while the message says it will work this time.
   bool _errorNeedsConnection = false;
 
-  /// Every reading ML Kit offered, per line, so a corrected line can be
-  /// re-matched without the photo being read again.
-  List<List<String>> _candidates = const [];
+  /// The text read on each line of the photo, in the order they appeared.
   List<String> _readings = const [];
   List<PrescriptionSuggestion> _suggestions = const [];
 
@@ -194,16 +187,9 @@ class _ScanScreenState extends State<ScanScreen> {
       final readings = await _recognizer.recognize(bytes);
       if (!mounted) return;
 
-      final suggestions = _matcher.suggest(readings);
       setState(() {
-        _candidates = [
-          for (final line in readings) List<String>.of(line.candidates),
-        ];
-        _readings = [
-          for (var i = 0; i < readings.length; i++)
-            _displayFor(i, readings[i], suggestions),
-        ];
-        _suggestions = suggestions;
+        _readings = [for (final line in readings) line.text];
+        _suggestions = _matcher.suggest(readings);
         _isReading = false;
       });
     } on PrescriptionRecognitionException catch (error) {
@@ -213,41 +199,15 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  /// What to show as line [index]'s reading.
-  ///
-  /// The catalog's pick wins over ML Kit's own first choice: the top candidate
-  /// is sometimes a misread, and the reading that produced a real match is the
-  /// more useful one to put in front of the user.
-  String _displayFor(
-    int index,
-    RecognizedLine line,
-    List<PrescriptionSuggestion> suggestions,
-  ) {
-    String? bestReading;
-    var bestConfidence = 0.0;
-    for (final suggestion in suggestions) {
-      if (suggestion.lineIndex != index) continue;
-      if (suggestion.confidence <= bestConfidence) continue;
-      bestConfidence = suggestion.confidence;
-      bestReading = suggestion.reading;
-    }
-    return bestReading ?? line.best ?? '';
-  }
-
   /// Re-matches a line the user corrected, without the photo being read again.
   void _setReading(int index, String text) {
-    final candidates = [
-      for (final line in _candidates) List<String>.of(line),
-    ];
     final readings = [..._readings];
-    candidates[index] = [text];
     readings[index] = text;
 
     setState(() {
-      _candidates = candidates;
       _readings = readings;
       _suggestions = _matcher.suggest([
-        for (final line in candidates) RecognizedLine(line),
+        for (final line in readings) RecognizedLine(line),
       ]);
     });
   }
@@ -304,13 +264,13 @@ class _ScanScreenState extends State<ScanScreen> {
           ] else
             const _Notice(
               icon: Icons.camera_outlined,
-              message: 'Camera text recognition is not available on this '
+              message:
+                  'Camera text recognition is not available on this '
                   'platform. Search for a medicine below instead.',
             ),
           Expanded(
             child: _Results(
               readings: _readings,
-              candidates: _candidates,
               suggestions: _suggestions,
               isReading: _isReading,
               onEdit: _editReading,
@@ -330,9 +290,13 @@ class _ScanScreenState extends State<ScanScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(
           height: 300,
-          child: preview ??
+          child:
+              preview ??
               Center(
-                child: Text('No preview', style: Theme.of(context).textTheme.bodySmall),
+                child: Text(
+                  'No preview',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
         ),
       );
@@ -561,7 +525,6 @@ class _ErrorCard extends StatelessWidget {
 class _Results extends StatelessWidget {
   const _Results({
     required this.readings,
-    required this.candidates,
     required this.suggestions,
     required this.isReading,
     required this.onEdit,
@@ -569,7 +532,6 @@ class _Results extends StatelessWidget {
   });
 
   final List<String> readings;
-  final List<List<String>> candidates;
   final List<PrescriptionSuggestion> suggestions;
   final bool isReading;
   final void Function(int index) onEdit;
@@ -578,22 +540,24 @@ class _Results extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lines = [
-      for (var i = 0; i < readings.length; i++) _LineResult(
-        index: i,
-        reading: readings[i],
-        isEmpty: candidates[i].isEmpty,
-        suggestions: [
-          for (final suggestion in suggestions)
-            if (suggestion.lineIndex == i) suggestion,
-        ],
-        onEdit: () => onEdit(i),
-        onAdd: onAdd,
-      ),
+      for (var i = 0; i < readings.length; i++)
+        _LineResult(
+          index: i,
+          reading: readings[i],
+          isEmpty: readings[i].isEmpty,
+          suggestions: [
+            for (final suggestion in suggestions)
+              if (suggestion.lineIndex == i) suggestion,
+          ],
+          onEdit: () => onEdit(i),
+          onAdd: onAdd,
+        ),
     ];
 
     if (lines.isEmpty) {
       return const _Empty(
-        message: 'Nothing read yet. Point the camera at a printed prescription '
+        message:
+            'Nothing read yet. Point the camera at a printed prescription '
             'and tap Scan it.',
       );
     }
@@ -723,8 +687,8 @@ class _SuggestionRow extends StatelessWidget {
                     // imported-but-uncounted products does not read as an
                     // inventory alert.
                     color: switch (stockState) {
-                      StockState.outOfStock || StockState.low =>
-                        theme.colorScheme.error,
+                      StockState.outOfStock ||
+                      StockState.low => theme.colorScheme.error,
                       StockState.unknown => theme.colorScheme.outline,
                       StockState.available =>
                         theme.colorScheme.onSurfaceVariant,
@@ -756,10 +720,7 @@ class _SuggestionRow extends StatelessWidget {
 }
 
 class _EditLineDialog extends StatefulWidget {
-  const _EditLineDialog({
-    required this.lineNumber,
-    required this.initialText,
-  });
+  const _EditLineDialog({required this.lineNumber, required this.initialText});
 
   final int lineNumber;
   final String initialText;
@@ -772,8 +733,9 @@ class _EditLineDialogState extends State<_EditLineDialog> {
   /// Owned here rather than by the screen: the dialog is still animating out
   /// when `showDialog` returns, so disposing the controller in the caller
   /// would tear the field out from under that transition.
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialText,
+  );
 
   @override
   void dispose() {

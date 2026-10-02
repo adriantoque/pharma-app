@@ -44,12 +44,14 @@ abstract interface class OrderDraftStore {
 /// it is made, and Firestore persists it before it goes anywhere near the
 /// network.
 class FirestoreOrderDraftStore implements OrderDraftStore, DisposableStore {
-  FirestoreOrderDraftStore({required FirebaseFirestore firestore, required String uid})
-    : _doc = firestore
-          .collection('users')
-          .doc(uid)
-          .collection('drafts')
-          .doc('order');
+  FirestoreOrderDraftStore({
+    required FirebaseFirestore firestore,
+    required String uid,
+  }) : _doc = firestore
+           .collection('users')
+           .doc(uid)
+           .collection('drafts')
+           .doc('order');
 
   final DocumentReference<Map<String, dynamic>> _doc;
 

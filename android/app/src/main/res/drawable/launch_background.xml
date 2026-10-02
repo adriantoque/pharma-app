@@ -2,7 +2,7 @@
 <!-- Shown from process start until the first Flutter frame, so the splash
      covers the Firebase bootstrap too.
 
-     This is a duplicate of assets/images/bgtheme.png: an Android layer-list
+     This is a duplicate of assets/images/bgtheme.jpg: an Android layer-list
      cannot reach the Flutter asset bundle, so the image has to exist as a real
      resource as well. Keep the two in sync.
 

@@ -70,16 +70,16 @@ void main() {
     }
   }
 
-  testWidgets('the browse state shows the count, the tiles and no rows', (
+  testWidgets('the browse state shows the sales card, action buttons and no rows', (
     tester,
   ) async {
     await pumpHome(tester);
 
-    expect(find.text('64 items'), findsOneWidget);
-    // The tiles are Home's quick access.
-    expect(find.text('Expiring Meds'), findsOneWidget);
-    expect(find.text('Scan Prescription'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text("Today's sales"), findsOneWidget);
+    // The action buttons are Home's quick access.
+    expect(find.text('New Sale'), findsOneWidget);
+    expect(find.text('Add Product'), findsOneWidget);
+    expect(find.text('Return'), findsOneWidget);
     // No result rows are built while nobody is searching.
     expect(find.text('Alcohol'), findsNothing);
   });
@@ -136,10 +136,9 @@ void main() {
     await tester.tap(find.byTooltip('Clear'));
     await tester.pumpAndSettle();
 
-    expect(find.text('64 items'), findsOneWidget);
-    // Clearing hands the space back to the tiles, which is what Home shows when
-    // nobody is searching -- not the full result list.
-    expect(find.text('Expiring Meds'), findsOneWidget);
+    expect(find.text("Today's sales"), findsOneWidget);
+    // Clearing hands the space back to the action buttons.
+    expect(find.text('New Sale'), findsOneWidget);
     expect(find.text('Alcohol'), findsNothing);
   });
 

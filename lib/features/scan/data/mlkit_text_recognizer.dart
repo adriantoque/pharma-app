@@ -20,7 +20,8 @@ class MlKitTextRecognizer implements PrescriptionRecognizer {
 
   /// The script recognised by default. Pharmacists in the Philippines write
   /// and print in a Latin script, which is also the smallest and fastest model.
-  static const TextRecognitionScript defaultScript = TextRecognitionScript.latin;
+  static const TextRecognitionScript defaultScript =
+      TextRecognitionScript.latin;
 
   final TextRecognitionScript script;
 
@@ -46,8 +47,9 @@ class MlKitTextRecognizer implements PrescriptionRecognizer {
 
       final RecognizedText recognized;
       try {
-        recognized =
-            await recognizer.processImage(InputImage.fromFilePath(file.path));
+        recognized = await recognizer.processImage(
+          InputImage.fromFilePath(file.path),
+        );
       } on MissingPluginException {
         throw PrescriptionRecognitionException(
           'Text recognition is not available on this device.',
@@ -65,8 +67,7 @@ class MlKitTextRecognizer implements PrescriptionRecognizer {
       return [
         for (final block in recognized.blocks)
           for (final line in block.lines)
-            if (line.text.trim().isNotEmpty)
-              RecognizedLine([line.text.trim()]),
+            if (line.text.trim().isNotEmpty) RecognizedLine(line.text.trim()),
       ];
     } finally {
       // The input goes through a file because `InputImage.fromFilePath` accepts

@@ -39,6 +39,7 @@ dependencies:
   provider: ^6.1.5+1
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
+  fl_chart: ^0.68.0
   # The Scan tab reads a printed prescription with the camera: `camera` shows a
   # live preview and captures a frame, `image_picker` offers a photo from the
   # gallery as an alternative source, and ML Kit's on-device text recognition

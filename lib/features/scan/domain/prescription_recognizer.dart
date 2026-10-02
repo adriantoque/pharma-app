@@ -2,26 +2,24 @@ import 'package:flutter/foundation.dart';
 
 /// What the recognizer made of one line of printed text.
 ///
-/// [candidates] holds every reading ML Kit offered, best first. The matcher
-/// scores them all against the catalog, which is what lets a noisy line such
-/// as "Amoxcilln 500" still name the right medicine.
+/// One line in, one reading out. ML Kit's own ranking is not carried through:
+/// the matcher scores this text against the catalogue instead, which is what
+/// turns a noisy reading such as "Amoxcilln 500" into the right medicine, and a
+/// second candidate would only be a reading of the same line anyway.
 @immutable
 class RecognizedLine {
-  const RecognizedLine(this.candidates);
+  const RecognizedLine(this.text);
 
-  /// Every reading for this line, most likely first. Empty when the image held
-  /// no recognisable text.
-  final List<String> candidates;
-
-  /// The reading ML Kit ranked highest, or null when it found nothing.
-  String? get best => candidates.isEmpty ? null : candidates.first;
+  /// The text read on this line, already trimmed. Empty when the image held no
+  /// recognisable text.
+  final String text;
 }
 
 /// Reads a photograph of a prescription, one line at a time.
 ///
 /// The interface exists so the Scan tab can be driven in a widget test. The
 /// real implementation is a platform channel, and a fake that returns canned
-/// candidates is both cheaper and more precise than trying to stub a channel.
+/// readings is both cheaper and more precise than trying to stub a channel.
 ///
 /// There is no model-download step here on purpose: ML Kit's text recognition
 /// downloads its Latin model through Google Play Services on first use, so the

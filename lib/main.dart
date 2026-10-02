@@ -15,7 +15,9 @@ import 'features/auth/data/repositories/firebase_auth_repository.dart';
 import 'features/auth/data/repositories/offline_session.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/orders/data/repositories/local_order_draft_store.dart';
+import 'features/orders/data/repositories/local_order_history_repository.dart';
 import 'features/orders/data/repositories/order_draft_store.dart';
+import 'features/orders/data/repositories/firestore_order_history_repository.dart';
 import 'features/orders/presentation/providers/order_provider.dart';
 import 'features/search/data/repositories/firestore_medicine_store.dart';
 import 'features/search/data/repositories/local_medicine_store.dart';
@@ -112,23 +114,24 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         // One Firestore handle for the whole app. FirebaseFirestore.instance is
         // already a singleton, so this is a shared handle rather than a shared
         // database, and every store can be built from the same object.
-        Provider<FirebaseFirestore>(
-          create: (_) => FirebaseFirestore.instance,
+        Provider<FirebaseFirestore>(create: (_) => FirebaseFirestore.instance),
+        Provider<OfflineSession>(
+          create: (_) => StoredOfflineSession(
+            readStorage: () async => (await SharedPreferences.getInstance())
+                .getString('offlineMode'),
+            writeStorage: (value) async =>
+                (await SharedPreferences.getInstance()).setString(
+                  'offlineMode',
+                  value ?? '',
+                ),
+          ),
         ),
-         Provider<OfflineSession>(
-           create: (_) => StoredOfflineSession(
-             readStorage: () async =>
-                 (await SharedPreferences.getInstance()).getString('offlineMode'),
-             writeStorage: (value) async => (await SharedPreferences.getInstance())
-                 .setString('offlineMode', value ?? ''),
-           ),
-         ),
-         ChangeNotifierProvider<AuthProvider>(
-           create: (ctx) => AuthProvider(
-             ctx.read<AuthRepository>(),
-             offlineSession: ctx.read<OfflineSession>(),
-           ),
-         ),
+        ChangeNotifierProvider<AuthProvider>(
+          create: (ctx) => AuthProvider(
+            ctx.read<AuthRepository>(),
+            offlineSession: ctx.read<OfflineSession>(),
+          ),
+        ),
         // Above the router, so the price list outlives a tab switch. Built from a
         // factory because the store is scoped to a user id, and signing in as
         // somebody else has to give it a different one.
@@ -137,45 +140,62 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         // before any network call finishes, and so a brand new account seeds
         // itself instead of sitting empty until somebody runs
         // tool/seed_firestore.dart from a laptop.
-         ChangeNotifierProvider<MedicineProvider>(
-           create: (ctx) {
-             final firestore = ctx.read<FirebaseFirestore>();
-             return MedicineProvider(
-               auth: ctx.read<AuthProvider>(),
-               storeFor: (uid) {
-                 if (uid == AuthProvider.offlineUserId) {
-                   return LocalMedicineStore();
-                 }
-                 return SeededMedicineStore(
-                   remote: FirestoreMedicineStore(
-                     firestore: firestore,
-                     uid: uid,
-                     connection: ctx.read<ConnectionSource>(),
-                     queue: _queueFor(uid),
-                   ),
-                 );
-               },
-             );
-           },
-         ),
+        ChangeNotifierProvider<MedicineProvider>(
+          create: (ctx) {
+            final firestore = ctx.read<FirebaseFirestore>();
+            return MedicineProvider(
+              auth: ctx.read<AuthProvider>(),
+              storeFor: (uid) {
+                if (uid == AuthProvider.offlineUserId) {
+                  return LocalMedicineStore();
+                }
+                return SeededMedicineStore(
+                  remote: FirestoreMedicineStore(
+                    firestore: firestore,
+                    uid: uid,
+                    connection: ctx.read<ConnectionSource>(),
+                    queue: _queueFor(uid),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        // Offline has nowhere to put a finished order, so history is kept in
+        // memory for the session. One instance for the whole app: the provider
+        // asks for a repository per sale, and one built per sale would leave
+        // the screen empty after every order.
+        Provider<LocalOrderHistoryRepository>(
+          create: (_) => LocalOrderHistoryRepository(),
+          dispose: (_, store) => store.dispose(),
+        ),
         // Above the router, so the order outlives a tab switch -- and, with the
         // draft store, outlives the app closing. Constructed against auth so
         // signing out empties it and signing back in picks the basket up again.
-         ChangeNotifierProvider<OrderProvider>(
-           create: (ctx) => OrderProvider(
-             auth: ctx.read<AuthProvider>(),
-             catalogue: ctx.read<MedicineProvider>(),
-             draftFor: (uid) {
-               if (uid == AuthProvider.offlineUserId) {
-                 return LocalOrderDraftStore();
-               }
-               return FirestoreOrderDraftStore(
-                 firestore: ctx.read<FirebaseFirestore>(),
-                 uid: uid,
-               );
-             },
-           ),
-         ),
+        ChangeNotifierProvider<OrderProvider>(
+          create: (ctx) => OrderProvider(
+            auth: ctx.read<AuthProvider>(),
+            catalogue: ctx.read<MedicineProvider>(),
+            draftFor: (uid) {
+              if (uid == AuthProvider.offlineUserId) {
+                return LocalOrderDraftStore();
+              }
+              return FirestoreOrderDraftStore(
+                firestore: ctx.read<FirebaseFirestore>(),
+                uid: uid,
+              );
+            },
+            historyFor: (uid) {
+              if (uid == AuthProvider.offlineUserId) {
+                return ctx.read<LocalOrderHistoryRepository>();
+              }
+              return FirestoreOrderHistoryRepository(
+                firestore: ctx.read<FirebaseFirestore>(),
+                uid: uid,
+              );
+            },
+          ),
+        ),
         Provider<GoRouter>(
           create: (ctx) =>
               createAppRouter(refreshListenable: ctx.read<AuthProvider>()),

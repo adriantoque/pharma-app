@@ -4,11 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:pharmaguide/app.dart';
 import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
-import 'package:pharmaguide/core/widgets/app_background.dart';
-import 'package:pharmaguide/core/widgets/content_panel.dart';
 import 'package:pharmaguide/features/auth/data/models/user_model.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
-import 'package:pharmaguide/features/auth/presentation/screens/auth_landing_screen.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
@@ -222,251 +219,6 @@ Widget medicineProvider({required Widget child}) =>
     await tester.pumpAndSettle();
   }
 
-  group('app background', () {
-    // The artwork is mounted by AppShell, so it covers the signed-in area and
-    // not the login route. Both halves are asserted below, because a
-    // background applied one level too high looks fine on the tabs and wrong
-    // on login, and neither mistake throws.
-
-    test('the theme lets the background show through', () {
-      for (final brightness in Brightness.values) {
-        final theme = buildAppTheme(brightness);
-        final label = brightness.name;
-
-        // Each screen owns its own Scaffold, so an opaque colour here would
-        // hide bgtheme.png completely and nothing else would look wrong.
-        expect(
-          theme.scaffoldBackgroundColor,
-          Colors.transparent,
-          reason: '$label scaffolds would cover the background',
-        );
-        expect(
-          theme.appBarTheme.backgroundColor,
-          Colors.transparent,
-          reason: '$label app bars would cover the background',
-        );
-        expect(
-          theme.appBarTheme.scrolledUnderElevation,
-          0,
-          reason: '$label app bars would tint the background when scrolled',
-        );
-      }
-    });
-
-    test('the nav bar is opaque so its destinations stay visible', () {
-      for (final brightness in Brightness.values) {
-        final theme = buildAppTheme(brightness);
-        final label = brightness.name;
-
-        // The artwork is light, and unselected destinations are low-contrast
-        // grey. A transparent bar left all five effectively invisible, so the
-        // bar is the one surface that must not inherit transparency.
-        expect(
-          theme.navigationBarTheme.backgroundColor,
-          isNot(Colors.transparent),
-          reason: '$label nav bar icons would vanish into the artwork',
-        );
-        expect(
-          theme.navigationBarTheme.elevation,
-          greaterThan(0),
-          reason: '$label nav bar needs lift to separate it from the artwork',
-        );
-        expect(
-          theme.navigationBarTheme.labelBehavior,
-          NavigationDestinationLabelBehavior.alwaysShow,
-          reason: '$label nav bar must not drop labels on short viewports',
-        );
-      }
-    });
-
-    testWidgets('app mode is pinned to light for the light background', (
-      tester,
-    ) async {
-      final auth = createProvider();
-      await pumpRealApp(tester, auth: auth);
-
-      final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-      // Left following the system, the dark theme's near-white text would sit
-      // on the 88% luminance artwork and be unreadable.
-      expect(app.themeMode, ThemeMode.light);
-      expect(app.darkTheme!.colorScheme.onSurface.computeLuminance(),
-          greaterThan(0.5));
-    });
-
-    testWidgets('the login screen has no background image', (tester) async {
-      await pumpRealApp(tester, auth: createProvider());
-
-      expect(find.text('Continue with Google'), findsOneWidget);
-      expect(
-        find.byType(AppBackground),
-        findsNothing,
-        reason: 'the login route sits outside the shell, so it must not be '
-            'backed by the artwork',
-      );
-    });
-
-    testWidgets('the login screen still paints an opaque surface', (
-      tester,
-    ) async {
-      await pumpRealApp(tester, auth: createProvider());
-
-      // The theme's scaffold background is transparent so the shell's artwork
-      // can show through. Nothing is behind the login route, so an inherited
-      // transparent scaffold would show the raw window background here.
-      final scaffold = tester.widget<Scaffold>(
-        find.descendant(
-          of: find.byType(AuthLandingScreen),
-          matching: find.byType(Scaffold),
-        ),
-      );
-      expect(scaffold.backgroundColor, isNot(Colors.transparent));
-      expect(scaffold.backgroundColor?.computeLuminance(), greaterThan(0.5));
-    });
-
-    testWidgets('the signed-in tabs share one background from the shell', (
-      tester,
-    ) async {
-      final auth = createProvider();
-      await auth.login(email: 'a@b.com', password: 'secret');
-      await pumpRealApp(tester, auth: auth);
-
-      expect(find.byType(AppBackground), findsOneWidget);
-
-      // Still exactly one after switching tabs: the artwork belongs to the
-      // shell, not to a tab, so it must not be rebuilt or duplicated per tab.
-      for (final label in AppShell.destinations.map((d) => d.label)) {
-        await tester.tap(
-          find.descendant(
-            of: find.byType(NavigationBar),
-            matching: find.text(label),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.byType(AppBackground),
-          findsOneWidget,
-          reason: 'tab "$label" should not have its own background',
-        );
-      }
-    });
-
-    testWidgets('tab content is raised on a panel inside the artwork', (
-      tester,
-    ) async {
-      final auth = createProvider();
-      await auth.login(email: 'a@b.com', password: 'secret');
-      await pumpRealApp(tester, auth: auth);
-
-      // The artwork stays; only the content stopped sitting directly on it.
-      expect(find.byType(AppBackground), findsOneWidget);
-      expect(find.byType(ContentPanel), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(ContentPanel),
-          matching: find.byType(Scaffold),
-        ),
-        findsWidgets,
-      );
-      // Chrome stays outside the panel so the bar keeps its own surface.
-      expect(
-        find.descendant(
-          of: find.byType(ContentPanel),
-          matching: find.byType(NavigationBar),
-        ),
-        findsNothing,
-      );
-
-      final panel = tester.widget<Container>(
-        find
-            .descendant(
-              of: find.byType(ContentPanel),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      final decoration = panel.decoration! as BoxDecoration;
-      // Translucent, but only just: below about 0.85 the artwork starts
-      // competing with body text, and fully opaque would hide it entirely.
-      expect(decoration.color!.a, greaterThanOrEqualTo(0.85));
-      expect(decoration.color!.a, lessThanOrEqualTo(0.95));
-      expect(decoration.boxShadow, isNotEmpty);
-    });
-
-    testWidgets('tab content clears the status bar inset', (tester) async {
-      // The window draws under the status bar, so the shell has to inset itself.
-      // 24dp is this device's bar; what matters is that the inset is honoured
-      // at all, and honoured exactly once.
-      tester.view.devicePixelRatio = 1.0;
-      tester.view.physicalSize = const Size(800, 600);
-      tester.view.padding = const FakeViewPadding(top: 24);
-      tester.view.viewPadding = const FakeViewPadding(top: 24);
-      addTearDown(tester.view.reset);
-
-      final auth = createProvider();
-      await auth.login(email: 'a@b.com', password: 'secret');
-      await pumpRealApp(tester, auth: auth);
-
-      // Without the shell's SafeArea the panel's own 14dp margin put its top
-      // edge, corners and shadow underneath the clock, signal and battery.
-      final panelTop = tester.getTopLeft(find.byType(ContentPanel)).dy;
-      expect(
-        panelTop,
-        greaterThanOrEqualTo(24),
-        reason: 'the panel must start below the status bar',
-      );
-      // Exactly one inset. If the shell and the tab AppBar both added it, this
-      // would be 48 and the content would sit in a 24dp empty gap.
-      expect(
-        panelTop,
-        lessThan(24 + 14),
-        reason: 'the status bar inset must be consumed once, not twice',
-      );
-
-      // The title stays clear of the bar as well. Scoped to the AppBar, since
-      // "Home" is also the bottom bar's label for the same tab.
-      expect(
-        tester
-            .getTopLeft(
-              find.descendant(
-                of: find.byType(AppBar),
-                matching: find.text('Home'),
-              ),
-            )
-            .dy,
-        greaterThanOrEqualTo(24),
-      );
-    });
-
-    testWidgets('the background stacks the image behind its child', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        // In the app this sits under MaterialApp, which supplies
-        // Directionality. Pumped bare, the Stack would have no text direction
-        // to resolve its default alignment against.
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: AppBackground(
-            // A test asset bundle has no manifest, so a real AssetImage would
-            // fail to resolve. This stands in for it.
-            image: const AssetImage('assets/images/baseIcon.png'),
-            child: const Text('on top'),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      final stack = tester.widget<Stack>(find.byType(Stack));
-      expect(stack.fit, StackFit.expand);
-
-      // Decoration first, app second: a later child paints on top, so the
-      // reversed order would hide the app instead of the image.
-      expect(stack.children.first, isA<Image>());
-      expect(stack.children.last, isA<Text>());
-      expect(find.text('on top'), findsOneWidget);
-    });
-  });
-
   group('routing', () {
     testWidgets('an unauthenticated user lands on the login screen', (
       tester,
@@ -491,7 +243,7 @@ Widget medicineProvider({required Widget child}) =>
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      expect(find.text('Expiring Meds'), findsOneWidget);
+      expect(find.text("Today's sales"), findsOneWidget);
       expect(find.text('Welcome to'), findsNothing);
     });
 
@@ -507,9 +259,10 @@ Widget medicineProvider({required Widget child}) =>
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      expect(find.text('Expiring Meds'), findsOneWidget);
+      expect(find.text("Today's sales"), findsOneWidget);
 
-      await tester.tap(find.text('Profile'));
+      // Profile is now an icon button in the AppBar
+      await tester.tap(find.byTooltip('Profile'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Sign out'));
@@ -556,7 +309,7 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await tester.tap(tab('Home'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 0);
-      expect(find.text('Expiring Meds'), findsOneWidget);
+      expect(find.text("Today's sales"), findsOneWidget);
     });
 
     testWidgets('orders sits at index 2 and reports at 3', (
@@ -615,7 +368,7 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       expect(tester.takeException(), isNull);
     });
 
-testWidgets('a home tile pushes a child page and back returns home', (
+testWidgets('a home action opens a child page and back returns home', (
       tester,
     ) async {
       final auth = createProvider();
@@ -625,9 +378,9 @@ testWidgets('a home tile pushes a child page and back returns home', (
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // The tiles are children of the Home branch, so they push rather than
+      // The expiring chip is a child of the Home branch, so it pushes rather than
       // switch tabs: Home stays selected and a back arrow appears.
-      await tester.tap(find.text('Expiring Meds'));
+      await tester.tap(find.textContaining('expiring'));
       await tester.pumpAndSettle();
       expect(find.text('Expiring Meds'), findsOneWidget);
       expect(
@@ -638,9 +391,10 @@ testWidgets('a home tile pushes a child page and back returns home', (
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text('Expiring Meds'), findsOneWidget);
+      expect(find.text("Today's sales"), findsOneWidget);
 
-      await tester.tap(find.text('Scan Prescription'));
+      // The scan button in the AppBar also pushes a child page.
+      await tester.tap(find.byTooltip('Scan'));
       await tester.pumpAndSettle();
       expect(find.text('Scan'), findsOneWidget);
     });
@@ -668,6 +422,14 @@ testWidgets('a home tile pushes a child page and back returns home', (
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
       final centreline = width / 2;
 
+      // Home tab has a custom title "Wilma Pharmacy's", others use their label
+      final expectedTitles = {
+        'Home': "Wilma Pharmacy's",
+        'Inventory': 'Inventory',
+        'Orders': 'Orders',
+        'Reports': 'Reports',
+      };
+
       for (final label in AppShell.destinations.map((d) => d.label)) {
         await tester.tap(
           find.descendant(
@@ -677,8 +439,9 @@ testWidgets('a home tile pushes a child page and back returns home', (
         );
         await tester.pumpAndSettle();
 
-        expect(appBarTitle(label), findsOneWidget);
-        final centre = tester.getCenter(appBarTitle(label)).dx;
+        final expectedTitle = expectedTitles[label] ?? label;
+        expect(appBarTitle(expectedTitle), findsOneWidget);
+        final centre = tester.getCenter(appBarTitle(expectedTitle)).dx;
         // The panel's side margins are symmetric, so a title centred in its
         // AppBar lands on the screen's centreline. One logical pixel of slack
         // for sub-pixel layout rounding.
@@ -697,7 +460,7 @@ testWidgets('a home tile pushes a child page and back returns home', (
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
 
-      await tester.tap(find.text('Expiring Meds'));
+      await tester.tap(find.textContaining('expiring'));
       await tester.pumpAndSettle();
 
       final width =
@@ -773,7 +536,7 @@ testWidgets('a home tile pushes a child page and back returns home', (
       await tester.pumpAndSettle();
 
       expect(find.text('Email'), findsNothing);
-      expect(find.text('Expiring Meds'), findsOneWidget);
+      expect(find.text("Today's sales"), findsOneWidget);
       expect(repository.loginAttempts, 1);
     });
   });

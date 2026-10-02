@@ -26,7 +26,8 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   bool get isReady => _controller?.value.isInitialized ?? false;
 
   /// The live preview widget. Null until [initialize] has opened the camera.
-  Widget? get preview => _controller == null ? null : CameraPreview(_controller!);
+  Widget? get preview =>
+      _controller == null ? null : CameraPreview(_controller!);
 
   @override
   Future<void> initialize() async {
@@ -138,7 +139,7 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
     } on PlatformException catch (error) {
       final message = error.code == 'photo_access_denied'
           ? 'Photos are switched off for PharmaGuide. Allow them in Settings to '
-              'pick a prescription.'
+                'pick a prescription.'
           : 'The photo could not be read. (${error.code})';
       throw PrescriptionRecognitionException(message);
     }

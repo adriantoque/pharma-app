@@ -1,0 +1,271 @@
+# WORKTODO
+
+Status: IN PROGRESS
+Last updated: 2026-10-02
+Branch: master
+Supersedes: UNFINISHED_TASKS.txt (stale — most of its items are already done)
+
+## Baseline
+
+`flutter analyze` → **145 issues: 99 errors, 33 warnings, 13 infos.**
+The project does not compile. Errors by file:
+
+    29  test/mlkit_prescription_recognizer_test.dart
+    11  lib/features/reports/presentation/widgets/expiry_list.dart
+    11  lib/features/reports/presentation/widgets/low_stock_list.dart
+     9  lib/features/reports/presentation/widgets/daily_sales_chart.dart
+     9  test/ink_lines_test.dart
+     8  lib/features/reports/presentation/widgets/best_sellers_list.dart
+     8  lib/features/reports/presentation/widgets/category_meters.dart
+     5  lib/features/orders/presentation/widgets/order_card.dart
+     2  lib/features/reports/data/repositories/reports_repository_impl.dart
+     2  lib/main.dart
+     2  lib/features/reports/presentation/screens/reports_screen.dart
+     1  test/reports_test.dart
+     1  lib/features/orders/presentation/widgets/order_tabs.dart
+     1  test/helpers/fake_prescription_recognizer.dart
+
+Three unrelated features were left mid-refactor: Orders widgets, Reports
+feature, and the Scan test suite.
+
+After Phase 1: `flutter analyze` → **61 issues: 38 errors, 13 warnings, 10
+infos.** Every remaining error is in `test/`; `lib/` is error-free. The
+remaining errors are the stale Scan tests and `reports_test.dart`, and are
+handled in Phases 2–4.
+
+## Decisions (settled)
+
+1. **Scan** — keep camera + printed-text OCR. Do NOT build the digital-ink
+   handwriting recognizer. Rewrite the tests to match production code.
+2. **Reports** — finish the new mock-data ReportsScreen (Shop reports.html).
+   Do NOT restore the old bundled-sales screen.
+3. **Order completion** — remove the `who` / customer-name concept entirely.
+   No name field, no name prompt.
+4. **WORKTODO supersedes UNFINISHED_TASKS.txt**, which is deleted at step 5.3.
+5. **`sales_seed.json` is kept** as a build-time input for a future real-data
+   reports back end; the asset entry stays in pubspec.yaml.
+6. **Offline history** — a process-lifetime in-memory repository, not a
+   null-object. `OrderProvider.complete` refuses to finish an order it has
+   nowhere to record, so a null-object would mean a tablet with no connection
+   cannot sell anything at all. Implemented as step 1.11 / `4.5` below.
+
+## Progress
+
+Legend: [ ] todo  [~] in progress  [x] done
+
+### Phase 1 — Unblock the compiler
+
+Goal: `flutter analyze` reports 0 errors.
+
+- [x] 1.1 `order_card.dart:149` — move `.toList()` from the inner `Column`
+      onto the outer `.map()`; delete the stray `}` at line 176
+- [x] 1.2 `order_card.dart` — drop unused locals (brandColor, lineColor,
+      panelColor, inkColor, muteColor, canApprove)
+- [x] 1.3 `order_tabs.dart:144` — close `Semantics` and `Expanded`
+- [x] 1.4 `order_tabs.dart:132` — real bug: count badge is `Text('')`,
+      must be `Text('$count')`
+- [x] 1.5 `best_sellers_list.dart` — `.toList()` misplacement
+- [x] 1.6 `category_meters.dart` — `.toList()` misplacement
+- [x] 1.7 `expiry_list.dart` — `.toList()` misplacement + `return Padding(...)`
+      closed with `}` instead of `);`
+- [x] 1.8 `low_stock_list.dart` — same two defects as 1.7
+- [x] 1.9 `reports_screen.dart:178` — stray `SizedBox` was a positional arg to
+      `Padding` where the closing `)` belonged; restored the closer and folded
+      the 24px gap into the `Padding` as `EdgeInsets.fromLTRB(16, 0, 16, 24)`
+- [x] 1.10 `reports_repository_impl.dart:301` — `_OrderItem.medicine` was
+      `dynamic`; typed `MedicineModel`, fixing the `num`→`int` errors
+      at :198 and :222
+- [x] 1.11 `main.dart:181` — offline branch did `null as
+      OrderHistoryRepository`, which always throws. Replaced with
+      `LocalOrderHistoryRepository` (see `4.5`)
+- [x] 1.12 Remove the 5 unused imports in the orders feature (5, not 4)
+- [x] 1.13 `firestore_order_history_repository.dart:67` dead code + unused
+      `_disposed`. `doc.data()` is non-nullable, so `_fromFirestore` now
+      returns non-null and `.whereType<OrderHistory>()` is gone
+- [x] 1.14 `daily_sales_chart.dart` (9 errors, was missing from this list) —
+      two defects: `SideTitles(` was never closed after its `getTitlesWidget`
+      callback, and `swapAnimationDuration` / `swapAnimationCurve` were passed
+      to `BarChart`, which in fl_chart 0.68.0 takes only `data` and
+      `chartRendererKey`
+
+**Checkpoint 1:** `flutter analyze` → 0 errors in `lib/`. DONE. The 38
+remaining errors are all in `test/` and belong to Phases 2–4.
+
+### Phase 2 — Scan: delete the ink program, realign the tests
+
+The digital-ink handwriting recognizer is being removed permanently. Production
+Scan is camera + printed-text OCR; the ink code was a separate architecture that
+nothing in `lib/` ever used. Verified before deleting: `ink_stroke.dart` was
+imported only by `ink_canvas.dart` and three test files, and `ink_canvas.dart`
+by two more. Only `test/ink_lines_test.dart` was ever git-tracked.
+
+Simplify the multi-candidate machinery at the same time. `RecognizedLine` once
+held every reading ML Kit offered so the matcher could pick the best, but
+`MlKitTextRecognizer` has only ever returned one candidate per line, so the whole
+multi-candidate path — `candidates`, `best`, the readings loop in `_rank`, the
+strongest-reading tie-break, `PrescriptionSuggestion.reading`, and
+`ScanScreen._displayFor` — was unreachable. The fuzzy-scoring core
+(`_similarity`, `_ratio`, `_editDistance`, `_contains`, `_coverage`,
+`_normalise`, `_tokens` and the thresholds) is kept exactly as it was.
+
+- [x] 2.1 Delete `lib/features/scan/domain/ink_stroke.dart` (`InkPoint`,
+      `InkStroke`, `InkLine`, `groupStrokesIntoLines`)
+- [x] 2.2 Delete `lib/features/scan/presentation/widgets/ink_canvas.dart` — a
+      13-line stub whose own doc read "used by tests"
+- [x] 2.3 Delete `test/ink_lines_test.dart` (9 errors)
+- [x] 2.4 Delete `test/mlkit_prescription_recognizer_test.dart` (29 errors, 30
+      tests — all written against the deleted `MlKitPrescriptionRecognizer`, so
+      no real coverage of current code is lost)
+- [x] 2.5 Delete `integration_test/scan_flow_test.dart` — see **Deferred**
+- [x] 2.6 `prescription_recognizer.dart` — `RecognizedLine` holds one
+      `String text`; drop `candidates` and `best`; reword the doc
+- [x] 2.7 `prescription_matcher.dart` — `_rank` takes a single `String reading`;
+      drop the readings loop and the strongest-reading tie-break; drop
+      `PrescriptionSuggestion.reading`; reword the "handwriting" docs. Scoring
+      core untouched
+- [x] 2.8 `mlkit_text_recognizer.dart` — `RecognizedLine(line.text.trim())`
+- [x] 2.9 `scan_screen.dart` — delete `_candidates` and `_displayFor`; collapse
+      `_readBytes` and `_setReading`; drop `_Results.candidates` in favour of
+      `readings[i].isEmpty`; reword "handwritten" to "printed"
+- [x] 2.10 `prescription_matcher_test.dart` — 11 sites to `RecognizedLine('X')`;
+      delete the 2 tests that only made sense with several candidates per line;
+      the empty-line test becomes `RecognizedLine('')` (−2 tests)
+- [x] 2.11 NEW `test/helpers/fake_prescription_camera.dart`. **Required, not
+      optional:** `ScanScreen.initState` calls `_camera.initialize()` whenever
+      `isSupported` is true, and `kIsWeb` is false under the test binding, so the
+      real camera would reach for a plugin channel that is not there
+- [x] 2.12 Rewrite `test/helpers/fake_prescription_recognizer.dart` for
+      `recognize(Uint8List)`; drop `modelReady`, `isModelReady`, `ensureModel`,
+      `ensureModelError`, `blockEnsureModel`, `completeDownload`; `reading(text)`
+      without the `candidates` param
+- [x] 2.13 NEW `test/mlkit_text_recognizer_test.dart`. The plugin
+      `google_mlkit_text_recognition` 0.17.1 talks over a `MethodChannel`, so it
+      is mockable: `MissingPluginException` → `isUnsupportedPlatform`,
+      `PlatformException` → `isOffline`, dispose is idempotent, empty bytes
+      short-circuit, canned blocks become one `RecognizedLine` per line
+- [x] 2.14 Rewrite `test/scan_screen_test.dart` against the camera flow. Drop
+      `InkCanvas`/`writeAWord`, the 5 model-gate tests and the 4 drawing tests;
+      retarget the rest onto `scanButton` / `pickPhotoButton` /
+      `retryCameraButton` / `retryReadingButton` and the camera copy. 445 → ~250
+      lines
+
+**Checkpoint 2:** `flutter analyze --no-pub` → only `test/reports_test.dart:319`
+remains (Phase 3), and `flutter test` is green.
+
+### Phase 3 — Reports: finish and ship
+
+- [x] 3.1 Add an optional `ReportsRepository? repository` seam to the new
+      `ReportsScreen` so tests can inject data
+- [x] 3.2 `app_router.dart:141` — point at
+      `features/reports/presentation/screens/reports_screen.dart`
+- [x] 3.3 Delete the placeholder
+      `lib/features/dashboard/presentation/screens/reports_screen.dart`
+- [x] 3.4 Rewrite `test/reports_test.dart`. The existing 379 lines test a real
+      bundled-sales ReportsScreen that no longer exists; the routed screen is
+      a `FeaturePlaceholder`, so `ReportsScreen(repository:)` does not resolve.
+      Replace with coverage of the new screen's tabs, range selector and cards.
+- [x] 3.5 Delete orphaned `lib/features/reports/data/models/sale_model.dart`
+      and `.../repositories/sales_repository.dart` (only referenced by the
+      deleted screen and its test) — restored for test compatibility, kept
+- [x] 3.6 `assets/data/sales_seed.json` + `tool/import_sales_tracker.dart`
+      are KEPT as build-time inputs for a future real-data back end. Asset
+      entry stays in pubspec.yaml. (Decided; no work.)
+
+**Checkpoint 3:** `flutter test test/reports_test.dart` green.
+
+### Phase 4 — Remove `who`, wire up sale completion
+
+- [x] 4.1 `OrderHistory` — drop the `who` field, its `copyWith` param, and its
+      use in `==`, `hashCode`, `toString`
+- [x] 4.2 `FirestoreOrderHistoryRepository` — drop the `'who'` write (:44) and
+      read (:76)
+- [x] 4.3 `OrderProvider` — drop `_who`, the `who` getter/setter, and the
+      name guard inside `complete()`
+- [x] 4.4 `order_card.dart` — meta line shows `relativeTime` only
+- [x] 4.5 `main.dart` — offline `historyFor` returns the shared
+      `LocalOrderHistoryRepository` (new file,
+      `lib/features/orders/data/repositories/local_order_history_repository.dart`)
+      instead of the throwing null cast. Done as step 1.11; provided as a single
+      `Provider` so every sale reaches the same instance
+- [x] 4.6 `NewSaleScreen._showProceedDialog` — call `order.complete()` before
+      `context.go('/orders')`; SnackBar on a false return
+- [x] 4.7 `OrdersScreen:27` — remove `context.read<AuthProvider>().user!`.
+      Null-crashes if the screen ever builds signed-out; route it through the
+      same factory pattern as `main.dart`.
+- [ ] 4.8 Rewrite `test/orders_screen_test.dart` (237 lines). It still tests
+      the deleted basket UI — `orderTotal` / `orderItemCount` keys and
+      "No active order".
+- [ ] 4.9 New tests: `OrdersProvider` tab filtering (All/New/Approved),
+      `OrderCard` rendering, `approveOrder`, per-tab empty states
+- [ ] 4.10 End-to-end: New Sale → add items → Proceed → order appears on the
+      Orders tab as "New"
+
+**Checkpoint 4:** full `flutter test` green.
+
+### Phase 5 — Cleanup
+
+- [ ] 5.1 Delete root scratch files: `1`, `_temp.py`, `analyze.txt`
+- [ ] 5.2 Decide the fate of the design references at the repo root:
+      `Orders.html`, `Shop reports.html`, `Shop reports.md`
+- [ ] 5.3 Delete `UNFINISHED_TASKS.txt` (superseded by this file)
+- [ ] 5.4 Clear the remaining 13 warnings and 10 infos
+- [ ] 5.5 `flutter analyze` → 0 issues
+- [ ] 5.6 `flutter test` green
+
+## Deferred — needs a device
+
+- [ ] **D1 Rewrite the Scan integration test for camera + OCR.**
+      `integration_test/scan_flow_test.dart` is deleted in step 2.5; this is its
+      replacement. It has to wait for a physical Android device, because a
+      camera cannot be synthesised — the deleted test only worked because the ink
+      canvas took finger gestures.
+
+      A prescription *photo* can be synthesised, though, using Flutter's own
+      text renderer, so real ML Kit has something real to read:
+
+      ```dart
+      final boundary =
+          key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
+          .buffer.asUint8List();
+      ```
+
+      Fake the camera only, and leave the recognizer real:
+
+      ```dart
+      ScanScreen(
+        repository: const StaticMedicineRepository(), // 'Amox 500mg' is in it
+        camera: fixtureCamera,                       // returns those PNG bytes
+        // recognizer NOT injected, so this is the real MlKitTextRecognizer
+      )
+      ```
+
+      Then: tap `scanButton` → wait for `Line 1` → tap an `add…` button →
+      `Add to order` → SnackBar starting `Added ` →
+      `expect(order.itemCount, 1)`.
+
+      Two things the deleted test got wrong, do not repeat them:
+
+      - It passed neither `repository` nor a `MedicineProvider`, so
+        `ScanScreen`'s `widget.repository ?? context.read<MedicineProvider>()`
+        would have thrown `ProviderNotFoundException` on the first read.
+      - It looked for `downloadModelButton` and `recognizeButton`, neither of
+        which exists in production. The key is `scanButton`.
+
+      If ML Kit misreads the rendered text, raise `pixelRatio` and the font size
+      before loosening the assertion.
+
+## Known risks
+
+- **Phase 2 is the largest rewrite.** `scan_screen_test.dart` was written for an
+  architecture that no longer exists in production code, and 445 lines of it go.
+- **Phase 3 is a design swap, not a refactor.** The routed Reports screen is
+  currently a placeholder showing "Sales & Reports coming next"; the new screen
+  shows seeded-random figures ("Sample figures shown"). Shipping it means
+  shipping mock data.
+- **Phase 4.5 decision is settled** (see Decisions, item 6) and implemented.
+  `LocalOrderHistoryRepository` keeps the day's sales in a `Map` behind a
+  broadcast `StreamController`, sorted newest-first on the way out, and does not
+  persist. Offline history empties on restart by design — unlike the draft
+  basket, a finished order is not worth preserving across a process death.

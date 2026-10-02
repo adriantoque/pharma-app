@@ -14,15 +14,10 @@ class App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
-      // Pinned to light, not left following the system. bgtheme.png is an 88%
-      // luminance image, so the dark theme's near-white text would sit on
-      // cream and be unreadable. darkTheme is kept so the dark palette stays
-      // exercised by the tests if the artwork is ever replaced.
+      // Pinned to light rather than left following the system. The light theme
+      // was chosen for the product, and darkTheme is kept so the dark palette
+      // stays exercised by the tests.
       themeMode: ThemeMode.light,
-      // No `builder` background here on purpose: the artwork is mounted by
-      // AppShell instead, so it covers the signed-in area only and the login
-      // route keeps a plain surface. The transparent scaffold backgrounds in
-      // the theme are what let it show through from there.
       // The router is owned and disposed by its Provider.
       routerConfig: context.read<GoRouter>(),
     );

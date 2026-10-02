@@ -77,6 +77,41 @@ class ProfileScreen extends StatelessWidget {
     await auth.exitOfflineMode();
   }
 
+  void _navigateToStoreDetails(BuildContext context) {
+    // TODO: Navigate to store details screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Store details')),
+    );
+  }
+
+  void _navigateToPermissions(BuildContext context) {
+    // TODO: Navigate to permissions screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Permission')),
+    );
+  }
+
+  void _navigateToAppearances(BuildContext context) {
+    // TODO: Navigate to appearances/theme screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Appearances')),
+    );
+  }
+
+  void _showHelpSupport(BuildContext context) {
+    // TODO: Show help and support
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Help and support')),
+    );
+  }
+
+  void _showAppInfo(BuildContext context) {
+    // TODO: Show app version info
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('App Version')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -140,6 +175,57 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 32),
           const Divider(),
           const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Manage Businesses', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 12),
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _navigateToStoreDetails(context),
+                        child: const Text('Store details'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _navigateToPermissions(context),
+                        child: const Text('Permission'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => _navigateToAppearances(context),
+                        child: const Text('Appearances'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            title: const Text('Account'),
+            trailing: ElevatedButton(
+              onPressed: () => _showHelpSupport(context),
+              child: const Text('Help and support'),
+            ),
+          ),
+          ListTile(
+            title: const Text('App Version'),
+            trailing: ElevatedButton(
+              onPressed: () => _showAppInfo(context),
+              child: const Text('About'),
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.logout),
             title: Text(isOffline ? 'Exit offline mode' : 'Sign out'),
