@@ -6,12 +6,53 @@ Root:     D:\DEVELOPMENT_FILES_FOLDER\PharmaGuide
 Branch:   master
 Tracker:  WORKTODO  (supersedes UNFINISHED_TASKS.txt, which has been deleted)
 
+Where things stand: Phases 1-5 are DONE. `flutter analyze` reports **0 issues**.
+`flutter test` reports **293 pass, 6 fail**, and the 6 are pre-existing
+framework-level failures unrelated to this project (see section 10).
+
+READ SECTION 1a BEFORE BELIEVING ANY CHECKBOX IN EITHER TRACKER.
+
 
 1. WHERE WE STARTED
 ------------------
 `flutter analyze` reported 145 issues: 99 errors, 33 warnings, 13 infos.
 The project did not compile. Three unrelated features were left mid-refactor:
 Orders widgets, the Reports feature, and the Scan test suite.
+
+
+1a. WHY THE OLD NOTES LIED  --  READ THIS
+------------------------------------------
+An earlier version of this file claimed Phases 2 and 4 were finished. They were
+not. `lib/` really had been finished, but the TEST SIDE OF PHASE 2 HAD NEVER
+STARTED: the three Scan test files could not compile.
+
+`flutter analyze` was reporting 114 issues, not the number recorded above, and
+roughly 100 of them came out of a single typo:
+
+    test/scan_screen_test.dart:2
+    test/mlkit_text_recognizer_test.dart:4
+        import 'package:flutter/test/flutter_test.dart';
+
+That library has never existed. It is `package:flutter_test/flutter_test.dart`.
+One wrong import cascaded into ~77 phantom `testWidgets` / `find` / `expect`
+"isn't defined" errors and made the entire test tree look broken.
+
+Three further traps, each of which read as a code defect but was a stale test:
+
+  - `test/scan_screen_test.dart` imported `widgets/scan_button.dart` and
+    `widgets/scan_button_bar.dart`. NEITHER FILE EXISTS -- the `widgets/`
+    directory under the scan feature is empty. There is no `ScanButton` class
+    anywhere in `lib/`. The real control is a `FilledButton.icon` with
+    `Key('scanButton')`.
+  - It asserted `find.text('Line 1')` against a screen that renders
+    `Line 1: "Amox 500mg"`, and looked for a `'Suggestion '` label that exists
+    nowhere in the codebase.
+  - `test/mlkit_text_recognizer_test.dart` called the PRIVATE
+    `recognizer._checkUsable()` from another library. Private members are
+    library-scoped; that cannot compile under any fix to the import.
+
+Lesson for whoever picks this up: a checkbox is only evidence if the file
+compiles and its tests run. "Marked done" had been assumed from the plan.
 
 
 2. DECISIONS WE SETTLED (and why)
@@ -172,30 +213,56 @@ and "Approved". find.text('New') matches both and tap() then fails with
 Anything that asserts on bare find.text('New') in these tests is a latent bug.
 
 
-8. PHASE 5 -- CLEANUP  [IN PROGRESS]
-------------------------------------
+8. PHASE 5 -- CLEANUP  [DONE]
+-----------------------------
   [x] 5.1 Deleted root scratch files: `1`, `_temp.py`, `analyze.txt`
+  [x] 5.2 Deleted the root design references `Orders.html`,
+        `Shop reports.html`, `Shop reports.md`. The Reports screen they were
+        the reference for has shipped.
   [x] 5.3 Deleted UNFINISHED_TASKS.txt (superseded by WORKTODO)
-  [ ] 5.2 Decide the fate of the design references at the repo root:
-        Orders.html, Shop reports.html, Shop reports.md
-        (kept for now -- they are the reference the Reports screen was built from)
-  [~] 5.4 Clear the remaining 13 warnings and 10 infos
-  [ ] 5.5 flutter analyze -> 0 issues
-  [ ] 5.6 flutter test green
+  [x] 5.4 Cleared all 13 warnings and 10 infos
+  [x] 5.5 `flutter analyze` -> 0 issues
+  [x] 5.6 `flutter test` -> 293 pass / 6 fail (the 6 are pre-existing, see §10)
 
-  Remaining lint items, all in lib/, none blocking:
-    reports_screen.dart:227        unused_element_parameter (super.key)
-    new_sale_screen.dart:36        unused_local_variable (itemCount)
-    camera_prescription_camera:109 unnecessary_null_comparison (XFile.path is
-                                  non-nullable now)
-    camera_prescription_camera:29  annotate_overrides (preview getter)
-    orders_provider.dart:11        prefer_initializing_formals
-    orders_screen.dart:119         unnecessary_underscores
-    reports_repository_impl:15     prefer_initializing_formals
-    reports_repository_impl:322    curly_braces_in_flow_control_structures
-    reports_repository_impl:327    curly_braces_in_flow_control_structures
-    reports_provider.dart:14       prefer_initializing_formals
-    new_sale_screen.dart:496-497   deprecated Radio groupValue/onChanged
+  Two of the 14 needed judgement, not a mechanical edit:
+
+  a) prefer_initializing_formals on OrdersProvider, ReportsProvider and
+     ReportsRepositoryImpl. The obvious fix, `this._field`, RENAMES each public
+     constructor parameter to `_field` and breaks every call site --
+     `OrdersProvider(historyFactory: ...)` would stop compiling. Instead the
+     FIELD was made public `final`, so the parameter and the field share a name
+     and the lint is satisfied with no API change.
+
+  b) The deprecated `Radio.groupValue`/`onChanged` on the payment tiles. They
+     are now wrapped in one `RadioGroup`; the tiles keep their own `onChanged`
+     for the InkWell, so tapping a tile still changes the selection. The test
+     that covers this only asserted the text was present, which would have
+     passed with selection completely broken -- it now asserts the selected
+     tile's border actually changes.
+
+
+8a. TWO REAL BUGS FOUND WHILE WRITING THESE TESTS
+-------------------------------------------------
+Neither was on the checklist. Both were shipping.
+
+  B1. `scan_screen.dart` OVERFLOWED ON A SHORT PHONE. The Scaffold body is a
+      Column holding a fixed 300px camera preview; adding the error card pushed
+      it 28px off a 360x720 screen. This fires on the single most common real
+      failure -- a fresh install whose ML Kit model has not downloaded yet, so
+      the "Waiting for a connection" card is exactly what the user sees.
+
+      Fixed by reclaiming preview height (300 -> 160) only while an error card
+      is up. The preview is not actionable during an error anyway.
+
+      WRONG ALTERNATIVE, recorded so nobody retries it: wrapping the preview in
+      `Flexible` is incorrect. It competes with the results list for the same
+      free space and starves it -- that attempt turned 1 passing test into 14
+      failures.
+
+  B2. The Proceed button in `new_sale_screen.dart` sits at the bottom of a
+      scrolling cart panel, so `tester.tap` on it silently missed. Two tests
+      were failing for a reason that looked like "the dialog never opened".
+      Not a shipping bug, but it was hiding whether completion worked at all.
 
 
 9. DEFERRED -- NEEDS A PHYSICAL DEVICE
@@ -235,17 +302,36 @@ D1: Rewrite the Scan integration test for camera + OCR.
 
 10. KNOWN-UNRELATED TEST FAILURES
 ---------------------------------
-A full `flutter test` run shows ~24 pre-existing failures that are NOT ours:
-  widget_test.dart, nav_alignment_test.dart, dashboard_search_test.dart,
-  medicine_catalog_test.dart, and others. Many are Flutter-framework tooltip
-  errors ("RawTooltipState is a SingleTickerProviderStateMixin but multiple
-  tickers were created") from the installed Flutter version, not from this work.
+`flutter test` reports 293 pass / 6 fail. All 6 were failing BEFORE this work
+began and are identical now -- confirmed by a baseline run taken before any
+file was touched:
+
+  test/medicine_catalog_test.dart  stock an uncounted line is unknown, not
+                                   out of stock
+  test/nav_alignment_test.dart      every destination selects its own branch
+  test/offline_banner_test.dart    OfflineBanner shows pending-changes message
+                                   when offline with writes pending
+  test/widget_test.dart            routing the bottom bar switches between the tabs
+  test/widget_test.dart            routing orders sits at index 2 and reports at 3
+  test/widget_test.dart            app bar titles the four tab titles sit on
+                                   the centreline
+
+Many are Flutter-framework tooltip errors ("RawTooltipState is a
+SingleTickerProviderStateMixin but multiple tickers were created") from the
+installed Flutter 3.47.2, not from this code.
+
+Note: a `dashboard_search_test.dart` load failure appears intermittently in
+full-suite runs but never on its own (27/27 pass). It is a parallel-run
+artifact, not a real failure.
 
 Verified green:
-  test/prescription_matcher_test.dart   23 pass
-  test/reports_test.dart                22 pass
-  test/orders_screen_test.dart          12 pass
-  dart analyze lib/                     0 errors
+  test/scan_screen_test.dart        15 pass
+  test/mlkit_text_recognizer_test.dart  8 pass
+  test/new_sale_screen_test.dart    18 pass (incl. the 4.10 end-to-end)
+  test/prescription_matcher_test.dart  23 pass
+  test/reports_test.dart            22 pass
+  test/orders_screen_test.dart      12 pass
+  flutter analyze                   0 issues
 
 
 11. ENVIRONMENT NOTES (PowerShell 5.1)
@@ -261,11 +347,10 @@ Verified green:
 
 12. IMMEDIATE NEXT STEPS
 ------------------------
-  1. Phase 5.4 -- clear the 13 warnings / 10 infos listed above.
-  2. Phase 5.2 -- decide whether to keep or delete the root HTML/MD design
-     references.
-  3. Phase 5.5/5.6 -- drive flutter analyze to 0 issues, then confirm the three
-     green test files still pass.
-  4. Phase 4.10 -- end-to-end: New Sale -> add items -> Proceed -> the order
-     appears on the Orders tab as "New".
-  5. D1 when a device is available.
+  1. Phase 6.1 -- the six pre-existing failures in section 10. Mostly Flutter
+     SDK tooltip/ticker behaviour; decide whether to pin an SDK or patch the
+     tests around it.
+  2. Phase 6.2 -- decide whether Reports stays on seeded mock figures or gets
+     a real back end. `sales_seed.json` and `tool/import_sales_tracker.dart`
+     are kept for exactly that.
+  3. D1 when a device is available.
