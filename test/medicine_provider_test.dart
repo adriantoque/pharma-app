@@ -39,10 +39,10 @@ void main() {
     await pumpEventQueue();
   }
 
-  final MedicineStore Function(String uid) storeFor = (uid) {
+  MedicineStore storeFor(String uid) {
     requestedFor.add(uid);
     return stores.putIfAbsent(uid, () => FakeMedicineStore());
-  };
+  }
 
   /// Signs [uid] in and returns a provider reading that account's catalogue.
   ///
@@ -91,7 +91,11 @@ void main() {
       await pumpEventQueue();
 
       expect(provider.isEmpty, isTrue);
-      expect(requestedFor, isEmpty, reason: 'no account, so no catalogue to read');
+      expect(
+        requestedFor,
+        isEmpty,
+        reason: 'no account, so no catalogue to read',
+      );
     });
 
     test('empties itself on sign-out', () async {
@@ -126,7 +130,9 @@ void main() {
 
       expect(provider.all(), [amox]);
       expect(provider.isLoading, isFalse);
-      expect(requestedFor, ['u1'], reason: 'no second read of the same account');
+      expect(requestedFor, [
+        'u1',
+      ], reason: 'no second read of the same account');
     });
 
     test('a read that never arrives stays loading rather than empty', () async {
@@ -197,8 +203,9 @@ void main() {
       // A raw FirebaseException is a URL and a code, which tells a pharmacist
       // nothing about what to do next.
       final provider = await signedIn('u1', catalogue: [cetirizine]);
-      stores['u1']!.writeError =
-          Exception('[firebase_app/permission-denied] PERMISSION_DENIED');
+      stores['u1']!.writeError = Exception(
+        '[firebase_app/permission-denied] PERMISSION_DENIED',
+      );
 
       await provider.setStock(cetirizine, 5);
 

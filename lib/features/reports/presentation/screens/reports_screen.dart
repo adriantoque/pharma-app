@@ -19,10 +19,7 @@ import '../widgets/expiry_list.dart';
 /// Accepts an optional [repository] seam so that tests can inject data rather
 /// than relying on the live repository.
 class ReportsScreen extends StatelessWidget {
-  const ReportsScreen({
-    super.key,
-    this.repository,
-  });
+  const ReportsScreen({super.key, this.repository});
 
   /// The repository to use for loading report data.
   ///
@@ -31,16 +28,16 @@ class ReportsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final repository = this.repository ??
+    final repository =
+        this.repository ??
         ReportsRepositoryImpl(
           medicineProvider: context.read<MedicineProvider>(),
         );
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<ReportsProvider>(
-          create: (context) => ReportsProvider(
-            repository: repository,
-          )..initialize(),
+          create: (context) =>
+              ReportsProvider(repository: repository)..initialize(),
         ),
       ],
       child: const _ReportsView(),
@@ -224,7 +221,7 @@ class _ExpiryTabContent extends StatelessWidget {
 }
 
 class _ChartCard extends StatelessWidget {
-  const _ChartCard({super.key, required this.title, required this.child});
+  const _ChartCard({required this.title, required this.child});
 
   final String title;
   final Widget child;

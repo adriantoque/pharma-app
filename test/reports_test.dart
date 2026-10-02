@@ -1,8 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pharmaguide/core/theme/app_theme.dart';
-import 'package:pharmaguide/core/utils/currency.dart';
-import 'package:pharmaguide/features/reports/presentation/screens/reports_screen.dart';
 import 'package:pharmaguide/features/reports/data/models/sale_model.dart';
 import 'package:pharmaguide/features/reports/data/repositories/sales_repository.dart';
 
@@ -67,18 +63,21 @@ void main() {
   });
 
   group('the daily rate', () {
-    test('divides by the days that had trade, not by every day in the range', () {
-      // July's counter lines fall on the 12th, 13th, 19th and 20th: four days
-      // with trade spread over nine. Dividing by nine would report a rate for
-      // days the pharmacy was shut and quietly flatter the number.
-      final summary = SalesRepository.summarise(
-        SalesRepository(sales).inMonth(DateTime(2025, 7)),
-      );
+    test(
+      'divides by the days that had trade, not by every day in the range',
+      () {
+        // July's counter lines fall on the 12th, 13th, 19th and 20th: four days
+        // with trade spread over nine. Dividing by nine would report a rate for
+        // days the pharmacy was shut and quietly flatter the number.
+        final summary = SalesRepository.summarise(
+          SalesRepository(sales).inMonth(DateTime(2025, 7)),
+        );
 
-      expect(summary.daysWithSales, 4);
-      expect(summary.units, 12.5);
-      expect(summary.unitsPerDay, 3.125);
-    });
+        expect(summary.daysWithSales, 4);
+        expect(summary.units, 12.5);
+        expect(summary.unitsPerDay, 3.125);
+      },
+    );
 
     test('keeps a half quantity rather than rounding it', () {
       // 2.5 tablets were sold. Reporting 2 or 3 would put a number in the report
@@ -96,7 +95,8 @@ void main() {
       expect(
         SalesRepository.summarise(const []).unitsPerDay,
         0,
-        reason: 'an empty month has to survive being divided by its own zero days',
+        reason:
+            'an empty month has to survive being divided by its own zero days',
       );
     });
 
@@ -151,7 +151,10 @@ void main() {
         SalesRepository(sales).inMonth(DateTime(2025, 7)),
       );
 
-      expect(top.firstWhere((product) => product.displayName == 'Amox').units, 7);
+      expect(
+        top.firstWhere((product) => product.displayName == 'Amox').units,
+        7,
+      );
       expect(
         top.where((product) => product.displayName == 'amoxicilin'),
         isEmpty,
@@ -178,7 +181,9 @@ void main() {
         SalesRepository(sales).inMonth(DateTime(2025, 8)),
       );
 
-      final panadol = top.firstWhere((product) => product.displayName == 'Panadol 500');
+      final panadol = top.firstWhere(
+        (product) => product.displayName == 'Panadol 500',
+      );
       expect(panadol.key, 'panadol500');
     });
 
@@ -221,7 +226,8 @@ void main() {
 
     test('respects the limit', () {
       final many = SalesRepository.topSellers([
-        for (var i = 0; i < 30; i++) sale(date: '2025-08-02', name: 'Product $i'),
+        for (var i = 0; i < 30; i++)
+          sale(date: '2025-08-02', name: 'Product $i'),
       ], limit: 5);
 
       expect(many, hasLength(5));
@@ -234,17 +240,17 @@ void main() {
 
   group('the period', () {
     test('lists the months covered, newest first', () {
-      expect(
-        SalesRepository(sales).months,
-        [DateTime(2025, 8), DateTime(2025, 7)],
-      );
+      expect(SalesRepository(sales).months, [
+        DateTime(2025, 8),
+        DateTime(2025, 7),
+      ]);
     });
 
     test('reports the first and last dated sale', () {
-      expect(
-        SalesRepository(sales).dateRange,
-        (DateTime(2025, 7, 12), DateTime(2025, 8, 3)),
-      );
+      expect(SalesRepository(sales).dateRange, (
+        DateTime(2025, 7, 12),
+        DateTime(2025, 8, 3),
+      ));
     });
 
     test('has no range at all when nothing has a date', () {
@@ -281,7 +287,8 @@ void main() {
 
     test('a half price is read exactly', () {
       expect(
-        SaleModel.fromJson({'date': '2025-07-12', 'priceCentavos': 250}).priceCentavos,
+        SaleModel.fromJson({'date': '2025-07-12', 'priceCentavos': 250})
+            .priceCentavos,
         250,
       );
     });
@@ -302,9 +309,9 @@ void main() {
   });
 
   // TODO: Rewrite widget tests for the new ReportsScreen architecture.
-// The new screen uses ReportsRepository (different from SalesRepository)
-// and requires a MedicineProvider. These tests need a proper fake
-// ReportsRepository that returns realistic SalesReport data.
-// For now, the SalesRepository unit tests above provide coverage of
-// the core report arithmetic.
+  // The new screen uses ReportsRepository (different from SalesRepository)
+  // and requires a MedicineProvider. These tests need a proper fake
+  // ReportsRepository that returns realistic SalesReport data.
+  // For now, the SalesRepository unit tests above provide coverage of
+  // the core report arithmetic.
 }

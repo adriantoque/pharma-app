@@ -27,7 +27,8 @@ class OrdersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final factory = historyFactory ??
+    final factory =
+        historyFactory ??
         () => FirestoreOrderHistoryRepository(
           firestore: context.read<FirebaseFirestore>(),
           uid: context.read<AuthProvider>().user?.id ?? '',
@@ -35,8 +36,8 @@ class OrdersScreen extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<OrdersProvider>(
-          create: (context) => OrdersProvider(historyFactory: factory)
-            ..initialize(),
+          create: (context) =>
+              OrdersProvider(historyFactory: factory)..initialize(),
         ),
       ],
       child: const _OrdersView(),
@@ -116,7 +117,7 @@ class _OrdersView extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 32),
       itemCount: orders.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final order = orders[index];
         final canApprove = order.status == OrderStatus.new_;

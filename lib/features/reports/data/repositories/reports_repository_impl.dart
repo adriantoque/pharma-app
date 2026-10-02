@@ -11,10 +11,11 @@ import 'reports_repository.dart';
 
 /// Implementation of [ReportsRepository] using existing providers.
 class ReportsRepositoryImpl implements ReportsRepository {
-  ReportsRepositoryImpl({required MedicineProvider medicineProvider})
-    : _medicineProvider = medicineProvider;
+  ReportsRepositoryImpl({required this.medicineProvider});
 
-  final MedicineProvider _medicineProvider;
+  /// Public so the parameter and the field can be the same name; a private
+  /// field behind a public parameter cannot be an initializing formal.
+  final MedicineProvider medicineProvider;
 
   static const double _defaultProfitMargin = 0.22; // 22% from HTML mockup
 
@@ -57,7 +58,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<List<StockAlert>> getLowStockAlerts() async {
-    final medicines = _medicineProvider.all();
+    final medicines = medicineProvider.all();
     final alerts = <StockAlert>[];
 
     for (final med in medicines) {
@@ -88,7 +89,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<List<ExpiryAlert>> getExpiryAlerts({int withinDays = 90}) async {
-    final medicines = _medicineProvider.all();
+    final medicines = medicineProvider.all();
     final alerts = <ExpiryAlert>[];
 
     for (final med in medicines) {
@@ -124,7 +125,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
     DateTime endDate,
     ReportRange range,
   ) {
-    final medicines = _medicineProvider
+    final medicines = medicineProvider
         .all()
         .where((m) => m.stock != null && m.stock! > 0)
         .toList();
@@ -318,13 +319,15 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   String _inferUnit(String name) {
     final lower = name.toLowerCase();
-    if (lower.contains('syrup') || lower.contains('suspension'))
+    if (lower.contains('syrup') || lower.contains('suspension')) {
       return 'bottles';
+    }
     if (lower.contains('inhaler') || lower.contains('nebule')) return 'pcs';
     if (lower.contains('inject') ||
         lower.contains('ampul') ||
-        lower.contains('vial'))
+        lower.contains('vial')) {
       return 'amps';
+    }
     if (lower.contains('patch')) return 'patches';
     return 'units';
   }

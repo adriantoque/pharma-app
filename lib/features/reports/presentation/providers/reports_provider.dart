@@ -10,12 +10,15 @@ import '../../data/repositories/reports_repository.dart';
 
 /// Provider for the Reports screen state.
 class ReportsProvider extends ChangeNotifier {
-  ReportsProvider({required ReportsRepository repository})
-    : _repository = repository,
-      _range = ReportRange.week,
+  ReportsProvider({required this.repository})
+    : _range = ReportRange.week,
       _currentTab = ReportTab.sales;
 
-  final ReportsRepository _repository;
+  /// Where the figures come from.
+  ///
+  /// Public so the parameter and the field can be the same name; a private
+  /// field behind a public parameter cannot be an initializing formal.
+  final ReportsRepository repository;
 
   ReportRange _range = ReportRange.week;
   ReportTab _currentTab = ReportTab.sales;
@@ -89,7 +92,7 @@ class ReportsProvider extends ChangeNotifier {
 
   Future<void> _loadSalesReport() async {
     try {
-      _salesReport = await _repository.getSalesReport(_range);
+      _salesReport = await repository.getSalesReport(_range);
     } catch (e) {
       _error = 'Failed to load sales report: $e';
     }
@@ -97,7 +100,7 @@ class ReportsProvider extends ChangeNotifier {
 
   Future<void> _loadLowStockAlerts() async {
     try {
-      _lowStockAlerts = await _repository.getLowStockAlerts();
+      _lowStockAlerts = await repository.getLowStockAlerts();
     } catch (e) {
       _error = 'Failed to load low stock alerts: $e';
     }
@@ -105,7 +108,7 @@ class ReportsProvider extends ChangeNotifier {
 
   Future<void> _loadExpiryAlerts() async {
     try {
-      _expiryAlerts = await _repository.getExpiryAlerts();
+      _expiryAlerts = await repository.getExpiryAlerts();
     } catch (e) {
       _error = 'Failed to load expiry alerts: $e';
     }

@@ -31,10 +31,11 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     super.dispose();
   }
 
-void _showProceedDialog() {
+  void _showProceedDialog() {
     final order = context.read<OrderProvider>();
-    final itemCount = order.itemCount;
-    final paymentLabel = _paymentMethod == PaymentMethod.cashOnHand ? 'Cash on Hand' : 'GCash';
+    final paymentLabel = _paymentMethod == PaymentMethod.cashOnHand
+        ? 'Cash on Hand'
+        : 'GCash';
 
     showDialog(
       context: context,
@@ -92,10 +93,7 @@ void _showProceedDialog() {
     final error = catalogue.error;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Sale'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('New Sale'), centerTitle: true),
       body: Column(
         children: [
           // Search bar
@@ -124,29 +122,27 @@ void _showProceedDialog() {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                'Products',
-                style: theme.textTheme.titleMedium,
-              ),
+              child: Text('Products', style: theme.textTheme.titleMedium),
             ),
           ),
           // Product list - takes remaining space
           Expanded(
             child: switch ((error, isLoading)) {
               (final String message, _) => CatalogueError(
-                  message: message,
-                  onRetry: () => catalogue.clearError(),
-                ),
+                message: message,
+                onRetry: () => catalogue.clearError(),
+              ),
               (_, true) => const Center(child: CircularProgressIndicator()),
-              (_, false) => query.isEmpty
-                  ? _allProductsList(all, order)
-                  : _resultsColumn(
-                      query: query,
-                      results: results,
-                      total: all.length,
-                      isLoading: isLoading,
-                      order: order,
-                    ),
+              (_, false) =>
+                query.isEmpty
+                    ? _allProductsList(all, order)
+                    : _resultsColumn(
+                        query: query,
+                        results: results,
+                        total: all.length,
+                        isLoading: isLoading,
+                        order: order,
+                      ),
             },
           ),
           // Cart section - fixed height bottom panel when items exist
@@ -240,11 +236,13 @@ class _CartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-final theme = Theme.of(context);
+    final theme = Theme.of(context);
     final lines = order.lines;
 
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
+      ),
       child: SingleChildScrollView(
         key: const Key('cartScrollView'),
         child: Container(
@@ -337,11 +335,21 @@ class _CartItemTile extends StatelessWidget {
 
     final hPadding = compact ? 12.0 : 16.0;
     final vPadding = compact ? 6.0 : 8.0;
-    final nameStyle = compact ? theme.textTheme.bodyMedium : theme.textTheme.bodyLarge;
-    final qtyStyle = compact ? theme.textTheme.bodySmall : theme.textTheme.bodyLarge;
-    final totalStyle = compact 
-        ? theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary)
-        : theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.primary);
+    final nameStyle = compact
+        ? theme.textTheme.bodyMedium
+        : theme.textTheme.bodyLarge;
+    final qtyStyle = compact
+        ? theme.textTheme.bodySmall
+        : theme.textTheme.bodyLarge;
+    final totalStyle = compact
+        ? theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          )
+        : theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          );
     final iconSize = compact ? 20.0 : 24.0;
     final qtyWidth = compact ? 24.0 : 28.0;
 
@@ -355,7 +363,12 @@ class _CartItemTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(medicine.name, style: nameStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  medicine.name,
+                  style: nameStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 if (!compact) const SizedBox(height: 2),
                 if (!compact)
                   Text(
@@ -367,10 +380,7 @@ class _CartItemTile extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            line.formattedTotal,
-            style: totalStyle,
-          ),
+          Text(line.formattedTotal, style: totalStyle),
           const SizedBox(width: 4),
           IconButton(
             onPressed: () => order.setQuantity(medicine, line.quantity - 1),
@@ -428,26 +438,36 @@ class _PaymentMethodSelector extends StatelessWidget {
       children: [
         Text('Payment Method', style: theme.textTheme.labelSmall),
         const SizedBox(height: 6),
-        Wrap(
-          spacing: 12,
-          runSpacing: 6,
-          children: [
-            _PaymentMethodTile(
-              key: const Key('paymentCashOnHand'),
-              label: 'Cash on Hand',
-              value: PaymentMethod.cashOnHand,
-              selectedPayment: selectedPayment,
-              onChanged: onChanged,
-            ),
-            _PaymentMethodTile(
-              key: const Key('paymentGCash'),
-              label: 'GCash',
-              subtitle: 'Coming soon',
-              value: PaymentMethod.gcash,
-              selectedPayment: selectedPayment,
-              onChanged: onChanged,
-            ),
-          ],
+        // The group owns the selection, so the radios below do not each have to
+        // be handed the same value and a change handler.
+        RadioGroup<PaymentMethod>(
+          groupValue: selectedPayment,
+          // The group reports a nullable value; this screen has no third state,
+          // so a deselection is simply ignored.
+          onChanged: (value) {
+            if (value != null) onChanged(value);
+          },
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _PaymentMethodTile(
+                key: const Key('paymentCashOnHand'),
+                label: 'Cash on Hand',
+                value: PaymentMethod.cashOnHand,
+                selectedPayment: selectedPayment,
+                onChanged: onChanged,
+              ),
+              _PaymentMethodTile(
+                key: const Key('paymentGCash'),
+                label: 'GCash',
+                subtitle: 'Coming soon',
+                value: PaymentMethod.gcash,
+                selectedPayment: selectedPayment,
+                onChanged: onChanged,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -482,29 +502,35 @@ class _PaymentMethodTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant,
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant,
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
-          color: isSelected ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3) : null,
+          color: isSelected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Radio<PaymentMethod>(
-              value: value,
-              groupValue: selectedPayment,
-              onChanged: (v) => onChanged(v!),
-            ),
+            // Selection comes from the surrounding RadioGroup.
+            Radio<PaymentMethod>(value: value),
             const SizedBox(width: 6),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? theme.colorScheme.primary : null,
-                )),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                    color: isSelected ? theme.colorScheme.primary : null,
+                  ),
+                ),
                 if (subtitle != null)
                   Text(
                     subtitle!,

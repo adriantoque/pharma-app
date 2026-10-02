@@ -7,16 +7,21 @@ import '../../data/repositories/order_history_repository.dart';
 
 /// Provider for the Orders screen state.
 class OrdersProvider extends ChangeNotifier {
-  OrdersProvider({required OrderHistoryRepository Function() historyFactory})
-    : _historyFactory = historyFactory,
-      _currentTab = OrderTab.all,
+  OrdersProvider({required this.historyFactory})
+    : _currentTab = OrderTab.all,
       _orders = const [],
       _isLoading = false,
       _error = null;
 
-  final OrderHistoryRepository Function() _historyFactory;
+  /// How the screen builds the repository it reads orders from.
+  ///
+  /// Public so the parameter and the field can be the same name: a private
+  /// field behind a public parameter cannot be an initializing formal, and
+  /// renaming the parameter to suit the field would leak the underscore to
+  /// every call site.
+  final OrderHistoryRepository Function() historyFactory;
 
-  OrderHistoryRepository get _history => _historyFactory();
+  OrderHistoryRepository get _history => historyFactory();
 
   OrderTab _currentTab = OrderTab.all;
   List<OrderHistory> _orders = const [];

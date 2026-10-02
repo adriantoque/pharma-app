@@ -26,6 +26,7 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   bool get isReady => _controller?.value.isInitialized ?? false;
 
   /// The live preview widget. Null until [initialize] has opened the camera.
+  @override
   Widget? get preview =>
       _controller == null ? null : CameraPreview(_controller!);
 
@@ -105,14 +106,11 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
       return await picture.readAsBytes();
     } finally {
       // capture stays out of the user's gallery; it is OCR fuel, not a photo.
-      final path = picture.path;
-      if (path != null) {
-        try {
-          final file = File(path);
-          if (await file.exists()) await file.delete();
-        } on FileSystemException {
-          // The plugin may still hold it; the cache will reclaim it.
-        }
+      try {
+        final file = File(picture.path);
+        if (await file.exists()) await file.delete();
+      } on FileSystemException {
+        // The plugin may still hold it; the cache will reclaim it.
       }
     }
   }
