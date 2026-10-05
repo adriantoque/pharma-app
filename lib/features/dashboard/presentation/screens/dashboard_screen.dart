@@ -620,15 +620,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onPressed: () => context.goNamed('inventory'),
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.assignment_return_outlined,
-                label: 'Return',
-                kind: _ActionKind.quiet,
-                onPressed: () => _comingSoon('Returns — coming soon'),
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 20),
