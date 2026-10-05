@@ -407,43 +407,6 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _Attention {
-  const _Attention({
-    required this.expired,
-    required this.expiringSoon,
-    required this.lowStock,
-  });
-
-  final int expired;
-  final int expiringSoon;
-  final List<MedicineModel> lowStock;
-
-  int get total => expired + expiringSoon + lowStock.length;
-
-  factory _Attention.of(List<MedicineModel> all) {
-    var expired = 0;
-    var expiringSoon = 0;
-    final lowStock = <MedicineModel>[];
-
-    for (final medicine in all) {
-      if (medicine.expiryDate != null) {
-        if (medicine.isExpired) {
-          expired++;
-        } else if ((medicine.daysUntilExpiry ?? 31) <= 30) {
-          expiringSoon++;
-        }
-      }
-      if (medicine.isLowStock) lowStock.add(medicine);
-    }
-
-    return _Attention(
-      expired: expired,
-      expiringSoon: expiringSoon,
-      lowStock: lowStock,
-    );
-  }
-}
-
 class _DashboardScreenState extends State<DashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -564,6 +527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text("Wilma Pharmacy's"),
         centerTitle: true,
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             tooltip: 'Notifications',

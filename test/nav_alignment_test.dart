@@ -8,6 +8,9 @@ import 'package:pharmaguide/features/orders/data/repositories/order_history_repo
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
+import 'package:pharmaguide/features/reports/data/repositories/reports_repository.dart';
+import 'package:pharmaguide/features/reports/data/repositories/reports_repository_impl.dart';
+import 'package:pharmaguide/features/reports/presentation/providers/reports_provider.dart';
 import 'package:pharmaguide/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
@@ -56,6 +59,20 @@ void main() {
             ChangeNotifierProvider<MedicineProvider>(
               create: (_) => MedicineProvider(auth: auth, storeFor: (_) => store),
             ),
+            // Reports repository and provider for the Reports tab.
+            Provider<ReportsRepository>(
+              create: (ctx) => ReportsRepositoryImpl(
+                medicineProvider: ctx.read<MedicineProvider>(),
+                historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
+                  ctx.read<AuthProvider>().user?.id ?? '',
+                ),
+              ),
+            ),
+            ChangeNotifierProvider<ReportsProvider>(
+              create: (ctx) => ReportsProvider(
+                repository: ctx.read<ReportsRepository>(),
+              ),
+            ),
             // The Home dashboard reads the history factory for "Today's sales".
             Provider<OrderHistoryRepositoryFactory>.value(
               value: (_) => LocalOrderHistoryRepository(),
@@ -82,7 +99,7 @@ void main() {
       (label: 'Home', marker: find.text("Today's sales")),
       (label: 'Inventory', marker: find.widgetWithText(AppBar, 'Inventory')),
       (label: 'Orders', marker: find.text('No all orders right now.')),
-      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Sales & Analytics Report')),
+      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Reports & Analytics')),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.

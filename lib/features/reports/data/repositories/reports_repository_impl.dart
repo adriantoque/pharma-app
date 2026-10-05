@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
 
+import '../../../orders/data/models/order_history_model.dart';
+import '../../../orders/data/repositories/order_history_repository.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../models/report_range.dart';
@@ -11,11 +12,15 @@ import 'reports_repository.dart';
 
 /// Implementation of [ReportsRepository] using existing providers.
 class ReportsRepositoryImpl implements ReportsRepository {
-  ReportsRepositoryImpl({required this.medicineProvider});
+  ReportsRepositoryImpl({
+    required this.medicineProvider,
+    required this.historyFactory,
+  });
 
   /// Public so the parameter and the field can be the same name; a private
   /// field behind a public parameter cannot be an initializing formal.
   final MedicineProvider medicineProvider;
+  final OrderHistoryRepository Function() historyFactory;
 
   static const double _defaultProfitMargin = 0.22; // 22% from HTML mockup
 
@@ -25,11 +30,16 @@ class ReportsRepositoryImpl implements ReportsRepository {
     final endDate = DateTime(now.year, now.month, now.day);
     final startDate = endDate.subtract(Duration(days: range.days - 1));
 
-    // Get completed orders from OrderProvider
-    // Note: OrderProvider currently only tracks active order.
-    // For now, we'll generate realistic sample data based on inventory.
-    // In a real implementation, this would query completed orders from storage.
-    final completedOrders = _generateSampleOrders(startDate, endDate, range);
+    // Fetch approved orders from history
+    final history = historyFactory();
+    final snapshot = await history.watchAll().first;
+
+    // Filter to approved orders within the date range
+    final completedOrders = snapshot.where((order) {
+      if (order.status != OrderStatus.approved) return false;
+      final orderDay = DateTime(order.time.year, order.time.month, order.time.day);
+      return !orderDay.isBefore(startDate) && !orderDay.isAfter(endDate);
+    }).toList();
 
     final dailySales = _aggregateDailySales(
       completedOrders,
@@ -39,9 +49,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
     final topSellers = _calculateTopSellers(completedOrders);
     final categorySales = _calculateCategorySales(completedOrders);
 
-    final totalRevenue = completedOrders.fold(0, (sum, o) => sum + o.total);
+    final totalRevenue = completedOrders.fold(0, (sum, o) => sum + o.totalCentavos);
     final totalOrders = completedOrders.length;
-    final totalItems = completedOrders.fold(0, (sum, o) => sum + o.itemCount);
+    final totalItems = completedOrders.fold(0, (sum, o) => sum + o.items.length);
 
     return SalesReport(
       range: range,
@@ -118,65 +128,8 @@ class ReportsRepositoryImpl implements ReportsRepository {
     return alerts;
   }
 
-  /// Generates sample completed orders for the date range.
-  /// In a real app, this would query a sales/orders database.
-  List<_CompletedOrder> _generateSampleOrders(
-    DateTime startDate,
-    DateTime endDate,
-    ReportRange range,
-  ) {
-    final medicines = medicineProvider
-        .all()
-        .where((m) => m.stock != null && m.stock! > 0)
-        .toList();
-    final orders = <_CompletedOrder>[];
-
-    // Use a seeded random for consistent results
-    final random = math.Random(42);
-    final daysInRange = range.days;
-
-    for (int dayOffset = 0; dayOffset < daysInRange; dayOffset++) {
-      final date = startDate.add(Duration(days: dayOffset));
-      final isWeekend = date.weekday >= 6;
-      final baseOrders = isWeekend ? 8 : 12;
-      final variance = random.nextInt(6) - 3; // -3 to +2
-      final ordersToday = (baseOrders + variance).clamp(3, 20);
-
-      for (int i = 0; i < ordersToday; i++) {
-        final itemCount = 1 + random.nextInt(5); // 1-5 items per order
-        final selectedMeds = medicines
-            .where((m) => random.nextDouble() < 0.3)
-            .take(itemCount)
-            .toList();
-
-        if (selectedMeds.isEmpty) continue;
-
-        int orderTotal = 0;
-        int orderItems = 0;
-        for (final med in selectedMeds) {
-          final qty = 1 + random.nextInt(3); // 1-3 per item
-          orderTotal += med.priceCentavos * qty;
-          orderItems += qty;
-        }
-
-        orders.add(
-          _CompletedOrder(
-            date: date,
-            items: selectedMeds
-                .map((m) => _OrderItem(m, 1 + random.nextInt(3)))
-                .toList(),
-            total: orderTotal,
-            itemCount: orderItems,
-          ),
-        );
-      }
-    }
-
-    return orders;
-  }
-
   List<DailySales> _aggregateDailySales(
-    List<_CompletedOrder> orders,
+    List<OrderHistory> orders,
     DateTime startDate,
     DateTime endDate,
   ) {
@@ -184,11 +137,11 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
     for (final order in orders) {
       final dayKey = DateTime(
-        order.date.year,
-        order.date.month,
-        order.date.day,
+        order.time.year,
+        order.time.month,
+        order.time.day,
       );
-      dailyMap[dayKey] = (dailyMap[dayKey] ?? 0) + order.total;
+      dailyMap[dayKey] = (dailyMap[dayKey] ?? 0) + order.totalCentavos;
     }
 
     final dailySales = <DailySales>[];
@@ -201,7 +154,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
     return dailySales;
   }
 
-  List<TopSeller> _calculateTopSellers(List<_CompletedOrder> orders) {
+  List<TopSeller> _calculateTopSellers(List<OrderHistory> orders) {
     final itemRevenue = <String, int>{};
     final itemQty = <String, int>{};
     final itemUnit = <String, String>{};
@@ -210,7 +163,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
       for (final item in order.items) {
         final currentRevenue = itemRevenue[item.medicine.name] ?? 0;
         itemRevenue[item.medicine.name] =
-            currentRevenue + item.medicine.priceCentavos * item.quantity;
+            currentRevenue + item.totalCentavos;
         itemQty[item.medicine.name] =
             (itemQty[item.medicine.name] ?? 0) + item.quantity;
         itemUnit[item.medicine.name] = _inferUnit(item.medicine.name);
@@ -232,7 +185,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
     return sellers.take(5).toList();
   }
 
-  List<CategorySales> _calculateCategorySales(List<_CompletedOrder> orders) {
+  List<CategorySales> _calculateCategorySales(List<OrderHistory> orders) {
     final categoryRevenue = <String, int>{};
 
     for (final order in orders) {
@@ -240,19 +193,39 @@ class ReportsRepositoryImpl implements ReportsRepository {
         final category = _inferCategory(item.medicine.name);
         final currentRevenue = categoryRevenue[category] ?? 0;
         categoryRevenue[category] =
-            currentRevenue + item.medicine.priceCentavos * item.quantity;
+            currentRevenue + item.totalCentavos;
       }
     }
 
     final total = categoryRevenue.values.fold<int>(0, (a, b) => a + b);
     if (total == 0) return [];
 
-    final categories = categoryRevenue.entries
+    // Largest-remainder method so percentages sum to exactly 100
+    final exact = <String, double>{};
+    for (final e in categoryRevenue.entries) {
+      exact[e.key] = (e.value / total) * 100;
+    }
+
+    final floored = <String, int>{};
+    for (final e in exact.entries) {
+      floored[e.key] = e.value.floor();
+    }
+
+    var toDistribute = 100 - floored.values.fold(0, (a, b) => a + b);
+    final sortedRemainders = exact.entries.toList()
+      ..sort((a, b) => (b.value - b.value.floor()).compareTo(a.value - a.value.floor()));
+    for (final e in sortedRemainders) {
+      if (toDistribute <= 0) break;
+      floored[e.key] = floored[e.key]! + 1;
+      toDistribute--;
+    }
+
+    final categories = floored.entries
         .map(
           (e) => CategorySales(
             category: e.key,
-            percentage: ((e.value / total) * 100).round(),
-            revenue: e.value,
+            percentage: e.value,
+            revenue: categoryRevenue[e.key]!,
           ),
         )
         .toList();
@@ -331,27 +304,4 @@ class ReportsRepositoryImpl implements ReportsRepository {
     if (lower.contains('patch')) return 'patches';
     return 'units';
   }
-}
-
-/// Internal: represents a completed order for reporting.
-class _CompletedOrder {
-  const _CompletedOrder({
-    required this.date,
-    required this.items,
-    required this.total,
-    required this.itemCount,
-  });
-
-  final DateTime date;
-  final List<_OrderItem> items;
-  final int total;
-  final int itemCount;
-}
-
-/// Internal: one line in a completed order.
-class _OrderItem {
-  const _OrderItem(this.medicine, this.quantity);
-
-  final MedicineModel medicine;
-  final int quantity;
 }

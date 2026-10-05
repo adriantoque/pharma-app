@@ -11,6 +11,9 @@ import 'package:pharmaguide/features/orders/data/repositories/order_history_repo
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
+import 'package:pharmaguide/features/reports/data/repositories/reports_repository.dart';
+import 'package:pharmaguide/features/reports/data/repositories/reports_repository_impl.dart';
+import 'package:pharmaguide/features/reports/presentation/providers/reports_provider.dart';
 import 'package:pharmaguide/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
@@ -227,7 +230,20 @@ void main() {
           create: (_) => OrderProvider(),
           child: medicineProvider(
             child: historyFactory(
-              child: Provider<GoRouter>.value(value: router, child: const App()),
+              child: Provider<ReportsRepository>(
+                create: (ctx) => ReportsRepositoryImpl(
+                  medicineProvider: ctx.read<MedicineProvider>(),
+                  historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
+                    ctx.read<AuthProvider>().user?.id ?? '',
+                  ),
+                ),
+                child: ChangeNotifierProvider<ReportsProvider>(
+                  create: (ctx) => ReportsProvider(
+                    repository: ctx.read<ReportsRepository>(),
+                  ),
+                  child: Provider<GoRouter>.value(value: router, child: const App()),
+                ),
+              ),
             ),
           ),
         ),
@@ -454,7 +470,7 @@ testWidgets('a home action opens a child page and back returns home', (
         'Home': "Wilma Pharmacy's",
         'Inventory': 'Inventory',
         'Orders': 'Orders',
-        'Reports': 'Sales & Analytics Report',
+        'Reports': 'Reports & Analytics',
       };
 
       for (final label in AppShell.destinations.map((d) => d.label)) {

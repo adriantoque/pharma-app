@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../data/models/report_range.dart';
@@ -8,11 +6,22 @@ import '../../data/models/stock_alert.dart';
 import '../../data/models/expiry_alert.dart';
 import '../../data/repositories/reports_repository.dart';
 
+/// Source enumeration for granular error/loading tracking.
+enum ReportSource {
+  sales('Sales'),
+  stock('Low Stock'),
+  expiry('Expiring');
+
+  const ReportSource(this.label);
+
+  final String label;
+}
+
 /// Provider for the Reports screen state.
 class ReportsProvider extends ChangeNotifier {
   ReportsProvider({required this.repository})
-    : _range = ReportRange.week,
-      _currentTab = ReportTab.sales;
+      : _range = ReportRange.week,
+        _currentTab = ReportTab.sales;
 
   /// Where the figures come from.
   ///
@@ -27,8 +36,14 @@ class ReportsProvider extends ChangeNotifier {
   List<StockAlert> _lowStockAlerts = [];
   List<ExpiryAlert> _expiryAlerts = [];
 
-  bool _isLoading = false;
-  String? _error;
+  bool _isSalesLoading = false;
+  bool _isStockLoading = false;
+  bool _isExpiryLoading = false;
+  bool _hasLoadedOnce = false;
+
+  String? _salesError;
+  String? _stockError;
+  String? _expiryError;
 
   // Getters
   ReportRange get range => _range;
@@ -36,8 +51,16 @@ class ReportsProvider extends ChangeNotifier {
   SalesReport? get salesReport => _salesReport;
   List<StockAlert> get lowStockAlerts => _lowStockAlerts;
   List<ExpiryAlert> get expiryAlerts => _expiryAlerts;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+
+  bool get isSalesLoading => _isSalesLoading;
+  bool get isStockLoading => _isStockLoading;
+  bool get isExpiryLoading => _isExpiryLoading;
+  bool get hasLoadedOnce => _hasLoadedOnce;
+  bool get isLoading => _isSalesLoading || _isStockLoading || _isExpiryLoading;
+
+  String? get salesError => _salesError;
+  String? get stockError => _stockError;
+  String? get expiryError => _expiryError;
 
   /// The tab enumeration for the three report views.
   static const List<ReportTab> tabs = [
@@ -56,7 +79,7 @@ class ReportsProvider extends ChangeNotifier {
     if (_range == range) return;
     _range = range;
     notifyListeners();
-    await _loadSalesReport();
+    await _run(ReportSource.sales, _loadSalesReport);
   }
 
   /// Changes the active tab.
@@ -66,52 +89,100 @@ class ReportsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Retries loading after an error.
-  Future<void> retry() async {
+  /// Retries loading a specific source after an error.
+  Future<void> retry(ReportSource source) async {
+    switch (source) {
+      case ReportSource.sales:
+        await _run(ReportSource.sales, _loadSalesReport);
+      case ReportSource.stock:
+        await _run(ReportSource.stock, _loadLowStockAlerts);
+      case ReportSource.expiry:
+        await _run(ReportSource.expiry, _loadExpiryAlerts);
+    }
+  }
+
+  /// Retries loading all sources after a complete failure.
+  Future<void> retryAll() async {
     await _loadAll();
   }
 
   Future<void> _loadAll() async {
-    _isLoading = true;
-    _error = null;
+    _isSalesLoading = true;
+    _isStockLoading = true;
+    _isExpiryLoading = true;
+    _salesError = null;
+    _stockError = null;
+    _expiryError = null;
     notifyListeners();
 
+    await Future.wait([
+      _run(ReportSource.sales, _loadSalesReport),
+      _run(ReportSource.stock, _loadLowStockAlerts),
+      _run(ReportSource.expiry, _loadExpiryAlerts),
+    ]);
+
+    _hasLoadedOnce = true;
+    notifyListeners();
+  }
+
+  Future<void> _run(ReportSource source, Future<void> Function() loader) async {
+    _setLoading(source, true);
+    _clearError(source);
     try {
-      await Future.wait([
-        _loadSalesReport(),
-        _loadLowStockAlerts(),
-        _loadExpiryAlerts(),
-      ]);
+      await loader();
     } catch (e) {
-      _error = e.toString();
+      _handleError(source, e);
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(source, false);
     }
+  }
+
+  void _setLoading(ReportSource source, bool value) {
+    switch (source) {
+      case ReportSource.sales:
+        _isSalesLoading = value;
+      case ReportSource.stock:
+        _isStockLoading = value;
+      case ReportSource.expiry:
+        _isExpiryLoading = value;
+    }
+    notifyListeners();
+  }
+
+  void _clearError(ReportSource source) {
+    switch (source) {
+      case ReportSource.sales:
+        _salesError = null;
+      case ReportSource.stock:
+        _stockError = null;
+      case ReportSource.expiry:
+        _expiryError = null;
+    }
+  }
+
+  void _handleError(ReportSource source, Object e) {
+    final message = 'Error loading ${source.label.toLowerCase()} reports: $e';
+    switch (source) {
+      case ReportSource.sales:
+        _salesError = message;
+      case ReportSource.stock:
+        _stockError = message;
+      case ReportSource.expiry:
+        _expiryError = message;
+    }
+    notifyListeners();
   }
 
   Future<void> _loadSalesReport() async {
-    try {
-      _salesReport = await repository.getSalesReport(_range);
-    } catch (e) {
-      _error = 'Failed to load sales report: $e';
-    }
+    _salesReport = await repository.getSalesReport(_range);
   }
 
   Future<void> _loadLowStockAlerts() async {
-    try {
-      _lowStockAlerts = await repository.getLowStockAlerts();
-    } catch (e) {
-      _error = 'Failed to load low stock alerts: $e';
-    }
+    _lowStockAlerts = await repository.getLowStockAlerts();
   }
 
   Future<void> _loadExpiryAlerts() async {
-    try {
-      _expiryAlerts = await repository.getExpiryAlerts();
-    } catch (e) {
-      _error = 'Failed to load expiry alerts: $e';
-    }
+    _expiryAlerts = await repository.getExpiryAlerts();
   }
 }
 

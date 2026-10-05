@@ -53,12 +53,21 @@ class OrdersProvider extends ChangeNotifier {
   }
 
   /// Approves an order (changes status from new to approved).
-  Future<void> approveOrder(String id) async {
+  Future<void> approveOrder(String id) => updateOrderStatus(id, OrderStatus.approved);
+
+  /// Rejects an order (changes status from new to rejected).
+  Future<void> rejectOrder(String id) => updateOrderStatus(id, OrderStatus.rejected);
+
+  /// Moves an order to [status] and reloads.
+  ///
+  /// The single write path for the screen's two buttons, so approve and reject
+  /// cannot drift apart in how they report a failure.
+  Future<void> updateOrderStatus(String id, OrderStatus status) async {
     try {
-      await _history.updateStatus(id, OrderStatus.approved);
+      await _history.updateStatus(id, status);
       await _loadOrders();
     } catch (e) {
-      _error = 'Failed to approve order: $e';
+      _error = 'Failed to update order: $e';
       notifyListeners();
     }
   }

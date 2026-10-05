@@ -20,11 +20,15 @@ import 'features/orders/data/repositories/order_draft_store.dart';
 import 'features/orders/data/repositories/order_history_repository.dart';
 import 'features/orders/data/repositories/firestore_order_history_repository.dart';
 import 'features/orders/presentation/providers/order_provider.dart';
+import 'features/orders/presentation/providers/orders_provider.dart';
 import 'features/search/data/repositories/firestore_medicine_store.dart';
 import 'features/search/data/repositories/local_medicine_store.dart';
 import 'features/search/data/repositories/seeded_medicine_store.dart';
 import 'features/search/data/sync/pending_write_queue.dart';
 import 'features/search/presentation/providers/medicine_provider.dart';
+import 'features/reports/data/repositories/reports_repository.dart';
+import 'features/reports/data/repositories/reports_repository_impl.dart';
+import 'features/reports/presentation/providers/reports_provider.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -209,6 +213,38 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
               createAppRouter(refreshListenable: ctx.read<AuthProvider>()),
           dispose: (_, router) => router.dispose(),
         ),
+        // The Orders tab's writes. Reading the orders themselves is the screen's
+        // own business, but approving or rejecting goes through a provider so the
+        // status change and the reload after it are one unit rather than two
+        // things a button has to remember to do.
+        //
+        // Built against the same per-user factory as the cart, so Orders approves
+        // into the history the rest of the app reads rather than into a second
+        // store scoped to whichever user happened to sign in first.
+        ChangeNotifierProvider<OrdersProvider>(
+          create: (ctx) => OrdersProvider(
+            historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
+              ctx.read<AuthProvider>().user?.id ?? '',
+            ),
+          ),
+        ),
+
+
+        // Reports repository and provider for the Reports tab.
+        Provider<ReportsRepository>(
+          create: (ctx) => ReportsRepositoryImpl(
+            medicineProvider: ctx.read<MedicineProvider>(),
+            historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
+              ctx.read<AuthProvider>().user?.id ?? '',
+            ),
+          ),
+        ),
+        ChangeNotifierProvider<ReportsProvider>(
+          create: (ctx) => ReportsProvider(
+            repository: ctx.read<ReportsRepository>(),
+          ),
+        ),
+
       ],
       child: const App(),
     );

@@ -10,6 +10,9 @@ enum OrderStatus {
 
   /// Order has been approved.
   approved,
+
+  /// Order has been rejected, and is no longer actionable.
+  rejected,
 }
 
 /// A completed order stored in history.
@@ -64,34 +67,25 @@ class OrderHistory {
   }
 
   /// Status label for display.
-  String get statusLabel {
-    switch (status) {
-      case OrderStatus.new_:
-        return 'New';
-      case OrderStatus.approved:
-        return 'Approved';
-    }
-  }
+  String get statusLabel => switch (status) {
+        OrderStatus.new_ => 'New',
+        OrderStatus.approved => 'Approved',
+        OrderStatus.rejected => 'Rejected',
+      };
 
   /// Status color for badge.
-  Color get statusColor {
-    switch (status) {
-      case OrderStatus.new_:
-        return const Color(0xFFB7791F); // warn color
-      case OrderStatus.approved:
-        return const Color(0xFF2E7D4F); // ok color
-    }
-  }
+  Color get statusColor => switch (status) {
+        OrderStatus.new_ => const Color(0xFFB7791F), // warn color
+        OrderStatus.approved => const Color(0xFF2E7D4F), // ok color
+        OrderStatus.rejected => const Color(0xFFB42318), // error color
+      };
 
   /// Background color for status badge.
-  Color get statusBackgroundColor {
-    switch (status) {
-      case OrderStatus.new_:
-        return const Color(0xFFFEF3C7); // warn soft
-      case OrderStatus.approved:
-        return const Color(0xFFD1FAE5); // ok soft
-    }
-  }
+  Color get statusBackgroundColor => switch (status) {
+        OrderStatus.new_ => const Color(0xFFFEF3C7), // warn soft
+        OrderStatus.approved => const Color(0xFFD1FAE5), // ok soft
+        OrderStatus.rejected => const Color(0xFFFEE4E2), // error soft
+      };
 
   /// Creates a copy with some fields replaced.
   OrderHistory copyWith({
@@ -133,11 +127,13 @@ class OrderStatusCodec {
   static const Map<OrderStatus, String> _toString = {
     OrderStatus.new_: 'new',
     OrderStatus.approved: 'approved',
+    OrderStatus.rejected: 'rejected',
   };
 
   static const Map<String, OrderStatus> _fromString = {
     'new': OrderStatus.new_,
     'approved': OrderStatus.approved,
+    'rejected': OrderStatus.rejected,
   };
 
   static String statusToString(OrderStatus status) => _toString[status]!;
