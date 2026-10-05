@@ -6,6 +6,21 @@ import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 
 import 'helpers/fake_auth_repository.dart';
 
+// The catalog deliberately repeats names at different prices. Every lookup
+// here is by name *and* price, so these two must never be confused.
+const cheapAmox = MedicineModel(name: 'Amox', priceCentavos: 400, stock: 200);
+const dearAmox = MedicineModel(name: 'Amox', priceCentavos: 4500, stock: 200);
+const cheapTramadol = MedicineModel(
+  name: 'Tramadol',
+  priceCentavos: 400,
+  stock: 200,
+);
+const dearTramadol = MedicineModel(
+  name: 'Tramadol',
+  priceCentavos: 1000,
+  stock: 200,
+);
+
 void main() {
   // The catalog deliberately repeats names at different prices. Every lookup
   // here is by name *and* price, so these two must never be confused.
@@ -218,12 +233,12 @@ void main() {
   group('the stock cap', () {
     late OrderProvider order;
 
+    setUp(() => order = OrderProvider());
+    tearDown(() => order.dispose());
+
     const none = MedicineModel(name: 'X', priceCentavos: 100, stock: 0);
     const three = MedicineModel(name: 'X', priceCentavos: 100, stock: 3);
     const twoHundred = MedicineModel(name: 'X', priceCentavos: 100, stock: 200);
-
-    setUp(() => order = OrderProvider());
-    tearDown(() => order.dispose());
 
     test('is the shelf count, or the order limit, whichever is lower', () {
       expect(OrderProvider.capFor(none), 0);
@@ -324,7 +339,7 @@ void main() {
       expect(order.isNotEmpty, isTrue);
 
       await auth.logout();
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
 
       expect(auth.status, AuthStatus.unauthenticated);
       expect(order.isEmpty, isTrue);
@@ -337,7 +352,7 @@ void main() {
       // as someone else fires one too. Neither is a sign-out, and neither may
       // read as one and wipe a basket.
       await auth.login(email: 'c@d.com', password: 'secret');
-      await Future<void>.delayed(Duration.zero);
+      await pumpEventQueue();
 
       expect(auth.status, AuthStatus.authenticated);
       expect(order.quantityOf(dearAmox), 3);

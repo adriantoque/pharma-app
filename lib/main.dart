@@ -17,6 +17,7 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/orders/data/repositories/local_order_draft_store.dart';
 import 'features/orders/data/repositories/local_order_history_repository.dart';
 import 'features/orders/data/repositories/order_draft_store.dart';
+import 'features/orders/data/repositories/order_history_repository.dart';
 import 'features/orders/data/repositories/firestore_order_history_repository.dart';
 import 'features/orders/presentation/providers/order_provider.dart';
 import 'features/search/data/repositories/firestore_medicine_store.dart';
@@ -169,6 +170,21 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
           create: (_) => LocalOrderHistoryRepository(),
           dispose: (_, store) => store.dispose(),
         ),
+        // Where a user's order history lives, decided once. The cart and the
+        // dashboard both need it and neither owns it: offline a finished order
+        // has nowhere to go, so history stays in memory, while online it is in
+        // Firestore under the user's id.
+        Provider<OrderHistoryRepositoryFactory>(
+          create: (ctx) => (uid) {
+            if (uid == AuthProvider.offlineUserId) {
+              return ctx.read<LocalOrderHistoryRepository>();
+            }
+            return FirestoreOrderHistoryRepository(
+              firestore: ctx.read<FirebaseFirestore>(),
+              uid: uid,
+            );
+          },
+        ),
         // Above the router, so the order outlives a tab switch -- and, with the
         // draft store, outlives the app closing. Constructed against auth so
         // signing out empties it and signing back in picks the basket up again.
@@ -185,15 +201,7 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
                 uid: uid,
               );
             },
-            historyFor: (uid) {
-              if (uid == AuthProvider.offlineUserId) {
-                return ctx.read<LocalOrderHistoryRepository>();
-              }
-              return FirestoreOrderHistoryRepository(
-                firestore: ctx.read<FirebaseFirestore>(),
-                uid: uid,
-              );
-            },
+            historyFor: ctx.read<OrderHistoryRepositoryFactory>(),
           ),
         ),
         Provider<GoRouter>(

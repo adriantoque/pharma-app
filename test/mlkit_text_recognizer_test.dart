@@ -38,8 +38,6 @@ Map<String, Object?> _block(List<String> lines) => {
 /// What still needs hardware is whether ML Kit reads a real prescription
 /// correctly -- see the deferred integration test.
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   /// Every method the recognizer sent to the plugin, in order.
   final calls = <MethodCall>[];
 
@@ -47,18 +45,18 @@ void main() {
     calls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_pluginChannel, (call) async {
-          calls.add(call);
-          if (call.method == 'vision#startTextRecognizer') {
-            return <String, Object?>{
-              'text': '',
-              'blocks': [
-                _block(['Amox 500mg', 'cefalexin']),
-              ],
-            };
-          }
-          // `vision#closeTextRecognizer` has no payload worth reading.
-          return null;
-        });
+      calls.add(call);
+      if (call.method == 'vision#startTextRecognizer') {
+        return <String, Object?>{
+          'text': '',
+          'blocks': [
+            _block(['Amox 500mg', 'cefalexin']),
+          ],
+        };
+      }
+      // `vision#closeTextRecognizer` has no payload worth reading.
+      return null;
+    });
   });
 
   tearDown(() {

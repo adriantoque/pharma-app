@@ -25,7 +25,7 @@ class AuthLandingScreen extends StatelessWidget {
     final success = await auth.signInWithGoogle();
     if (!context.mounted) return;
     if (!success && auth.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(auth.error!)));
+      messenger.showSnackBar(SnackBar(content: Text(auth.error ?? 'An unknown error occurred')));
     }
   }
 

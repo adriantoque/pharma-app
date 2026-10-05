@@ -424,7 +424,7 @@ class _SearchRow extends StatelessWidget {
             tooltip: 'Scan product name',
             onPressed: scanning ? null : onScan,
             icon: scanning
-                ? the SizedBox.square(
+                ? const SizedBox.square(
                     dimension: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
@@ -700,19 +700,21 @@ class _StockRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            if (state == StockState.unknown)
-              IconButton.filledTonal(
-                tooltip: 'Count stock',
-                icon: const Icon(Icons.add),
-                onPressed: onTap,
-              )
-            else
-              _StockPill(state: state, quantity: medicine.stock),
+            Flexible(
+              child: state == StockState.unknown
+                  ? IconButton.filledTonal(
+                      tooltip: 'Count stock',
+                      icon: const Icon(Icons.add),
+                      onPressed: onTap,
+                    )
+                  : _StockPill(state: state, quantity: medicine.stock),
+            ),
           ],
         ),
       ),
     );
   }
+
 }
 
 /// The counted quantity, tinted by state.

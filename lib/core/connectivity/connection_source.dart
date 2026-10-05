@@ -71,6 +71,18 @@ class PlatformConnectionSource implements ConnectionSource {
     late final StreamController<bool> controller;
     controller = StreamController<bool>.broadcast(
       onListen: () {
+        // Hand the answer already held to whoever just subscribed, before the
+        // refresh below goes looking for a newer one. Without this a listener
+        // joining after the last one left waits forever: `onCancel` tore down
+        // the platform subscription, `onListen` starts it again, and `_refresh`
+        // finds the answer unchanged -- so `_publish` declines to emit and the
+        // late listener sits on a stream that only carries changes.
+        //
+        // Both listeners being served means the current value goes out once
+        // through here; the refresh that follows publishes again only if the
+        // answer actually moved.
+        final known = _isConnected;
+        if (known != null) controller.add(known);
         unawaited(_refresh());
         _subscription = _connectivity.onConnectivityChanged.listen(
           (results) => _publish(_fromTypes(results)),

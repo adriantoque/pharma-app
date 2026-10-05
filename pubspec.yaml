@@ -53,6 +53,7 @@ dependencies:
   cloud_firestore: ^6.10.0
   connectivity_plus: ^7.3.1
   shared_preferences: ^2.5.5
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,12 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   excel: ^4.0.6
+  # Not used by the app, only by `test/connection_source_test.dart`, which swaps
+  # `ConnectivityPlatform.instance` for a fake so the platform channel can be
+  # driven without a device. The channel names and the list-of-transports shape
+  # both come from here, so the fake follows the real contract rather than a
+  # guess at it.
+  connectivity_plus_platform_interface: ^2.1.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

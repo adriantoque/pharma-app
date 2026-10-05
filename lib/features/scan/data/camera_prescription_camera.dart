@@ -51,7 +51,7 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
       _back ??= cameras.first;
 
       final controller = CameraController(
-        _back!,
+        _back == null ? cameras.first : _back!,
         ResolutionPreset.veryHigh,
         enableAudio: false,
       );

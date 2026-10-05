@@ -6,6 +6,8 @@ import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/auth/data/models/user_model.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
+import 'package:pharmaguide/features/orders/data/repositories/order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
@@ -155,19 +157,30 @@ void main() {
     await Future<void>.delayed(Duration.zero);
   });
 
-  /// Puts a [MedicineProvider] over the tree, as main.dart does.
-///
-/// AppShell reads `syncStatus` from it for the offline banner, so any test that
-/// pumps the real chrome needs one. Backed by the in-memory [store] and the
-/// same fake auth provider, so it settles the same way the app does.
-Widget medicineProvider({required Widget child}) =>
-    ChangeNotifierProvider<MedicineProvider>(
-      create: (_) => MedicineProvider(
-        auth: provider!,
-        storeFor: (_) => store,
-      ),
-      child: child,
-    );
+/// Puts a [MedicineProvider] over the tree, as main.dart does.
+  ///
+  /// AppShell reads `syncStatus` from it for the offline banner, so any test that
+  /// pumps the real chrome needs one. Backed by the in-memory [store] and the
+  /// same fake auth provider, so it settles the same way the app does.
+  Widget medicineProvider({required Widget child}) =>
+      ChangeNotifierProvider<MedicineProvider>(
+        create: (_) => MedicineProvider(
+          auth: provider!,
+          storeFor: (_) => store,
+        ),
+        child: child,
+      );
+
+  /// Puts the history factory over the tree, as main.dart does.
+  ///
+  /// The dashboard reads it to build "Today's sales". Backed by the in-memory
+  /// repository rather than Firestore: a test has no Firebase app, and the
+  /// card only needs history to exist, not to be remote.
+  Widget historyFactory({required Widget child}) =>
+      Provider<OrderHistoryRepositoryFactory>.value(
+        value: (_) => LocalOrderHistoryRepository(),
+        child: child,
+      );
 
   Future<void> pumpApp(WidgetTester tester, AuthProvider auth) async {
     final router = createAppRouter(refreshListenable: auth);
@@ -182,9 +195,11 @@ Widget medicineProvider({required Widget child}) =>
         child: ChangeNotifierProvider<OrderProvider>(
           create: (_) => OrderProvider(),
           child: medicineProvider(
-            child: MaterialApp.router(
-              routerConfig: router,
-              theme: buildAppTheme(Brightness.light),
+            child: historyFactory(
+              child: MaterialApp.router(
+                routerConfig: router,
+                theme: buildAppTheme(Brightness.light),
+              ),
             ),
           ),
         ),
@@ -211,7 +226,9 @@ Widget medicineProvider({required Widget child}) =>
         child: ChangeNotifierProvider<OrderProvider>(
           create: (_) => OrderProvider(),
           child: medicineProvider(
-            child: Provider<GoRouter>.value(value: router, child: const App()),
+            child: historyFactory(
+              child: Provider<GoRouter>.value(value: router, child: const App()),
+            ),
           ),
         ),
       ),
@@ -265,7 +282,16 @@ Widget medicineProvider({required Widget child}) =>
       await tester.tap(find.byTooltip('Profile'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Sign out'));
+      // Sign-out is a full-width outlined button at the foot of the page, not
+      // an AppBar action, so it is found by its label rather than by tooltip.
+      // It also sits just past the fold on the test viewport, and a ListView
+      // builds lazily, so the widget is not in the tree until the page is
+      // scrolled: scrolling first is what makes the finder resolve.
+      await tester.scrollUntilVisible(
+        find.widgetWithText(OutlinedButton, 'Sign out'),
+        200,
+      );
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Sign out'));
       await tester.pumpAndSettle();
@@ -299,12 +325,12 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 2);
-      expect(find.text('Nothing in this order yet'), findsOneWidget);
+      expect(find.text('No all orders right now.'), findsOneWidget);
 
       await tester.tap(tab('Reports'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 3);
-      expect(find.widgetWithText(AppBar, 'Reports'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Sales & Analytics Report'), findsOneWidget);
 
       await tester.tap(tab('Home'));
       await tester.pumpAndSettle();
@@ -331,14 +357,14 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
 
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
-      expect(find.text('Nothing in this order yet'), findsOneWidget);
+      expect(find.text('No all orders right now.'), findsOneWidget);
       expect(selectedIndex(), 2);
 
       // The regression this guards: inserting or removing a branch shifts every
       // later one, so the bar would highlight one tab while showing another.
       await tester.tap(tab('Reports'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, 'Reports'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Sales & Analytics Report'), findsOneWidget);
       expect(selectedIndex(), 3);
     });
 
@@ -380,7 +406,7 @@ testWidgets('a home action opens a child page and back returns home', (
 
       // The expiring chip is a child of the Home branch, so it pushes rather than
       // switch tabs: Home stays selected and a back arrow appears.
-      await tester.tap(find.textContaining('expiring'));
+      await tester.tap(find.text('Expiring soon'));
       await tester.pumpAndSettle();
       expect(find.text('Expiring Meds'), findsOneWidget);
       expect(
@@ -393,8 +419,8 @@ testWidgets('a home action opens a child page and back returns home', (
       await tester.pumpAndSettle();
       expect(find.text("Today's sales"), findsOneWidget);
 
-      // The scan button in the AppBar also pushes a child page.
-      await tester.tap(find.byTooltip('Scan'));
+      // The scan button beside the search field also pushes a child page.
+      await tester.tap(find.byTooltip('Scan product name'));
       await tester.pumpAndSettle();
       expect(find.text('Scan'), findsOneWidget);
     });
@@ -422,12 +448,13 @@ testWidgets('a home action opens a child page and back returns home', (
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
       final centreline = width / 2;
 
-      // Home tab has a custom title "Wilma Pharmacy's", others use their label
+      // Home tab has a custom title "Wilma Pharmacy's"; the Reports screen
+      // names its own rather than reusing the tab label.
       final expectedTitles = {
         'Home': "Wilma Pharmacy's",
         'Inventory': 'Inventory',
         'Orders': 'Orders',
-        'Reports': 'Reports',
+        'Reports': 'Sales & Analytics Report',
       };
 
       for (final label in AppShell.destinations.map((d) => d.label)) {
@@ -460,7 +487,7 @@ testWidgets('a home action opens a child page and back returns home', (
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
 
-      await tester.tap(find.textContaining('expiring'));
+      await tester.tap(find.text('Expiring soon'));
       await tester.pumpAndSettle();
 
       final width =

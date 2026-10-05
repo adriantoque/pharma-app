@@ -24,11 +24,27 @@ void main() {
       );
 
       expect(find.textContaining('Offline'), findsOneWidget);
-      expect(find.textContaining('Changes are saved'), findsNothing);
+      expect(find.textContaining('are saved here'), findsNothing);
     });
 
-    testWidgets('shows pending-changes message when offline with writes pending',
-        (WidgetTester tester) async {
+    testWidgets('says the work is safe when nothing is waiting', (
+      WidgetTester tester,
+    ) async {
+      // The distinction the whole banner exists for: offline with nothing pending
+      // means the work is saved, and with writes outstanding it is not yet. A
+      // pharmacist closing the app needs to know which of the two they were in.
+      await tester.pumpWidget(
+        buildBanner(const SyncStatus(reachability: Reachability.offline)),
+      );
+
+      expect(find.byIcon(Icons.cloud_off_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.cloud_upload_outlined), findsNothing);
+      expect(find.textContaining('Showing the price list'), findsOneWidget);
+    });
+
+    testWidgets('shows pending-changes message when offline with writes pending', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         buildBanner(
           const SyncStatus(
@@ -38,7 +54,25 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('Changes are saved'), findsOneWidget);
+      // A single count is said as "1 change", not "1 changes" -- the count comes
+      // from the app's own queue, so it is exact and worth saying exactly.
+      expect(find.textContaining('1 change is saved here'), findsOneWidget);
+      expect(find.textContaining('will sync when you reconnect'), findsOneWidget);
+    });
+
+    testWidgets('pluralises the pending-changes count', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        buildBanner(
+          const SyncStatus(
+            reachability: Reachability.offline,
+            pendingWriteCount: 4,
+          ),
+        ),
+      );
+
+      expect(find.textContaining('4 changes are saved here'), findsOneWidget);
       expect(find.textContaining('will sync when you reconnect'), findsOneWidget);
     });
 

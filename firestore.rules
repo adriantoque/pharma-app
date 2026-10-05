@@ -24,6 +24,20 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    // The order being built up, as a single document rather than a collection:
+    // a basket is one thing, and a collection would be another round trip per
+    // line. Two segments of subcollection because a Firestore path has to be an
+    // even number of segments deep, which is why this is not `users/{uid}/order`.
+    match /users/{userId}/drafts/{draftId} {
+      allow read, write: if isOwner(userId) && validDraft();
+    }
+
+    // Finished orders, newest first on `time`.
+    match /users/{userId}/orders/{orderId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validOrder();
+    }
+
     // Sales history, for the reports screen. Not yet written by the app; the
     // rules are here so the collection is not left open by accident when it is.
     match /users/{userId}/sales/{saleId} {
@@ -59,6 +73,64 @@ service cloud.firestore {
       && (!data.keys().hasAny(['expiryDate'])
         || data.expiryDate == null
         || data.expiryDate is string);
+  }
+
+  // The basket being built up: `users/{uid}/drafts/order`.
+  //
+  // `lines` is allowed to be empty because clearing a basket is a write of no
+  // lines, and that is the write the provider makes when a sale is completed or
+  // the pharmacist presses clear.
+  function validDraft() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['lines', 'revision'])
+      && validOrderLines(data.lines)
+      && data.revision is int
+      && data.revision >= 0;
+  }
+
+  // A finished order: `users/{uid}/orders/{orderId}`.
+  //
+  // Checked on the resulting document rather than the incoming patch, so
+  // `updateStatus` -- which sends only `status` -- is judged against the whole
+  // order it is changing rather than against a one-field map that could not pass
+  // a completeness check.
+  function validOrder() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['time', 'status', 'lines', 'totalCentavos'])
+      && data.time is timestamp
+      && validStatus(data.status)
+      && validOrderLines(data.lines)
+      && data.totalCentavos is int
+      && data.totalCentavos >= 0;
+  }
+
+  function validStatus(status) {
+    return status in ['new', 'approved'];
+  }
+
+  // A basket as stored: the medicine's identity and how many, never its stock.
+  //
+  // `OrderLineCodec` writes exactly these three fields and reads the count back
+  // as uncounted, so requiring anything more here would reject a legal basket.
+  // The quantity is an int rather than a number, unlike [validSale]: a counter
+  // order is a whole number of items, and the half-tablet lines are the bulk
+  // workbook's own shape rather than something this app writes.
+  function validOrderLines(lines) {
+    return lines is list
+      && lines.size() <= 100
+      && lines.all(line, validOrderLine(line));
+  }
+
+  function validOrderLine(line) {
+    return line is map
+      && line.keys().hasAll(['name', 'priceCentavos', 'quantity'])
+      && line.name is string
+      && line.name.size() > 0
+      && line.name.size() <= 60
+      && line.priceCentavos is int
+      && line.priceCentavos >= 0
+      && line.quantity is int
+      && line.quantity >= 1;
   }
 
   // A sale line. The quantity is a number rather than an int because the

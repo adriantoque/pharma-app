@@ -221,7 +221,7 @@ void main() {
         bundled: ListMedicineSource([medicine('A')]),
       );
 
-      final seen = <SyncStatus>[];
+      final List<SyncStatus> seen = [];
       final subscription = store.watchSyncStatus().listen(seen.add);
       await pumpEventQueue();
       remote.report(offlineStatus);

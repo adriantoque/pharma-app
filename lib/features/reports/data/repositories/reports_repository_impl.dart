@@ -99,7 +99,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
           alerts.add(
             ExpiryAlert(
               name: med.name,
-              expiryDate: med.expiryDate!,
+              expiryDate: med.expiryDate ?? DateTime.now(),
               quantity: med.stock ?? 0,
               category: _inferCategory(med.name),
             ),

@@ -295,7 +295,6 @@ void main() {
     test('does nothing when nobody is signed in', () async {
       await auth.ready;
       final provider = MedicineProvider(auth: auth, storeFor: storeFor);
-      addTearDown(provider.dispose);
 
       await provider.importMedicines([amox]);
 

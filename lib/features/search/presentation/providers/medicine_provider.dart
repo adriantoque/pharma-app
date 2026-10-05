@@ -8,6 +8,8 @@ import '../../data/repositories/medicine_repository.dart';
 import '../../data/repositories/medicine_store.dart';
 import '../../data/sync/sync_status.dart';
 import '../../data/sync/sync_status_source.dart';
+import 'attention_data.dart';
+
 
 /// The live price list, held for the signed-in user.
 ///
@@ -66,6 +68,14 @@ class MedicineProvider extends ChangeNotifier implements MedicineRepository {
   bool _isLoading = false;
   String? _error;
   bool _disposed = false;
+
+  /// Cached attention data to avoid O(N) rebuilds on the dashboard.
+  ///
+  /// Recalculated only when [_medicines] changes.
+  AttentionData? _cachedAttention;
+
+  AttentionData get attention => _cachedAttention ?? AttentionData.of(_medicines);
+
 
   /// True while the first read of the catalogue is outstanding.
   ///
@@ -185,6 +195,7 @@ _syncStatus = SyncStatus.unknown;
 
   void _replace(List<MedicineModel> medicines, {bool? loading}) {
     _medicines = medicines;
+    _cachedAttention = null;
     if (loading != null) {
       _isLoading = loading;
     } else if (_error == null) {

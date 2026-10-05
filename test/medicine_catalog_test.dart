@@ -164,7 +164,10 @@ void main() {
       expect(uncounted.isStockUnknown, isTrue);
       expect(uncounted.stockState, StockState.unknown);
       expect(uncounted.isOutOfStock, isFalse);
-      expect(uncounted.isLowStock, isFalse);
+      // Uncounted *is* treated as low stock, deliberately: an unknown count is
+      // not a licence to sell out of ignorance, so the dashboard asks for a
+      // count. "Out of stock" stays the stronger, known claim.
+      expect(uncounted.isLowStock, isTrue);
       expect(uncounted.stockLine, ('Not counted', StockState.unknown));
     });
 

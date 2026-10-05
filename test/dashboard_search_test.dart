@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
@@ -53,12 +54,20 @@ void main() {
     // The real provider path, not a static list handed to the screen. The
     // catalogue arrives as a stream event, so the seeded list depends on the
     // pumpAndSettle below.
+    //
+    // The history factory is injected rather than read from a provider: this
+    // harness is the seam DashboardScreen exposes for exactly this, and it
+    // keeps the catalogue search tests free of any order-history setup.
     await tester.pumpWidget(
       ChangeNotifierProvider<OrderProvider>.value(
         value: order,
         child: ChangeNotifierProvider<MedicineProvider>.value(
           value: catalogue,
-          child: const MaterialApp(home: DashboardScreen()),
+          child: MaterialApp(
+            home: DashboardScreen(
+              historyFactory: () => LocalOrderHistoryRepository(),
+            ),
+          ),
         ),
       ),
     );
@@ -77,8 +86,8 @@ void main() {
 
     expect(find.text("Today's sales"), findsOneWidget);
     // The action buttons are Home's quick access.
-    expect(find.text('New Sale'), findsOneWidget);
-    expect(find.text('Add Product'), findsOneWidget);
+    expect(find.text('New sale'), findsOneWidget);
+    expect(find.text('Count stock'), findsOneWidget);
     expect(find.text('Return'), findsOneWidget);
     // No result rows are built while nobody is searching.
     expect(find.text('Alcohol'), findsNothing);
@@ -100,7 +109,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'amox');
     await tester.pumpAndSettle();
 
-    expect(find.text('4 of 64 items'), findsOneWidget);
+    expect(find.text('4 of 64 results for "amox"'), findsOneWidget);
     expect(find.text('Amox 500mg'), findsOneWidget);
     expect(find.text('Alcohol'), findsNothing);
   });
@@ -131,14 +140,14 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'amox');
     await tester.pumpAndSettle();
-    expect(find.text('4 of 64 items'), findsOneWidget);
+    expect(find.text('4 of 64 results for "amox"'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Clear'));
     await tester.pumpAndSettle();
 
     expect(find.text("Today's sales"), findsOneWidget);
     // Clearing hands the space back to the action buttons.
-    expect(find.text('New Sale'), findsOneWidget);
+    expect(find.text('New sale'), findsOneWidget);
     expect(find.text('Alcohol'), findsNothing);
   });
 
@@ -148,8 +157,8 @@ void main() {
     await tester.enterText(find.byType(TextField), 'zzzz');
     await tester.pumpAndSettle();
 
-    expect(find.text('No match for "zzzz"'), findsOneWidget);
-    expect(find.text('0 of 64 items'), findsOneWidget);
+    expect(find.text('No medicines found matching "zzzz".'), findsOneWidget);
+    expect(find.text('0 of 64 results for "zzzz"'), findsOneWidget);
   });
 
   testWidgets('a price query finds every item at that price', (tester) async {
@@ -158,7 +167,7 @@ void main() {
     await tester.enterText(find.byType(TextField), '22.00');
     await tester.pumpAndSettle();
 
-    expect(find.text('3 of 64 items'), findsOneWidget);
+    expect(find.text('3 of 64 results for "22.00"'), findsOneWidget);
     expect(find.text('₱22.00'), findsNWidgets(3));
   });
 

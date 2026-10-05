@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
+import 'package:pharmaguide/features/orders/data/repositories/order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
@@ -25,18 +27,15 @@ void main() {
   late AuthProvider auth;
   late FakeMedicineStore store;
 
-  setUp(() async {
+  setUpAll(() async {
     repository = FakeAuthRepository();
     auth = AuthProvider(repository);
     await auth.ready;
     await auth.login(email: 'a@b.com', password: 'secret');
-    // Seeded with the static price list because one of the markers below is the
-    // Search tab's item count, and an empty catalogue would break it for a reason
-    // that has nothing to do with navigation.
     store = FakeMedicineStore(initial: const StaticMedicineRepository().all());
   });
 
-  tearDown(() {
+  tearDownAll(() {
     auth.dispose();
     repository.dispose();
     store.dispose();
@@ -56,6 +55,10 @@ void main() {
             ChangeNotifierProvider<OrderProvider>(create: (_) => OrderProvider()),
             ChangeNotifierProvider<MedicineProvider>(
               create: (_) => MedicineProvider(auth: auth, storeFor: (_) => store),
+            ),
+            // The Home dashboard reads the history factory for "Today's sales".
+            Provider<OrderHistoryRepositoryFactory>.value(
+              value: (_) => LocalOrderHistoryRepository(),
             ),
           ],
           child: MaterialApp.router(
@@ -78,8 +81,8 @@ void main() {
     final expected = <({String label, Finder marker})>[
       (label: 'Home', marker: find.text("Today's sales")),
       (label: 'Inventory', marker: find.widgetWithText(AppBar, 'Inventory')),
-      (label: 'Orders', marker: find.text('Nothing in this order yet')),
-      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Reports')),
+      (label: 'Orders', marker: find.text('No all orders right now.')),
+      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Sales & Analytics Report')),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.

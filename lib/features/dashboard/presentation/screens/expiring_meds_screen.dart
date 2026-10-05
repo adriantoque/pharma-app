@@ -23,7 +23,17 @@ class ExpiringMedsScreen extends StatelessWidget {
   /// Ties broken by name so a list of everything expiring on the same day is in
   /// a stable order rather than reshuffling between rebuilds.
   static int _byExpiry(MedicineModel a, MedicineModel b) {
-    final byDate = a.expiryDate!.compareTo(b.expiryDate!);
+    // No date sorts last: an unknown expiry is not an urgent one, and putting it
+    // first would bury the lines that actually need counting.
+    final aDate = a.expiryDate;
+    final bDate = b.expiryDate;
+    if (aDate == null && bDate == null) {
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    }
+    if (aDate == null) return 1;
+    if (bDate == null) return -1;
+
+    final byDate = aDate.compareTo(bDate);
     return byDate != 0
         ? byDate
         : a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -51,7 +61,7 @@ class ExpiringMedsScreen extends StatelessWidget {
     final later = <MedicineModel>[];
     for (final medicine in dated) {
       if (medicine.isExpired) continue;
-      if (medicine.daysUntilExpiry! <= soonDays) {
+      if ((medicine.daysUntilExpiry ?? 999) <= soonDays) {
         soon.add(medicine);
       } else {
         later.add(medicine);
@@ -196,7 +206,7 @@ class _ExpiryRow extends StatelessWidget {
     // months" are not the same urgency and a single number flattens that.
     final (label, colour) = switch (medicine.isExpired) {
       true => ('Expired', theme.colorScheme.error),
-      false => switch (days!) {
+      false => switch (days ?? 999) {
           0 => ('Expires today', theme.colorScheme.error),
           <= 30 => ('Expires in $days days', theme.colorScheme.error),
           <= 90 => ('Expires in $days days', theme.colorScheme.tertiary),
@@ -212,7 +222,7 @@ class _ExpiryRow extends StatelessWidget {
         style: theme.textTheme.bodySmall?.copyWith(color: colour),
       ),
       trailing: Text(
-        MaterialLocalizations.of(context).formatMediumDate(medicine.expiryDate!),
+        MaterialLocalizations.of(context).formatMediumDate(medicine.expiryDate ?? DateTime.now()),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),
