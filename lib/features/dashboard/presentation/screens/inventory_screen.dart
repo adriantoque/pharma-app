@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/utils/currency.dart';
@@ -24,8 +26,8 @@ class InventoryScreen extends StatefulWidget {
 /// Which lines the list is showing.
 ///
 /// A filter on [StockState] rather than a free-text one, because the three states
-/// are exactly the three things worth acting on and they cannot be expressed as a
-/// search term.
+/// are exactly the three things worth acting on and they cannot be expressed as
+/// a search term.
 enum _StockFilter {
   uncounted('Not counted'),
   outOfStock('Out of stock'),
@@ -45,9 +47,36 @@ enum _StockFilter {
       };
 }
 
+enum _MenuAction { bulkCount, export }
+
+/// Everything the screen needs from one pass over the catalogue.
+class _Summary {
+  const _Summary({
+    required this.total,
+    required this.counted,
+    required this.units,
+    required this.valueCentavos,
+    required this.counts,
+    required this.visible,
+  });
+
+  final int total;
+  final int counted;
+  final int units;
+  final int valueCentavos;
+  final Map<_StockFilter, int> counts;
+  final List<MedicineModel> visible;
+
+  double get progress => total == 0 ? 0 : counted / total;
+}
+
 class _InventoryScreenState extends State<InventoryScreen> {
   final TextEditingController _controller = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+
   _StockFilter _filter = _StockFilter.uncounted;
+  bool _scanning = false;
+  bool _fromScan = false;
 
   @override
   void dispose() {
@@ -55,19 +84,187 @@ class _InventoryScreenState extends State<InventoryScreen> {
     super.dispose();
   }
 
-  /// The lines the current filter and query select, in price-list order.
-  List<MedicineModel> _visible(MedicineProvider catalogue) {
-    final needle = _controller.text.trim();
-    return catalogue
-        .all()
-        .where((medicine) => _filter.accepts(medicine.stockState))
-        .where((medicine) => needle.isEmpty || medicine.matches(needle))
-        .toList();
+  // -------------------------------------------------------------------------
+  // Filtering and totals (one pass)
+  // -------------------------------------------------------------------------
+
+  static final RegExp _splitter = RegExp(r'[^a-z0-9]+');
+
+  static Set<String> _tokens(String text) => text
+      .toLowerCase()
+      .split(_splitter)
+      .where((token) => token.length >= 3)
+      .toSet();
+
+  /// Typed or scanned text selects a line if the model's own matcher accepts it,
+  /// or if every word of the query appears somewhere in the name. The second
+  /// rule is what lets "amoxicillin capsule" find "Amoxicillin 500 mg capsule".
+  static bool _matchesQuery(MedicineModel medicine, String needle) {
+    if (medicine.matches(needle)) return true;
+    final words = _tokens(needle);
+    if (words.isEmpty) return false;
+    final name = medicine.name.toLowerCase();
+    return words.every(name.contains);
   }
+
+  /// The lines the current filter and query select, in price-list order, with
+  /// the tally and chip counts, computed together.
+  _Summary _summarise(List<MedicineModel> all) {
+    final needle = _controller.text.trim();
+    final counts = {for (final filter in _StockFilter.values) filter: 0};
+    final visible = <MedicineModel>[];
+    var counted = 0;
+    var units = 0;
+    var value = 0;
+
+    for (final medicine in all) {
+      final state = medicine.stockState;
+
+      for (final filter in _StockFilter.values) {
+        if (filter.accepts(state)) counts[filter] = counts[filter]! + 1;
+      }
+
+      final stock = medicine.stock;
+      if (stock != null) {
+        counted++;
+        units += stock;
+        value += medicine.priceCentavos * stock;
+      }
+
+      if (_filter.accepts(state) &&
+          (needle.isEmpty || _matchesQuery(medicine, needle))) {
+        visible.add(medicine);
+      }
+    }
+
+    return _Summary(
+      total: all.length,
+      counted: counted,
+      units: units,
+      valueCentavos: value,
+      counts: counts,
+      visible: visible,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Actions
+  // -------------------------------------------------------------------------
 
   Future<void> _edit(MedicineModel medicine) async {
     await showStockSheet(context, medicine: medicine);
   }
+
+  void _comingSoon(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _controller.clear();
+      _fromScan = false;
+    });
+  }
+
+  /// Photograph a label, read it on the device, and put the product name in the
+  /// search field. The filter widens to All so a line that is already counted
+  /// still turns up.
+  Future<void> _scanName(List<MedicineModel> catalogue) async {
+    if (_scanning) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _scanning = true);
+
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (photo == null) return;
+
+      final result = await recognizer.processImage(
+        InputImage.fromFilePath(photo.path),
+      );
+      final query = _queryFromScan(result, catalogue);
+      if (!mounted) return;
+
+      if (query == null) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Could not find a product name. Try again closer.'),
+            ),
+          );
+        return;
+      }
+
+      setState(() {
+        _controller.text = query;
+        _controller.selection = TextSelection.collapsed(offset: query.length);
+        _filter = _StockFilter.all;
+        _fromScan = true;
+      });
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Could not read the label. Try again.')),
+        );
+    } finally {
+      await recognizer.close();
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
+  /// Two words are the same word if they are equal, or one is a plural or
+  /// truncation of the other ("capsule" / "capsules").
+  static bool _sameWord(String a, String b) =>
+      a == b ||
+      (a.length > 3 && b.length > 3 && (a.startsWith(b) || b.startsWith(a)));
+
+  /// Finds the product the label most likely belongs to and returns a short
+  /// query made of that product's own most distinctive words.
+  ///
+  /// Scoring is by word length, so a drug name outweighs "tablet", and a match
+  /// must include at least one long word so a label that only says "tablet"
+  /// selects nothing.
+  String? _queryFromScan(RecognizedText text, List<MedicineModel> catalogue) {
+    final scanned = _tokens(text.text);
+    if (scanned.isEmpty) return null;
+
+    List<String>? bestHits;
+    var bestScore = 0.0;
+
+    for (final medicine in catalogue) {
+      final words = _tokens(medicine.name);
+      if (words.isEmpty) continue;
+
+      final hits = words
+          .where((word) => scanned.any((seen) => _sameWord(seen, word)))
+          .toList();
+      if (hits.isEmpty || !hits.any((word) => word.length >= 5)) continue;
+
+      final hitWeight = hits.fold<int>(0, (sum, word) => sum + word.length);
+      final totalWeight = words.fold<int>(0, (sum, word) => sum + word.length);
+      final score = hitWeight / totalWeight;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestHits = hits;
+      }
+    }
+
+    if (bestHits == null || bestScore < 0.5) return null;
+    bestHits.sort((a, b) => b.length.compareTo(a.length));
+    return bestHits.take(2).join(' ');
+  }
+
+  // -------------------------------------------------------------------------
+  // Build
+  // -------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +273,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     // both the list and the tally.
     final catalogue = context.watch<MedicineProvider>();
     final all = catalogue.all();
-    final visible = _visible(catalogue);
+    final summary = _summarise(all);
+    final needle = _controller.text.trim();
 
     return Scaffold(
       // Inventory is a tab root now, so it centres its title like the other
@@ -87,94 +285,77 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: const Text('Inventory'),
         centerTitle: true,
         actions: [
-          IconButton(
-            tooltip: 'Bulk count entry (coming soon)',
-            icon: const Icon(Icons.checklist_outlined),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Bulk count entry — coming soon')),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Export counted list (coming soon)',
-            icon: const Icon(Icons.download_outlined),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Export CSV — coming soon')),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Scan barcode to find product (coming soon)',
-            icon: const Icon(Icons.qr_code_scanner_outlined),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Barcode scan — coming soon')),
-            ),
+          PopupMenuButton<_MenuAction>(
+            tooltip: 'More actions',
+            onSelected: (action) => switch (action) {
+              _MenuAction.bulkCount =>
+                _comingSoon('Bulk count entry — coming soon'),
+              _MenuAction.export => _comingSoon('Export CSV — coming soon'),
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _MenuAction.bulkCount,
+                child: Text('Bulk count entry'),
+              ),
+              PopupMenuItem(
+                value: _MenuAction.export,
+                child: Text('Export counted list'),
+              ),
+            ],
           ),
         ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _controller,
-              onChanged: (_) => setState(() {}),
-              textInputAction: TextInputAction.search,
-              autocorrect: false,
-              decoration: InputDecoration(
-                hintText: 'Find a product',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _controller.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Clear',
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() {});
-                        },
-                      ),
-              ),
-            ),
+          _SearchRow(
+            controller: _controller,
+            scanning: _scanning,
+            onChanged: (_) => setState(() => _fromScan = false),
+            onClear: _clearSearch,
+            onScan: () => _scanName(all),
           ),
-          _Tally(catalogue: all),
+          if (_fromScan) const _ScanHint(),
+          _ProgressCard(summary: summary),
           _FilterBar(
             selected: _filter,
-            counts: {
-              for (final filter in _StockFilter.values)
-                filter: all.where((m) => filter.accepts(m.stockState)).length,
-            },
+            counts: summary.counts,
             onSelected: (filter) => setState(() => _filter = filter),
           ),
           Expanded(
             child: switch ((catalogue.error, catalogue.isLoading)) {
               (final String message, _) => _Message(
-                icon: Icons.cloud_off_outlined,
-                title: 'The price list did not load',
-                detail: message,
-                colour: theme.colorScheme.error,
-              ),
+                  icon: Icons.cloud_off_outlined,
+                  title: 'The price list did not load',
+                  detail: message,
+                  colour: theme.colorScheme.error,
+                ),
               (_, true) => const Center(child: CircularProgressIndicator()),
-              _ when all.isEmpty => _Message(
-                icon: Icons.inventory_2_outlined,
-                title: 'No products yet',
-                detail: 'The price list has to be imported before stock can be '
-                    'counted.',
-              ),
-              _ when visible.isEmpty => _Message(
-                icon: Icons.check_circle_outline,
-                title: 'Nothing here',
-                detail: _controller.text.trim().isEmpty
-                    ? 'No product is in this state.'
-                    : 'No match for "${_controller.text.trim()}" in this state.',
-              ),
+              _ when all.isEmpty => const _Message(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'No products yet',
+                  detail: 'The price list has to be imported before stock can '
+                      'be counted.',
+                ),
+              _ when summary.visible.isEmpty => _Message(
+                  icon: Icons.check_circle_outline,
+                  title: needle.isEmpty && _filter == _StockFilter.uncounted
+                      ? 'Everything is counted'
+                      : 'Nothing here',
+                  detail: needle.isEmpty
+                      ? (_filter == _StockFilter.uncounted
+                          ? 'Every product has a stock count.'
+                          : 'No product is in this state.')
+                      : 'No match for "$needle" in this state.',
+                ),
               _ => ListView.separated(
-                  itemCount: visible.length,
+                  itemCount: summary.visible.length,
                   separatorBuilder: (context, index) => const Divider(
                     height: 1,
                     indent: 16,
                     endIndent: 16,
                   ),
                   itemBuilder: (context, index) {
-                    final medicine = visible[index];
+                    final medicine = summary.visible[index];
                     return _StockRow(
                       medicine: medicine,
                       onTap: () => _edit(medicine),
@@ -189,55 +370,184 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 }
 
-/// "142 of 490 counted", with the value of what is there.
-///
-/// The value is of the counted lines only. Putting a peso total next to an
-/// uncounted list would read as a stock valuation, and stock value is not
-/// something this app knows -- it has counts and unit prices, not costs, and
-/// those are different numbers.
-class _Tally extends StatelessWidget {
-  const _Tally({required this.catalogue});
+// ---------------------------------------------------------------------------
+// Search and scan
+// ---------------------------------------------------------------------------
 
-  final List<MedicineModel> catalogue;
+class _SearchRow extends StatelessWidget {
+  const _SearchRow({
+    required this.controller,
+    required this.scanning,
+    required this.onChanged,
+    required this.onClear,
+    required this.onScan,
+  });
+
+  final TextEditingController controller;
+  final bool scanning;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              textInputAction: TextInputAction.search,
+              autocorrect: false,
+              decoration: InputDecoration(
+                hintText: 'Find a product',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: controller.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Clear',
+                        onPressed: onClear,
+                      ),
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filledTonal(
+            tooltip: 'Scan product name',
+            onPressed: scanning ? null : onScan,
+            icon: scanning
+                ? the SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.photo_camera_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanHint extends StatelessWidget {
+  const _ScanHint();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final counted = catalogue.where((m) => m.stock != null).toList();
-    final units = counted.fold<int>(0, (sum, m) => sum + m.stock!);
-    final value = counted.fold<int>(
-      0,
-      (sum, m) => sum + m.priceCentavos * m.stock!,
-    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       child: Row(
         children: [
+          Icon(
+            Icons.photo_camera_outlined,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
-              '${counted.length} of ${catalogue.length} counted',
+              'Read from the label. Check it matches.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
-          if (counted.isNotEmpty)
-            Text(
-              '${_units(units)} units · ${formatCentavos(value)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
         ],
       ),
     );
   }
-
-  static String _units(int units) => units.toString();
 }
 
-/// The stock-state chips.
+// ---------------------------------------------------------------------------
+// Progress
+// ---------------------------------------------------------------------------
+
+/// "142 of 490 counted", with the value of what is there.
+///
+/// The value is of the counted lines only. Putting a peso total next to an
+/// uncounted list would read as a stock valuation, and stock value is
+/// something this app doesn't know -- it has counts and unit prices, not costs,
+/// and those are different numbers. The label says "at retail price" for that
+/// reason.
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.summary});
+
+  final _Summary summary;
+
+  static String _group(int number) => number.toString().replaceAllMapped(
+        RegExp(r'\B(?=(\d{3})+(?!\d))'),
+        (_) => ',',
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final percent = (summary.progress * 100).round();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        color: theme.colorScheme.surfaceContainerLow,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${summary.counted} of ${summary.total} counted',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  Text('$percent%', style: muted),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: summary.progress,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              if (summary.counted > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${_group(summary.units)} units · '
+                  '${formatCentavos(summary.valueCentavos)} at retail price',
+                  style: muted,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Filters
+// ---------------------------------------------------------------------------
+
+/// The stock-state chips. Single choice, so [ChoiceChip] rather than
+/// [FilterChip].
 class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.selected,
@@ -252,23 +562,88 @@ class _FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 52,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           for (final filter in _StockFilter.values)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
+              child: ChoiceChip(
+                showCheckmark: false,
                 selected: filter == selected,
                 onSelected: (_) => onSelected(filter),
-                label: Text('${filter.label} (${counts[filter] ?? 0})'),
+                avatar: switch (filter) {
+                  _StockFilter.outOfStock => _Dot(
+                      _StockColors.status(context, StockState.outOfStock),
+                    ),
+                  _StockFilter.low => _Dot(
+                      _StockColors.status(context, StockState.low),
+                    ),
+                  _ => null,
+                },
+                label: Text('${filter.label} ${counts[filter] ?? 0}'),
               ),
             ),
         ],
       ),
     );
+  }
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot(this.colour);
+
+  final Color colour;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: colour, shape: BoxShape.circle),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Rows
+// ---------------------------------------------------------------------------
+
+/// Colours for each stock state. Out of stock uses the theme's error colours;
+/// low uses amber so the two read differently.
+abstract final class _StockColors {
+  /// Text and dot colour for a state.
+  static Color status(BuildContext context, StockState state) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    return switch (state) {
+      StockState.outOfStock => scheme.error,
+      StockState.low =>
+        dark ? const Color(0xFFFFD98A) : const Color(0xFF8A5A00),
+      StockState.unknown => scheme.outline,
+      StockState.available => scheme.onSurfaceVariant,
+    };
+  }
+
+  /// Pill background and foreground for a counted state.
+  static (Color background, Color foreground) pill(
+    BuildContext context,
+    StockState state,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    return switch (state) {
+      StockState.outOfStock => (
+          scheme.errorContainer,
+          scheme.onErrorContainer,
+        ),
+      StockState.low => dark
+          ? (const Color(0xFF4A3600), const Color(0xFFFFD98A))
+          : (const Color(0xFFFFE8B8), const Color(0xFF6B4A00)),
+      _ => (scheme.surfaceContainerHighest, scheme.onSurface),
+    };
   }
 }
 
@@ -286,7 +661,7 @@ class _StockRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
             Expanded(
@@ -301,37 +676,78 @@ class _StockRow extends StatelessWidget {
                     style: theme.textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: switch (state) {
-                        StockState.outOfStock || StockState.low =>
-                          theme.colorScheme.error,
-                        StockState.unknown => theme.colorScheme.outline,
-                        StockState.available =>
-                          theme.colorScheme.onSurfaceVariant,
-                      },
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: medicine.formattedPrice,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const TextSpan(text: ' · '),
+                        TextSpan(
+                          text: label,
+                          style: TextStyle(
+                            color: _StockColors.status(context, state),
+                          ),
+                        ),
+                      ],
                     ),
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              medicine.formattedPrice,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, size: 20),
+            if (state == StockState.unknown)
+              IconButton.filledTonal(
+                tooltip: 'Count stock',
+                icon: const Icon(Icons.add),
+                onPressed: onTap,
+              )
+            else
+              _StockPill(state: state, quantity: medicine.stock),
           ],
         ),
       ),
     );
   }
 }
+
+/// The counted quantity, tinted by state.
+class _StockPill extends StatelessWidget {
+  const _StockPill({required this.state, required this.quantity});
+
+  final StockState state;
+  final int? quantity;
+
+  @override
+  Widget build(BuildContext context) {
+    final (background, foreground) = _StockColors.pill(context, state);
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        '${quantity ?? 0}',
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty and error bodies
+// ---------------------------------------------------------------------------
 
 /// The empty and error bodies, so a screen with nothing to list says which of
 /// the several reasons it is.
@@ -360,7 +776,11 @@ class _Message extends StatelessWidget {
           children: [
             Icon(icon, size: 48, color: colour ?? theme.colorScheme.outline),
             const SizedBox(height: 16),
-            Text(title, textAlign: TextAlign.center, style: theme.textTheme.bodyLarge),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge,
+            ),
             const SizedBox(height: 8),
             Text(
               detail,
