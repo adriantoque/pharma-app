@@ -1,4 +1,5 @@
 import '../../../../core/utils/currency.dart';
+import '../../../../core/utils/search_text.dart';
 
 /// How much of a medicine is on the shelf.
 ///
@@ -411,8 +412,7 @@ class MedicineModel {
 
   /// Lowercases and drops everything that is not a letter or a digit, so `Baby
   /// Oil` is findable by typing `babyoil`, and `Amox 500mg` by `amox500mg`.
-  static String _normalise(String value) =>
-      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  static String _normalise(String value) => normaliseForSearch(value);
 
   /// Parses a query as a price in centavos, or null if it is not one.
   ///

@@ -530,13 +530,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
+            tooltip: 'Find a feature',
+            icon: const Icon(Icons.manage_search),
+            onPressed: () => context.pushNamed('finder'),
+          ),
+          IconButton(
             tooltip: 'Notifications',
             icon: Badge.count(
               count: attention.total,
               isLabelVisible: attention.total > 0,
               child: const Icon(Icons.notifications_outlined),
             ),
-            onPressed: () => _comingSoon('Notifications — coming soon'),
+            onPressed: () => context.pushNamed('home-notifications'),
           ),
           IconButton(
             tooltip: 'Profile',

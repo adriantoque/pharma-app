@@ -8,10 +8,12 @@ import '../features/auth/presentation/screens/auth_landing_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
 import '../features/dashboard/presentation/screens/inventory_screen.dart';
+import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
+import '../features/finder/presentation/screens/finder_screen.dart';
 import '../features/sales/presentation/screens/new_sale_screen.dart';
 
 abstract final class AppRoutes {
@@ -20,6 +22,7 @@ abstract final class AppRoutes {
   static const String inventory = '/inventory';
   static const String orders = '/orders';
   static const String reports = '/reports';
+  static const String finder = '/finder';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
   /// the tile the user tapped from.
@@ -31,6 +34,7 @@ abstract final class AppRoutes {
   static const String homeExpiring = '/home/expiring';
   static const String homeScan = '/home/scan';
   static const String homeProfile = '/home/profile';
+  static const String homeNotifications = '/home/notifications';
   static const String newSale = '/new-sale';
 }
 
@@ -76,6 +80,13 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         name: 'login',
         builder: (context, state) => const AuthLandingScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.finder,
+        name: 'finder',
+        builder: (context, state) => FinderScreen(
+          onNavigate: (entry) => context.go(entry.routePath),
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -105,6 +116,11 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                     path: 'profile',
                     name: 'home-profile',
                     builder: (context, state) => const ProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: 'notifications',
+                    name: 'home-notifications',
+                    builder: (context, state) => const NotificationsScreen(),
                   ),
                 ],
               ),

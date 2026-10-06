@@ -29,6 +29,9 @@ import 'features/search/presentation/providers/medicine_provider.dart';
 import 'features/reports/data/repositories/reports_repository.dart';
 import 'features/reports/data/repositories/reports_repository_impl.dart';
 import 'features/reports/presentation/providers/reports_provider.dart';
+import 'features/dashboard/presentation/providers/notification_provider.dart';
+import 'features/dashboard/presentation/providers/notification_repository.dart';
+import 'features/finder/presentation/providers/feature_search_provider.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -208,6 +211,7 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
             historyFor: ctx.read<OrderHistoryRepositoryFactory>(),
           ),
         ),
+        ChangeNotifierProvider(create: (_) => FeatureSearchProvider()),
         Provider<GoRouter>(
           create: (ctx) =>
               createAppRouter(refreshListenable: ctx.read<AuthProvider>()),
@@ -244,7 +248,17 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
             repository: ctx.read<ReportsRepository>(),
           ),
         ),
-
+        Provider<NotificationRepository>(
+          create: (_) => InMemoryNotificationRepository(),
+        ),
+        ChangeNotifierProvider<NotificationsProvider>(
+          create: (ctx) => NotificationsProvider(
+            repository: ctx.read<NotificationRepository>(),
+          ),
+        ),
+        ChangeNotifierProvider<NotificationFilterProvider>(
+          create: (_) => NotificationFilterProvider(),
+        ),
       ],
       child: const App(),
     );
