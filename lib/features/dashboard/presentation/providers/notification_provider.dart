@@ -4,10 +4,16 @@ import 'notification_repository.dart';
 
 class NotificationsProvider extends ChangeNotifier {
   NotificationsProvider({required NotificationRepository repository})
-    : // A named parameter cannot be private, so `this._repository` is not
-      // available and this is the only shape it can take.
-      // ignore: prefer_initializing_formals
-      _repository = repository;
+      : // A named parameter cannot be private, so `this._repository` is not
+        // available and this is the only shape it can take.
+        // ignore: prefer_initializing_formals
+        _repository = repository {
+    // Loads what the repository has. Synchronous, because the repository is
+    // in-memory: the list is ready the moment the constructor returns, and
+    // the first build of the screen sees it rather than an empty list that
+    // fills in a frame later.
+    _notifications = _repository.fetchAll();
+  }
 
   final NotificationRepository _repository;
   List<NotificationItem> _notifications = [];
