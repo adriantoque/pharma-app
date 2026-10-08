@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/notification_model.dart';
@@ -24,6 +25,20 @@ class NotificationsScreen extends StatelessWidget {
     final counts = <NotificationCategory, int>{};
     for (final n in notifications) {
       counts[n.category] = (counts[n.category] ?? 0) + 1;
+    }
+
+    /// Marks the item read and goes wherever its [effectiveRoute] points.
+    ///
+    /// One handler for both the tile and the trailing button, so the two
+    /// cannot drift into different behaviour: whichever the user taps, the
+    /// notification is acknowledged and the app is taken to what it is about.
+    /// `context.go` rather than `push`: a notification is a shortcut, not a
+    /// drill-down, and going "back" to a list of things already seen is not
+    /// where a user's next thought goes.
+    void open(NotificationItem item) {
+      notifier.markAsRead(item.id);
+      final route = item.effectiveRoute;
+      if (route != null) context.go(route);
     }
 
     return Scaffold(
@@ -74,7 +89,8 @@ class NotificationsScreen extends StatelessWidget {
           _FilterBar(
             selected: selectedCategory,
             counts: counts,
-            onSelected: (c) => context.read<NotificationFilterProvider>().selectedCategory = c,
+            onSelected: (c) =>
+                context.read<NotificationFilterProvider>().selectedCategory = c,
           ),
           const Divider(height: 1),
           Expanded(
@@ -116,13 +132,7 @@ class NotificationsScreen extends StatelessWidget {
                         },
                         child: _NotificationTile(
                           item: item,
-                          onTap: () {
-                            notifier.markAsRead(item.id);
-                            final route = item.route;
-                            if (route != null) {
-                              Navigator.pushNamed(context, route);
-                            }
-                          },
+                          onTap: () => open(item),
                         ),
                       );
                     },
@@ -133,7 +143,10 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmClearAll(BuildContext context, NotificationsProvider notifier) async {
+  Future<void> _confirmClearAll(
+    BuildContext context,
+    NotificationsProvider notifier,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -216,6 +229,7 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final categoryColor = item.category.color(theme.colorScheme);
+    final route = item.effectiveRoute;
 
     return ListTile(
       onTap: onTap,
@@ -232,8 +246,7 @@ class _NotificationTile extends StatelessWidget {
             child: Text(
               item.title,
               style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight:
-                    item.isRead ? FontWeight.normal : FontWeight.bold,
+                fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
                 fontSize: 15,
               ),
             ),
@@ -273,6 +286,24 @@ class _NotificationTile extends StatelessWidget {
           ],
         ),
       ),
+      // A notification about a thing the user can act on offers the way
+      // there. A notification that is only informational -- or one whose
+      // category maps nowhere -- renders without a button rather than
+      // offering one that does nothing.
+      trailing: route == null
+          ? null
+          : TextButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.arrow_forward, size: 14),
+              label: const Text('View details'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                textStyle: const TextStyle(fontSize: 12),
+              ),
+            ),
     );
   }
 }
@@ -294,7 +325,7 @@ class _EmptyNotificationsView extends StatelessWidget {
             Icons.notifications_none_outlined,
             size: 64,
             color: theme.colorScheme.outline,
-            ),
+          ),
           const SizedBox(height: 16),
           Text(
             'No notifications',

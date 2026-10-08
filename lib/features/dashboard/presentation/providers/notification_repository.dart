@@ -15,6 +15,8 @@ class InMemoryNotificationRepository implements NotificationRepository {
         message: 'Paracetamol 500mg is completely out of stock.',
         timestamp: now.subtract(const Duration(minutes: 15)),
         category: NotificationCategory.stock,
+        // No explicit route: falls through to /inventory via the category
+        // default.
       ),
       NotificationItem(
         id: '2',
@@ -22,7 +24,7 @@ class InMemoryNotificationRepository implements NotificationRepository {
         message: 'Order #1728139200 requires cashier approval.',
         timestamp: now.subtract(const Duration(hours: 1)),
         category: NotificationCategory.orders,
-        route: '/orders/1728139200',
+        // No explicit route: falls through to /orders.
       ),
       NotificationItem(
         id: '3',
@@ -31,6 +33,7 @@ class InMemoryNotificationRepository implements NotificationRepository {
         timestamp: now.subtract(const Duration(hours: 3)),
         category: NotificationCategory.expiry,
         isRead: true,
+        // No explicit route: falls through to /home/expiring.
       ),
       NotificationItem(
         id: '4',
@@ -39,6 +42,7 @@ class InMemoryNotificationRepository implements NotificationRepository {
         timestamp: now.subtract(const Duration(days: 1)),
         category: NotificationCategory.stock,
         isRead: true,
+        // No explicit route: falls through to /inventory.
       ),
     ];
   }

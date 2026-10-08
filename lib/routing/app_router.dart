@@ -7,7 +7,7 @@ import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_landing_screen.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
-import '../features/dashboard/presentation/screens/inventory_screen.dart';
+import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
@@ -15,8 +15,8 @@ import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
 import '../features/sales/presentation/screens/new_sale_screen.dart';
-import '../../features/sales/domain/payment_method.dart';
-import '../../features/sales/presentation/screens/cart_screen.dart';
+import '../features/sales/domain/payment_method.dart';
+import '../features/sales/presentation/screens/cart_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
@@ -48,7 +48,7 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
   return GoRouter(
     // No '/' route: the signed-in area is a shell whose branches own their own
     // paths, so the app starts on the first branch directly.
-        initialLocation: AppRoutes.home,
+    initialLocation: AppRoutes.home,
     // The provider is its own refresh Listenable, so an auth change re-runs the
     // redirect below without a ChangeNotifier bridge.
     refreshListenable: refreshListenable,
@@ -126,6 +126,28 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                   ),
                 ],
               ),
+              // New Sale sits beside Home in the same branch rather than beside
+              // Orders. A sale starts from the Dashboard, and putting it here
+              // keeps the Home tab selected for the duration of the sale and
+              // gives the sale screen a back arrow that returns to the tile the
+              // user actually tapped. Its cart is nested inside it for the same
+              // reason: the cart is part of the sale, not a place of its own.
+              GoRoute(
+                path: AppRoutes.newSale,
+                name: 'new-sale',
+                builder: (context, state) => const NewSaleScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'cart',
+                    name: 'new-sale-cart',
+                    builder: (context, state) {
+                      final payment = state.extra as PaymentMethod? ??
+                          PaymentMethod.cashOnHand;
+                      return CartScreen(initialPayment: payment);
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -143,26 +165,6 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 path: AppRoutes.orders,
                 name: 'orders',
                 builder: (context, state) => const OrdersScreen(),
-              ),
-              GoRoute(
-                path: AppRoutes.newSale,
-                name: 'new-sale',
-                builder: (context, state) => const NewSaleScreen(),
-                routes: [
-                  // Nested so the cart lives on the same branch as the sale it
-                  // belongs to: the bottom bar keeps Orders selected, and back
-                  // from the cart returns to the sale rather than popping to
-                  // another tab.
-                  GoRoute(
-                    path: 'cart',
-                    name: 'new-sale-cart',
-                    builder: (context, state) {
-                      final payment = state.extra as PaymentMethod? ??
-                          PaymentMethod.cashOnHand;
-                      return CartScreen(initialPayment: payment);
-                    },
-                  ),
-                ],
               ),
             ],
           ),

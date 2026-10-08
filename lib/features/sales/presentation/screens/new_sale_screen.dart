@@ -23,6 +23,15 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
   String _query = '';
   PaymentMethod _paymentMethod = PaymentMethod.cashOnHand;
 
+  /// Whether a medicine belongs on the New Sale shelf.
+  ///
+  /// Uncounced items are hidden: a count nobody has taken is not a count, and
+  /// a sale screen is the wrong place to fix that -- the Inventory tab is.
+  /// Out-of-stock items are kept so the counter can see the product exists and
+  /// cannot be sold, which is what drives a reorder. They are drawn muted by
+  /// [_saleRow], not removed.
+  static bool _appearsOnSale(MedicineModel medicine) => medicine.stock != null;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -47,7 +56,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Complete the order first
               final success = order.complete();
               if (success) {
                 context.go('/orders');
@@ -97,6 +105,22 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     _onQueryChanged('');
   }
 
+  /// One sale-row, muted when the item cannot be sold.
+  ///
+  /// The opacity is set here rather than inside [MedicineRow] so the shared
+  /// widget keeps the same look it has on every other screen. 45% leaves the
+  /// name and price readable while making it obvious the row is not buyable.
+  Widget _saleRow(MedicineModel medicine, OrderProvider order) {
+    final quantity = order.quantityOf(medicine);
+    final row = MedicineRow(
+      medicine: medicine,
+      quantity: quantity,
+      onAdd: () => order.add(medicine, 1),
+      onRemove: () => order.remove(medicine),
+    );
+    return medicine.isOutOfStock ? Opacity(opacity: 0.45, child: row) : row;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -106,19 +130,28 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     final query = _query.trim();
     final results = catalogue.search(query);
 
+    // The rows the shelf shows: everything but the uncounted items. Used for
+    // both the browse list and the search results, so a user typing "amox"
+    // does not get a row the browse list would have hidden.
+    final sellable = all.where(_appearsOnSale).toList(growable: false);
+
     final isLoading = catalogue.isLoading;
     final error = catalogue.error;
 
     return Scaffold(
       appBar: AppBar(
+        // Explicit rather than `automaticallyImplyLeading`, because the sale
+        // is reached with `goNamed` -- there is no back stack to imply a
+        // leading arrow from. This is the one way out of the screen, and it
+        // goes to Home, which is where the sale was started from.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to home',
+          onPressed: () => context.goNamed('home'),
+        ),
         title: const Text('New Sale'),
         centerTitle: true,
         actions: [
-          // The cart lives in the app bar rather than as a fixed panel at the
-          // bottom: the panel ate half the screen and left the product list
-          // fighting it for height. The badge is what tells the pharmacist
-          // there is anything to check out at all, so the icon is hidden while
-          // the order is empty.
           if (order.isNotEmpty)
             IconButton(
               tooltip: 'View cart',
@@ -132,7 +165,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       ),
       body: Column(
         children: [
-          // Search bar
           Row(
             children: [
               Expanded(
@@ -153,7 +185,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               ),
             ],
           ),
-          // Products header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Align(
@@ -161,7 +192,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               child: Text('Products', style: theme.textTheme.titleMedium),
             ),
           ),
-          // Product list - takes all remaining space
           Expanded(
             child: switch ((error, isLoading)) {
               (final String message, _) => CatalogueError(
@@ -169,13 +199,14 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                 onRetry: () => catalogue.clearError(),
               ),
               (_, true) => const Center(child: CircularProgressIndicator()),
+              (_, false) when sellable.isEmpty => const _NoCountedStock(),
               (_, false) =>
                 query.isEmpty
-                    ? _allProductsList(all, order)
+                    ? _allProductsList(sellable, order)
                     : _resultsColumn(
                         query: query,
                         results: results,
-                        total: all.length,
+                        total: sellable.length,
                         isLoading: isLoading,
                         order: order,
                       ),
@@ -195,14 +226,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
           const Divider(height: 1, indent: 16, endIndent: 16),
       itemBuilder: (context, index) {
         final medicine = all[index];
-        final quantity = order.quantityOf(medicine);
-
-        return MedicineRow(
-          medicine: medicine,
-          quantity: quantity,
-          onAdd: () => order.add(medicine, 1),
-          onRemove: () => order.remove(medicine),
-        );
+        return _saleRow(medicine, order);
       },
     );
   }
@@ -214,37 +238,72 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     required bool isLoading,
     required OrderProvider order,
   }) {
+    // The same rule as the browse list, applied to what the search matched.
+    final visible = results.where(_appearsOnSale).toList(growable: false);
+
     return Column(
       children: [
         ResultsCount(
-          resultsCount: results.length,
+          resultsCount: visible.length,
           totalCount: total,
           query: query,
           isLoading: isLoading,
         ),
         Expanded(
-          child: results.isEmpty
+          child: visible.isEmpty
               ? NoResults(query: query)
               : ListView.separated(
                   controller: _scrollController,
                   padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: results.length,
+                  itemCount: visible.length,
                   separatorBuilder: (context, index) =>
                       const Divider(height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, index) {
-                    final medicine = results[index];
-                    final quantity = order.quantityOf(medicine);
-
-                    return MedicineRow(
-                      medicine: medicine,
-                      quantity: quantity,
-                      onAdd: () => order.add(medicine, 1),
-                      onRemove: () => order.remove(medicine),
-                    );
+                    final medicine = visible[index];
+                    return _saleRow(medicine, order);
                   },
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Shown when every product on file is uncounted.
+///
+/// Reachable only on a freshly imported price list where nobody has taken a
+/// count yet. Not an error: it is a to-do, and the button says where.
+class _NoCountedStock extends StatelessWidget {
+  const _NoCountedStock();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 48,
+              color: theme.colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text('No stock counted yet', style: theme.textTheme.bodyLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Count stock from the Inventory tab to begin a sale.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

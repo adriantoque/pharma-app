@@ -30,6 +30,19 @@ extension NotificationCategoryX on NotificationCategory {
         NotificationCategory.orders => 'No order notifications.',
         NotificationCategory.expiry => 'Nothing expiring soon.',
       };
+
+  /// Where a "View details" tap goes when nothing more specific is on the item.
+  ///
+  /// Null for [NotificationCategory.all], which is a filter over the other
+  /// categories rather than one a notification is ever filed under. Every
+  /// other category names the screen a user would want next -- the whole
+  /// point of a notification is that it is about something somewhere else.
+  String? get defaultRoute => switch (this) {
+        NotificationCategory.stock => '/inventory',
+        NotificationCategory.orders => '/orders',
+        NotificationCategory.expiry => '/home/expiring',
+        NotificationCategory.all => null,
+      };
 }
 
 @immutable
@@ -40,6 +53,10 @@ class NotificationItem {
   final DateTime timestamp;
   final NotificationCategory category;
   final bool isRead;
+
+  /// An explicit destination, when one notification has somewhere more
+  /// specific to point than the rest of its category. Optional: most
+  /// notifications rely on [effectiveRoute]'s category fallback.
   final String? route;
 
   const NotificationItem({
@@ -51,6 +68,14 @@ class NotificationItem {
     this.isRead = false,
     this.route,
   });
+
+  /// Where "View details" should go, or null when there is nowhere useful.
+  ///
+  /// The explicit [route] wins when a notification has a more specific place
+  /// to point; the category's default fills in for the ordinary case. A
+  /// notification that can be neither -- a purely informational "the app
+  /// updated" style message -- returns null and renders without the button.
+  String? get effectiveRoute => route ?? category.defaultRoute;
 
   NotificationItem copyWith({
     String? id,
