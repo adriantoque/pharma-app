@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- See drawable/launch_background.xml. Identical content; kept in step with it
-     because Android picks drawable-v21 on API 21+. -->
+<!-- Shown from process start until the first Flutter frame.
+
+     A plain white fill, matching the Flutter splash's own background so the
+     handoff from the native window to the first Flutter frame is a colour
+     match rather than an image the two sides have to keep in step. The brand
+     mark is drawn by the Flutter splash, not here. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <bitmap
-            android:gravity="fill"
-            android:src="@drawable/bgtheme" />
-    </item>
+    <item android:drawable="@android:color/white" />
 </layer-list>

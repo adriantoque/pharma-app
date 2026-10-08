@@ -9,37 +9,15 @@ import 'package:pharmaguide/main.dart';
 
 void main() {
   group('SplashScreen', () {
-    testWidgets('shows the artwork, the brand and a progress indicator', (
+    testWidgets('shows the brand mark and a progress indicator', (
       tester,
     ) async {
       await tester.pumpWidget(const SplashScreen());
       await tester.pump();
 
-      expect(find.byType(Image), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsOneWidget);
       expect(find.text("Wilma\nPharmacy's"), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    });
-
-    testWidgets('covers the whole screen so there is no bare surface', (
-      tester,
-    ) async {
-      await tester.pumpWidget(const SplashScreen());
-      await tester.pump();
-
-      // Verify the image is present and covers the screen area.
-      expect(find.byType(Image), findsOneWidget);
-
-      // Innermost Stack ancestor of the image, i.e. the one that positions it.
-      // find.byType(Stack) is ambiguous: MaterialApp's internals add their own.
-      final stack = tester.widget<Stack>(
-        find
-            .ancestor(of: find.byType(Image), matching: find.byType(Stack))
-            .first,
-      );
-      expect(stack.fit, StackFit.expand);
-      // Artwork first: a later sibling paints on top, so the reversed order
-      // would put the image over the brand instead of behind it.
-      expect(stack.children.first, isA<Image>());
     });
 
     testWidgets('opaque, because the theme scaffold background is clear', (
@@ -50,20 +28,6 @@ void main() {
 
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
       expect(scaffold.backgroundColor, isNot(Colors.transparent));
-    });
-
-    testWidgets('a missing image does not take the splash down', (
-      tester,
-    ) async {
-      // The decorative path is overridable precisely so this case is testable.
-      await tester.pumpWidget(
-        const SplashScreen(imagePath: 'assets/images/does_not_exist.png'),
-      );
-      await tester.pump();
-      await pumpEventQueue();
-
-      expect(tester.takeException(), isNull);
-      expect(find.text("Wilma\nPharmacy's"), findsOneWidget);
     });
   });
 

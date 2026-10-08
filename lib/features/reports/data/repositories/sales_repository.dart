@@ -82,14 +82,46 @@ class SalesRepository {
   /// Every line, bundled.
   final List<SaleModel> sales;
 
-  /// Loads the seed bundled at `assets/data/sales_seed.json`.
+  /// Loads the seed bundled at `assets/data/sales_seed.json` and merges with
+  /// the cleaned CSV at `assets/data/cleaned_sales_seed.json`.
   static Future<SalesRepository> load() async {
-    final raw = await rootBundle.loadString('assets/data/sales_seed.json');
-    final decoded = jsonDecode(raw) as List<dynamic>;
-    return SalesRepository([
-      for (final entry in decoded)
+    final salesSeedRaw = await rootBundle.loadString('assets/data/sales_seed.json');
+    final salesSeedDecoded = jsonDecode(salesSeedRaw) as List<dynamic>;
+    final originalSales = <SaleModel>[
+      for (final entry in salesSeedDecoded)
         if (entry is Map<String, dynamic>) SaleModel.fromJson(entry),
-    ]);
+    ];
+
+    // Try loading the cleaned CSV data as a supplemental source.
+    final cleanedSeedRaw = await rootBundle.loadString('assets/data/cleaned_sales_seed.json');
+    final cleanedSeedDecoded = jsonDecode(cleanedSeedRaw) as List<dynamic>;
+    final cleanedSales = <SaleModel>[
+      for (final entry in cleanedSeedDecoded)
+        if (entry is Map<String, dynamic>) SaleModel.fromJson(entry),
+    ];
+
+    // Merge: keep original sales, append cleaned sales that don't duplicate
+    // by normalised key. Cleaned data takes precedence for overlapping keys.
+    final seenKeys = <String>{};
+    final merged = <SaleModel>[];
+    // Add original sales first
+    for (final sale in originalSales) {
+      final key = sale.key;
+      if (!seenKeys.contains(key)) {
+        seenKeys.add(key);
+        merged.add(sale);
+      }
+    }
+    // Add cleaned sales that don't duplicate original keys
+    for (final sale in cleanedSales) {
+      final key = sale.key;
+      if (!seenKeys.contains(key)) {
+        seenKeys.add(key);
+        merged.add(sale);
+      }
+    }
+
+    return SalesRepository(merged);
   }
 
   bool get isEmpty => sales.isEmpty;

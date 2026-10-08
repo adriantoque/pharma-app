@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../orders/data/models/order_line_model.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../search/presentation/widgets/medicine_row.dart'
     show MedicineRow, CatalogueError, NoResults, ResultsCount, SearchField;
-
-enum PaymentMethod { cashOnHand, gcash }
+import '../../domain/payment_method.dart';
+import 'cart_screen.dart';
 
 class NewSaleScreen extends StatefulWidget {
   const NewSaleScreen({super.key});
@@ -33,9 +32,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
 
   void _showProceedDialog() {
     final order = context.read<OrderProvider>();
-    final paymentLabel = _paymentMethod == PaymentMethod.cashOnHand
-        ? 'Cash on Hand'
-        : 'GCash';
+    final paymentLabel = _paymentMethod.label;
 
     showDialog(
       context: context,
@@ -70,6 +67,26 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     );
   }
 
+  /// Opens the cart screen and applies whatever the user came back with.
+  ///
+  /// The payment method is returned even when Proceed was not tapped, so a
+  /// user who changes it and then backs out still finds it selected the next
+  /// time the cart is opened. Only `proceed: true` runs the confirmation.
+  Future<void> _openCart() async {
+    final result = await context.pushNamed<CartResult>(
+      'new-sale-cart',
+      extra: _paymentMethod,
+    );
+
+    if (!mounted || result == null) return;
+
+    if (result.payment != _paymentMethod) {
+      setState(() => _paymentMethod = result.payment);
+    }
+
+    if (result.proceed) _showProceedDialog();
+  }
+
   void _onQueryChanged(String query) {
     setState(() => _query = query);
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
@@ -93,7 +110,26 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     final error = catalogue.error;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New Sale'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('New Sale'),
+        centerTitle: true,
+        actions: [
+          // The cart lives in the app bar rather than as a fixed panel at the
+          // bottom: the panel ate half the screen and left the product list
+          // fighting it for height. The badge is what tells the pharmacist
+          // there is anything to check out at all, so the icon is hidden while
+          // the order is empty.
+          if (order.isNotEmpty)
+            IconButton(
+              tooltip: 'View cart',
+              icon: Badge.count(
+                count: order.itemCount,
+                child: const Icon(Icons.shopping_cart_outlined),
+              ),
+              onPressed: _openCart,
+            ),
+        ],
+      ),
       body: Column(
         children: [
           // Search bar
@@ -125,7 +161,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               child: Text('Products', style: theme.textTheme.titleMedium),
             ),
           ),
-          // Product list - takes remaining space
+          // Product list - takes all remaining space
           Expanded(
             child: switch ((error, isLoading)) {
               (final String message, _) => CatalogueError(
@@ -145,14 +181,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                       ),
             },
           ),
-          // Cart section - fixed height bottom panel when items exist
-          if (order.isNotEmpty)
-            _CartSection(
-              order: order,
-              selectedPayment: _paymentMethod,
-              onPaymentChanged: (v) => setState(() => _paymentMethod = v),
-              onProceed: _showProceedDialog,
-            ),
         ],
       ),
     );
@@ -217,333 +245,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _CartSection extends StatelessWidget {
-  const _CartSection({
-    required this.order,
-    required this.selectedPayment,
-    required this.onPaymentChanged,
-    required this.onProceed,
-  });
-
-  final OrderProvider order;
-  final PaymentMethod selectedPayment;
-  final ValueChanged<PaymentMethod> onPaymentChanged;
-  final VoidCallback onProceed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final lines = order.lines;
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.5,
-      ),
-      child: SingleChildScrollView(
-        key: const Key('cartScrollView'),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Cart', style: theme.textTheme.titleSmall),
-              const Divider(height: 12),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.15,
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const ClampingScrollPhysics(),
-                  itemCount: lines.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1, indent: 12, endIndent: 12),
-                  itemBuilder: (context, index) =>
-                      _CartItemTile(line: lines[index], compact: true),
-                ),
-              ),
-              const Divider(height: 12),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      '${order.itemCount} items',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text('Total', style: theme.textTheme.titleSmall),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      order.formattedTotal,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 12),
-              _PaymentMethodSelector(
-                selectedPayment: selectedPayment,
-                onChanged: onPaymentChanged,
-              ),
-              const Divider(height: 12),
-              SafeArea(
-                top: false,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    key: const Key('proceedButton'),
-                    onPressed: onProceed,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                    child: const Text('Proceed'),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CartItemTile extends StatelessWidget {
-  const _CartItemTile({required this.line, this.compact = false});
-
-  final OrderLineModel line;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final order = context.read<OrderProvider>();
-    final medicine = line.medicine;
-    final atMax = line.quantity >= OrderProvider.capFor(medicine);
-
-    final hPadding = compact ? 12.0 : 16.0;
-    final vPadding = compact ? 6.0 : 8.0;
-    final nameStyle = compact
-        ? theme.textTheme.bodyMedium
-        : theme.textTheme.bodyLarge;
-    final qtyStyle = compact
-        ? theme.textTheme.bodySmall
-        : theme.textTheme.bodyLarge;
-    final totalStyle = compact
-        ? theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
-          )
-        : theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
-          );
-    final iconSize = compact ? 20.0 : 24.0;
-    final qtyWidth = compact ? 24.0 : 28.0;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(hPadding, vPadding, hPadding / 2, vPadding),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  medicine.name,
-                  style: nameStyle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (!compact) const SizedBox(height: 2),
-                if (!compact)
-                  Text(
-                    line.formattedQuantity,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Text(line.formattedTotal, style: totalStyle),
-          const SizedBox(width: 4),
-          IconButton(
-            onPressed: () => order.setQuantity(medicine, line.quantity - 1),
-            icon: Icon(Icons.remove_circle_outline, size: iconSize),
-            tooltip: 'One fewer ${medicine.name}',
-            constraints: BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-          SizedBox(
-            width: qtyWidth,
-            child: Text(
-              '${line.quantity}',
-              textAlign: TextAlign.center,
-              style: qtyStyle,
-            ),
-          ),
-          IconButton(
-            onPressed: atMax
-                ? null
-                : () => order.setQuantity(medicine, line.quantity + 1),
-            icon: Icon(Icons.add_circle_outline, size: iconSize),
-            tooltip: 'One more ${medicine.name}',
-            constraints: BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-          IconButton(
-            onPressed: () => order.remove(medicine),
-            icon: Icon(Icons.delete_outline, size: iconSize),
-            tooltip: 'Remove ${medicine.name}',
-            constraints: BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PaymentMethodSelector extends StatelessWidget {
-  const _PaymentMethodSelector({
-    required this.selectedPayment,
-    required this.onChanged,
-  });
-
-  final PaymentMethod selectedPayment;
-  final ValueChanged<PaymentMethod> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('Payment Method', style: theme.textTheme.labelSmall),
-        const SizedBox(height: 6),
-        // The group owns the selection, so the radios below do not each have to
-        // be handed the same value and a change handler.
-        RadioGroup<PaymentMethod>(
-          groupValue: selectedPayment,
-          // The group reports a nullable value; this screen has no third state,
-          // so a deselection is simply ignored.
-          onChanged: (value) {
-            if (value != null) onChanged(value);
-          },
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            children: [
-              _PaymentMethodTile(
-                key: const Key('paymentCashOnHand'),
-                label: 'Cash on Hand',
-                value: PaymentMethod.cashOnHand,
-                selectedPayment: selectedPayment,
-                onChanged: onChanged,
-              ),
-              _PaymentMethodTile(
-                key: const Key('paymentGCash'),
-                label: 'GCash',
-                subtitle: 'Coming soon',
-                value: PaymentMethod.gcash,
-                selectedPayment: selectedPayment,
-                onChanged: onChanged,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PaymentMethodTile extends StatelessWidget {
-  const _PaymentMethodTile({
-    super.key,
-    required this.label,
-    this.subtitle,
-    required this.value,
-    required this.selectedPayment,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String? subtitle;
-  final PaymentMethod value;
-  final PaymentMethod selectedPayment;
-  final ValueChanged<PaymentMethod> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isSelected = selectedPayment == value;
-
-    return InkWell(
-      onTap: () => onChanged(value),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outlineVariant,
-            width: isSelected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          color: isSelected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Selection comes from the surrounding RadioGroup.
-            Radio<PaymentMethod>(value: value),
-            const SizedBox(width: 6),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                    color: isSelected ? theme.colorScheme.primary : null,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                      fontSize: 10,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

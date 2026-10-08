@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/utils/currency.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../orders/data/models/order_history_model.dart';
 import '../../../orders/data/repositories/order_history_repository.dart';
@@ -17,16 +18,11 @@ import '../../../search/presentation/providers/attention_data.dart';
 // Helpers & Utilities
 // ---------------------------------------------------------------------------
 
-String formatCentavos(int centavos) {
-  final pesos = centavos / 100;
-  return '₱${pesos.toStringAsFixed(2)}';
-}
-
 /// Text and dot colour for a stock state.
 ///
 /// Mirrors the copy in `inventory_screen.dart`: the same four states, the same
-/// dark-mode handling. Taking [StockState] rather than the string the mock model
-/// used to hand back is what lets `unknown` get its own colour instead of
+/// dark-mode handling. Taking [StockState] rather than the string the mock
+/// model used to hand back is what lets `unknown` get its own colour instead of
 /// falling through to the healthy one.
 abstract final class _StockColors {
   /// Amber used for the expiry and low-stock attention tiles, which colour a
@@ -239,157 +235,6 @@ class SalesSummary {
 }
 
 // ---------------------------------------------------------------------------
-// Custom Sub-widgets
-// ---------------------------------------------------------------------------
-
-class SearchField extends StatelessWidget {
-  const SearchField({
-    super.key,
-    required this.controller,
-    required this.onChanged,
-    required this.onClear,
-    required this.hintText,
-  });
-
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-  final String hintText;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          hintText: hintText,
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-                icon: const Icon(Icons.clear),
-                // Named like every other icon-only button here: an unlabelled
-                // one is announced as just "button" by a screen reader.
-                tooltip: 'Clear',
-                onPressed: onClear,
-              )
-              : null,
-          filled: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ResultsCount extends StatelessWidget {
-  const ResultsCount({
-    super.key,
-    required this.resultsCount,
-    required this.totalCount,
-    required this.query,
-    required this.isLoading,
-  });
-
-  final int resultsCount;
-  final int totalCount;
-  final String query;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      // Not wrapped in a Row: a Row would size its Text to the full sentence
-      // and overflow on a narrow phone, because the count, the query and the
-      // quotes together are wider than a 360dp screen. Left to wrap instead.
-      child: Text(
-        '$resultsCount of $totalCount results for "$query"',
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-    );
-  }
-}
-
-class NoResults extends StatelessWidget {
-  const NoResults({super.key, required this.query});
-  final String query;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text('No medicines found matching "$query".'),
-    );
-  }
-}
-
-class CatalogueError extends StatelessWidget {
-  const CatalogueError({
-    super.key,
-    required this.message,
-    required this.onRetry,
-  });
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          const SizedBox(height: 8),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
-    );
-  }
-}
-
-class MedicineRow extends StatelessWidget {
-  const MedicineRow({
-    super.key,
-    required this.medicine,
-    required this.quantity,
-    required this.onAdd,
-    required this.onRemove,
-  });
-
-  final MedicineModel medicine;
-  final int quantity;
-  final VoidCallback onAdd;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(medicine.name),
-      subtitle: Text(formatCentavos(medicine.priceCentavos)),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (quantity > 0) ...[
-            IconButton(icon: const Icon(Icons.remove), onPressed: onRemove),
-            Text('$quantity'),
-          ],
-          IconButton(icon: const Icon(Icons.add), onPressed: onAdd),
-        ],
-      ),
-    );
-  }
-}
-
-Future<int?> showQuantitySheet(BuildContext context, {required MedicineModel medicine}) async {
-  return 1; // Default stub for bottom sheet selection
-}
-
-// ---------------------------------------------------------------------------
 // DashboardScreen
 // ---------------------------------------------------------------------------
 
@@ -408,28 +253,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  String _query = '';
-
   static const int _attentionPreviewCount = 5;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onQueryChanged(String query) {
-    setState(() => _query = query);
-    if (_scrollController.hasClients) _scrollController.jumpTo(0);
-  }
-
-  void _clearSearch() {
-    _searchController.clear();
-    _onQueryChanged('');
-  }
 
   void _comingSoon(String message) {
     ScaffoldMessenger.of(context)
@@ -437,83 +261,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _addItem(MedicineModel medicine) async {
-    final order = context.read<OrderProvider>();
-    final quantity = await showQuantitySheet(context, medicine: medicine);
-    if (quantity == null) return;
-
-    order.add(medicine, quantity);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Added $quantity × ${medicine.name}')),
-    );
-  }
-
-  void _removeItem(MedicineModel medicine, int quantity) {
-    final order = context.read<OrderProvider>();
-    order.remove(medicine);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Removed $quantity × ${medicine.name}'),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => order.add(medicine, quantity),
-        ),
-      ),
-    );
-  }
-
-  Widget _resultsColumn({
-    required String query,
-    required List<MedicineModel> results,
-    required int total,
-    required bool isLoading,
-  }) {
-    return Column(
-      children: [
-        ResultsCount(
-          resultsCount: results.length,
-          totalCount: total,
-          query: query,
-          isLoading: isLoading,
-        ),
-        Expanded(
-          child: results.isEmpty ? NoResults(query: query) : _resultsList(results),
-        ),
-      ],
-    );
-  }
-
-  Widget _resultsList(List<MedicineModel> results) {
-    return ListView.separated(
-      controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 16),
-      itemCount: results.length,
-      separatorBuilder: (context, index) =>
-          const Divider(height: 1, indent: 16, endIndent: 16),
-      itemBuilder: (context, index) {
-        final medicine = results[index];
-        return _ResultRow(
-          medicine: medicine,
-          onAdd: () => _addItem(medicine),
-          onRemove: (quantity) => _removeItem(medicine, quantity),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final catalogue = context.watch<MedicineProvider>();
-    final all = catalogue.all();
-    final query = _query.trim();
     final attention = catalogue.attention;
-    final results = query.isEmpty ? const <MedicineModel>[] : catalogue.search(query);
-
-    final isLoading = catalogue.isLoading;
-    final error = catalogue.error;
 
     final historyFactory =
         widget.historyFactory ??
@@ -524,74 +275,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return ChangeNotifierProvider<TodaySalesProvider>(
       create: (_) => TodaySalesProvider(historyFactory: historyFactory),
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text("Wilma Pharmacy's"),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            tooltip: 'Find a feature',
-            icon: const Icon(Icons.manage_search),
-            onPressed: () => context.pushNamed('finder'),
-          ),
-          IconButton(
-            tooltip: 'Notifications',
-            icon: Badge.count(
-              count: attention.total,
-              isLabelVisible: attention.total > 0,
-              child: const Icon(Icons.notifications_outlined),
+        appBar: AppBar(
+          title: const Text("Wilma Pharmacy's"),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
+          actions: [
+            // The one search affordance on this screen: opens the full-screen
+            // finder, which browses every screen by name.
+            IconButton(
+              tooltip: 'Search screens',
+              icon: const Icon(Icons.manage_search),
+              onPressed: () => context.pushNamed('finder'),
             ),
-            onPressed: () => context.pushNamed('home-notifications'),
-          ),
-          IconButton(
-            tooltip: 'Profile',
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.pushNamed('home-profile'),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: SearchField(
-                  controller: _searchController,
-                  onChanged: _onQueryChanged,
-                  onClear: _clearSearch,
-                  hintText: 'Search medicines',
-                ),
+            IconButton(
+              tooltip: 'Notifications',
+              icon: Badge.count(
+                count: attention.total,
+                isLabelVisible: attention.total > 0,
+                child: const Icon(Icons.notifications_outlined),
               ),
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: IconButton.filledTonal(
-                  tooltip: 'Scan product name',
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  onPressed: () => context.pushNamed('home-scan'),
-                ),
-              ),
-            ],
-          ),
-          Expanded(
-            child: switch ((error, isLoading, query.isEmpty)) {
-              (final String message, _, _) => CatalogueError(
-                  message: message,
-                  onRetry: () => catalogue.clearError(),
-                ),
-              (_, true, _) => const Center(child: CircularProgressIndicator()),
-              (_, _, true) => _browseList(attention),
-              (_, _, false) => _resultsColumn(
-                  query: query,
-                  results: results,
-                  total: all.length,
-                  isLoading: isLoading,
-                ),
-            },
-          ),
-        ],
-      ),
+              onPressed: () => context.pushNamed('home-notifications'),
+            ),
+            IconButton(
+              tooltip: 'Profile',
+              icon: const Icon(Icons.person_outline),
+              onPressed: () => context.pushNamed('home-profile'),
+            ),
+          ],
+        ),
+        body: _body(attention, catalogue.error, catalogue.isLoading),
       ),
     );
+  }
+
+  /// The body of the screen, chosen by the catalogue's state.
+  ///
+  /// Split out so the error and loading branches come before the browse list:
+  /// an empty pharmacy is not a state this app has to handle, whereas a first
+  /// read that has not landed is, and showing an empty list during it would read
+  /// as "the pharmacy stocks nothing".
+  Widget _body(AttentionData attention, String? catalogueError, bool isLoading) {
+    if (catalogueError != null) {
+      return _CatalogueError(
+        message: catalogueError,
+        onRetry: () => context.read<MedicineProvider>().clearError(),
+      );
+    }
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return _browseList(attention);
   }
 
   Widget _browseList(AttentionData attention) {
@@ -600,34 +333,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final warning = _StockColors.warning(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
         _TodaySalesCard(onViewReport: () => _comingSoon('Sales report — coming soon')),
         const SizedBox(height: 8),
         _CurrentOrderStrip(onTap: () => context.goNamed('new-sale')),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.point_of_sale_outlined,
-                label: 'New sale',
-                kind: _ActionKind.primary,
-                onPressed: () => context.goNamed('new-sale'),
-              ),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () => context.goNamed('new-sale'),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.point_of_sale_outlined, size: 18),
+                SizedBox(width: 6),
+                Text('New sale'),
+              ],
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.fact_check_outlined,
-                label: 'Count stock',
-                kind: _ActionKind.tonal,
-                onPressed: () => context.goNamed('inventory'),
-              ),
-            ),
-          ],
+          ),
         ),
-        const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
@@ -679,34 +404,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ],
     );
   }
-
 }
 
-class _ResultRow extends StatelessWidget {
-  const _ResultRow({
-    required this.medicine,
-    required this.onAdd,
-    required this.onRemove,
-  });
+// ---------------------------------------------------------------------------
+// Catalogue error
+// ---------------------------------------------------------------------------
 
-  final MedicineModel medicine;
-  final VoidCallback onAdd;
-  final ValueChanged<int> onRemove;
+/// Shown when the catalogue failed to load, so the browse list cannot render.
+class _CatalogueError extends StatelessWidget {
+  const _CatalogueError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final quantity = context.select<OrderProvider, int>(
-      (order) => order.quantityOf(medicine),
-    );
-
-    return MedicineRow(
-      medicine: medicine,
-      quantity: quantity,
-      onAdd: onAdd,
-      onRemove: () => onRemove(quantity),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Browse-list widgets
+// ---------------------------------------------------------------------------
 
 class _TodaySalesCard extends StatelessWidget {
   const _TodaySalesCard({required this.onViewReport});
@@ -778,9 +510,9 @@ class _TodaySalesCard extends StatelessWidget {
                 child: Row(
                   children: [
                     _Stat(value: '${summary.orderCount}', label: 'Orders'),
-                    const VerticalDivider(width: 1),
+                    VerticalDivider(width: 1),
                     _Stat(value: '${summary.itemsSold}', label: 'Items sold'),
-                    const VerticalDivider(width: 1),
+                    VerticalDivider(width: 1),
                     _Stat(
                       value: formatCentavos(summary.averageCentavos),
                       label: 'Average',
@@ -1079,50 +811,6 @@ class _CurrentOrderStrip extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-enum _ActionKind { primary, tonal, quiet }
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.kind,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final _ActionKind kind;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final style = FilledButton.styleFrom(
-      minimumSize: const Size.fromHeight(48),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      foregroundColor: kind == _ActionKind.quiet ? scheme.onSurfaceVariant : null,
-      backgroundColor:
-          kind == _ActionKind.quiet ? scheme.surfaceContainerHighest : null,
-    );
-    final child = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ],
-    );
-
-    return switch (kind) {
-      _ActionKind.primary =>
-        FilledButton(onPressed: onPressed, style: style, child: child),
-      _ => FilledButton.tonal(onPressed: onPressed, style: style, child: child),
-    };
   }
 }
 

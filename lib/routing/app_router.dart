@@ -15,6 +15,8 @@ import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
 import '../features/sales/presentation/screens/new_sale_screen.dart';
+import '../../features/sales/domain/payment_method.dart';
+import '../../features/sales/presentation/screens/cart_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
@@ -146,6 +148,21 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 path: AppRoutes.newSale,
                 name: 'new-sale',
                 builder: (context, state) => const NewSaleScreen(),
+                routes: [
+                  // Nested so the cart lives on the same branch as the sale it
+                  // belongs to: the bottom bar keeps Orders selected, and back
+                  // from the cart returns to the sale rather than popping to
+                  // another tab.
+                  GoRoute(
+                    path: 'cart',
+                    name: 'new-sale-cart',
+                    builder: (context, state) {
+                      final payment = state.extra as PaymentMethod? ??
+                          PaymentMethod.cashOnHand;
+                      return CartScreen(initialPayment: payment);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

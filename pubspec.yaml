@@ -96,6 +96,7 @@ flutter:
     # an asset: the app reads JSON, never a spreadsheet.
     - assets/data/medicines_seed.json
     - assets/data/sales_seed.json
+    - assets/data/cleaned_sales_seed.json
 
   fonts:
     - family: PlayfairDisplay
