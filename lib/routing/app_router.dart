@@ -11,6 +11,7 @@ import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
+import '../features/orders/presentation/screens/order_history_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
@@ -165,6 +166,17 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 path: AppRoutes.orders,
                 name: 'orders',
                 builder: (context, state) => const OrdersScreen(),
+                routes: [
+                  // Nested so the history lives on the same branch as the
+                  // list it belongs to: the bottom bar keeps Orders selected
+                  // and the back arrow returns to the pending list rather
+                  // than to another tab.
+                  GoRoute(
+                    path: 'history',
+                    name: 'orders-history',
+                    builder: (context, state) => const OrderHistoryScreen(),
+                  ),
+                ],
               ),
             ],
           ),

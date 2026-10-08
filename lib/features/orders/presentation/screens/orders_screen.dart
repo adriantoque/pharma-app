@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../core/utils/currency.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_history_repository.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
 
-class OrdersScreen extends StatefulWidget {
+/// The Orders tab: new orders waiting for a decision.
+///
+/// Only [OrderStatus.new_] orders appear here. Approving or rejecting one
+/// moves it to [OrderHistoryScreen] -- the decision is recorded in the same
+/// stream this screen reads, so the order disappears from the list the moment
+/// the write lands, without a manual refresh.
+///
+/// Reached from the bottom nav. The AppBar's history icon opens the record of
+/// what has already been decided.
+class OrdersScreen extends StatelessWidget {
   final OrderHistoryRepository Function()? historyFactory;
 
   const OrdersScreen({
@@ -15,51 +26,26 @@ class OrdersScreen extends StatefulWidget {
   });
 
   @override
-  State<OrdersScreen> createState() => _OrdersScreenState();
-}
-
-class _OrdersScreenState extends State<OrdersScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // The repository is built per signed-in user, so there is no single instance
-    // to hand over from a provider -- the app registers the factory that decides
-    // where a user's history lives and this is the call that resolves it. Reading
-    // a bare OrderHistoryRepository here would throw at runtime, because nothing
-    // registers one. `historyFactory` is the seam tests inject through.
-    final historyFactory = widget.historyFactory ??
+    final factory = historyFactory ??
         () => context.read<OrderHistoryRepositoryFactory>()(
               context.read<AuthProvider>().user?.id ?? '',
             );
-    final historyRepo = historyFactory();
+    final historyRepo = factory();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order History'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'New'),
-            Tab(text: 'Approved'),
-            Tab(text: 'Rejected'),
-          ],
-        ),
+        title: const Text('Order List'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Order history',
+            icon: const Icon(Icons.history),
+            onPressed: () => context.pushNamed('orders-history'),
+          ),
+        ],
       ),
       body: StreamBuilder<List<OrderHistory>>(
         stream: historyRepo.watchAll(),
@@ -69,8 +55,11 @@ class _OrdersScreenState extends State<OrdersScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline,
-                      size: 48, color: theme.colorScheme.error),
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: theme.colorScheme.error,
+                  ),
                   const SizedBox(height: 16),
                   Text('Failed to load orders',
                       style: theme.textTheme.titleMedium),
@@ -90,37 +79,23 @@ class _OrdersScreenState extends State<OrdersScreen>
             return const Center(child: CircularProgressIndicator());
           }
 
-          final orders = snapshot.data ?? [];
+          final orders = snapshot.data ?? const <OrderHistory>[];
+          final pending = orders
+              .where((o) => o.status == OrderStatus.new_)
+              .toList()
+            ..sort((a, b) => b.time.compareTo(a.time));
 
-          final newOrders =
-              orders.where((o) => o.status == OrderStatus.new_).toList();
-          final approvedOrders =
-              orders.where((o) => o.status == OrderStatus.approved).toList();
-          final rejectedOrders =
-              orders.where((o) => o.status == OrderStatus.rejected).toList();
+          if (pending.isEmpty) {
+            return const _EmptyOrderList();
+          }
 
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _OrderListTab(
-                orders: newOrders,
-                emptyMessage: 'No pending new orders',
-                emptyIcon: Icons.inbox_outlined,
-                showActions: true,
-              ),
-              _OrderListTab(
-                orders: approvedOrders,
-                emptyMessage: 'No approved orders',
-                emptyIcon: Icons.check_circle_outline,
-                showActions: false,
-              ),
-              _OrderListTab(
-                orders: rejectedOrders,
-                emptyMessage: 'No rejected orders',
-                emptyIcon: Icons.cancel_outlined,
-                showActions: false,
-              ),
-            ],
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: pending.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) => _PendingOrderCard(
+              order: pending[index],
+            ),
           );
         },
       ),
@@ -128,63 +103,52 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 }
 
-class _OrderListTab extends StatelessWidget {
-  final List<OrderHistory> orders;
-  final String emptyMessage;
-  final IconData emptyIcon;
-  final bool showActions;
-
-  const _OrderListTab({
-    required this.orders,
-    required this.emptyMessage,
-    required this.emptyIcon,
-    required this.showActions,
-  });
+class _EmptyOrderList extends StatelessWidget {
+  const _EmptyOrderList();
 
   @override
   Widget build(BuildContext context) {
-    if (orders.isEmpty) {
-      final theme = Theme.of(context);
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(emptyIcon, size: 64, color: theme.colorScheme.outline),
-            const SizedBox(height: 16),
-            Text(
-              emptyMessage,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final theme = Theme.of(context);
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: orders.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        return _OrderCard(
-          order: order,
-          showActions: showActions,
-        );
-      },
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.inbox_outlined,
+            size: 64,
+            color: theme.colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No pending orders',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'New orders waiting for approval will appear here.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _OrderCard extends StatelessWidget {
-  final OrderHistory order;
-  final bool showActions;
+/// One pending order, with the two buttons that move it out of the list.
+class _PendingOrderCard extends StatelessWidget {
+  const _PendingOrderCard({required this.order});
 
-  const _OrderCard({
-    required this.order,
-    required this.showActions,
-  });
+  final OrderHistory order;
+
+  void _updateStatus(BuildContext context, OrderStatus newStatus) {
+    context.read<OrdersProvider>().updateOrderStatus(order.id, newStatus);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,10 +164,10 @@ class _OrderCard extends StatelessWidget {
         key: PageStorageKey(order.id),
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: _getStatusColor(order.status, theme).withValues(alpha: 0.12),
+          backgroundColor: order.statusBackgroundColor,
           child: Icon(
-            _getStatusIcon(order.status),
-            color: _getStatusColor(order.status, theme),
+            Icons.pending_actions,
+            color: order.statusColor,
           ),
         ),
         title: Text(
@@ -215,26 +179,18 @@ class _OrderCard extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
           child: Text(
-            '${order.items.length} item(s) • ${_formatTimestamp(order.time)}',
-            style: theme.textTheme.bodyMedium?.copyWith(
+            '${order.items.length} item(s) · ${order.formattedDate(context: context)}',
+            style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              formatCentavos(order.totalCentavos),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            _StatusBadge(status: order.status),
-          ],
+        trailing: Text(
+          formatCentavos(order.totalCentavos),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.primary,
+          ),
         ),
         children: [
           const Divider(height: 1),
@@ -250,12 +206,6 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // A Column, not a shrink-wrapped ListView: this list cannot scroll, so it has
-                // no scroll position to speak of. As a Scrollable it looked for
-                // one in the PageStorage bucket the ExpansionTile above it owns
-                // and found that tile's expanded-or-not *bool* under the same
-                // identifier, throwing a double cast -- which took the whole
-                // expanded card down, actions included.
                 for (final line in order.items) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
@@ -278,107 +228,36 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (showActions) ...[
-                  const SizedBox(height: 16),
-                  // Expanded rather than end-aligned natural widths: two icon buttons with labels
-                  // are wider than the expanded card on a narrow phone, and an
-                  // overflowing Row is an error, not just a clipped button.
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _updateStatus(context, OrderStatus.rejected),
-                          icon: const Icon(Icons.close, size: 18),
-                          label: const Text('Reject'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
-                            side: BorderSide(color: theme.colorScheme.error),
-                          ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _updateStatus(context, OrderStatus.rejected),
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const Text('Reject'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                          side: BorderSide(color: theme.colorScheme.error),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _updateStatus(context, OrderStatus.approved),
-                          icon: const Icon(Icons.check, size: 18),
-                          label: const Text('Approve'),
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            _updateStatus(context, OrderStatus.approved),
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Approve'),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _updateStatus(BuildContext context, OrderStatus newStatus) {
-    context.read<OrdersProvider>().updateOrderStatus(order.id, newStatus);
-  }
-
-  Color _getStatusColor(OrderStatus status, ThemeData theme) {
-    return switch (status) {
-      OrderStatus.approved => Colors.green.shade700,
-      OrderStatus.rejected => theme.colorScheme.error,
-      OrderStatus.new_ => theme.colorScheme.primary,
-    };
-  }
-
-  IconData _getStatusIcon(OrderStatus status) {
-    return switch (status) {
-      OrderStatus.approved => Icons.check_circle_outline,
-      OrderStatus.rejected => Icons.cancel_outlined,
-      OrderStatus.new_ => Icons.pending_actions,
-    };
-  }
-
-  String _formatTimestamp(DateTime time) {
-    return '${time.year}-${time.month.toString().padLeft(2, '0')}-${time.day.toString().padLeft(2, '0')} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final OrderStatus status;
-
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (backgroundColor, textColor, label) = switch (status) {
-      OrderStatus.approved => (
-          Colors.green.shade100,
-          Colors.green.shade900,
-          'APPROVED',
-        ),
-      OrderStatus.rejected => (
-          theme.colorScheme.errorContainer,
-          theme.colorScheme.onErrorContainer,
-          'REJECTED',
-        ),
-      OrderStatus.new_ => (
-          theme.colorScheme.primaryContainer,
-          theme.colorScheme.onPrimaryContainer,
-          'NEW',
-        ),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: textColor,
-        ),
       ),
     );
   }
