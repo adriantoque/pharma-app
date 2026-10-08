@@ -11,7 +11,8 @@ import 'bootstrap/splash_screen.dart';
 import 'core/connectivity/connection_source.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
-import 'features/auth/data/repositories/firebase_auth_repository.dart';
+import 'features/auth/data/repositories/demo_auth_repository.dart';
+import 'features/auth/domain/user_role.dart';
 import 'features/auth/data/repositories/offline_session.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/orders/data/repositories/local_order_draft_store.dart';
@@ -118,7 +119,10 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         // whole app. Firestore will take tens of seconds of its own backoff to
         // admit a lost connection; this is what puts the banner up before then.
         Provider<ConnectionSource>(create: (_) => PlatformConnectionSource()),
-        Provider<AuthRepository>(create: (_) => FirebaseAuthRepository()),
+                // Demo authentication: three roles, credentials compiled into the app.
+        // Swapping this line for `FirebaseAuthRepository()` is the entire
+        // migration to a real backend; nothing above it needs to change.
+        Provider<AuthRepository>(create: (_) => DemoAuthRepository()),
         // One Firestore handle for the whole app. FirebaseFirestore.instance is
         // already a singleton, so this is a shared handle rather than a shared
         // database, and every store can be built from the same object.
@@ -134,10 +138,22 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
                 ),
           ),
         ),
+        Provider<RoleStore>(
+          create: (_) => StoredRoleStore(
+            readStorage: () async => (await SharedPreferences.getInstance())
+                .getString('userRole'),
+            writeStorage: (value) async =>
+                (await SharedPreferences.getInstance()).setString(
+                  'userRole',
+                  value ?? '',
+                ),
+          ),
+        ),
         ChangeNotifierProvider<AuthProvider>(
           create: (ctx) => AuthProvider(
             ctx.read<AuthRepository>(),
             offlineSession: ctx.read<OfflineSession>(),
+            roleStore: ctx.read<RoleStore>(),
           ),
         ),
         // Above the router, so the price list outlives a tab switch. Built from a

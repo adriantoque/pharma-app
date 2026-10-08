@@ -6,13 +6,19 @@ import 'package:flutter/services.dart';
 
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/demo_auth_repository.dart';
 import '../../data/repositories/offline_session.dart';
+import '../../domain/user_role.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated, offline }
 
 class AuthProvider extends ChangeNotifier {
-  AuthProvider(this._repository, {OfflineSession? offlineSession})
-      : _offlineSession = offlineSession ?? InMemoryOfflineSession() {
+  AuthProvider(
+    this._repository, {
+    OfflineSession? offlineSession,
+    RoleStore? roleStore,
+  })  : _offlineSession = offlineSession ?? InMemoryOfflineSession(),
+        _roleStore = roleStore ?? InMemoryRoleStore() {
     _authSubscription = _repository.authStateChanges.listen(_onAuthStateChanged);
     _ready = _verifySession();
   }
@@ -21,31 +27,41 @@ class AuthProvider extends ChangeNotifier {
 
   static const UserModel offlineUser = UserModel(
     id: offlineUserId,
-    name: 'Offline mode',
+    name: 'Guest',
     email: null,
+    role: UserRole.guest,
   );
 
   final AuthRepository _repository;
   final OfflineSession _offlineSession;
+  final RoleStore _roleStore;
   StreamSubscription<UserModel?>? _authSubscription;
   late final Future<void> _ready;
 
   AuthStatus _status = AuthStatus.unknown;
   UserModel? _user;
+  UserRole? _role;
   bool _isLoading = false;
   bool _requestInFlight = false;
   String? _error;
 
-  /// Set in [dispose]. Notifying a disposed ChangeNotifier throws, and an async
-  /// auth callback can still land after the widget tree has torn the provider
-  /// down — most easily reproduced by hot reload, which disposes and rebuilds
-  /// the provider while a Firebase call is still in flight.
+  /// Set in [dispose]. Notifying a disposed ChangeNotifier throws, and an
+  /// async auth callback can still land after the tree has torn the provider
+  /// down -- most easily reproduced by hot reload.
   bool _disposed = false;
 
   AuthStatus get status => _status;
   UserModel? get user => _user;
+  UserRole? get role => _role;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  /// What the signed-in account may do. Null while no role has been resolved
+  /// yet, which is not the same as [UserRole.guest]: a role that has not been
+  /// read is not a role that forbids everything.
+  bool get isAdmin => _role == UserRole.admin;
+  bool get isStaff => _role == UserRole.staff;
+  bool get isGuest => _role == UserRole.guest;
 
   void _safeNotify() {
     if (_disposed) return;
@@ -58,8 +74,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> get ready => _ready;
 
   /// While true, incoming stream events are dropped in favour of the value read
-  /// once session verification finishes. Always cleared, even on failure, so a
-  /// transient error can never permanently freeze the auth state machine.
+  /// once session verification finishes. Always cleared, even on failure.
   bool _initializing = true;
 
   void _onAuthStateChanged(UserModel? user) {
@@ -68,35 +83,21 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _applyAuthState(UserModel? user, {bool clearError = true}) {
-    // The guest user is a real [UserModel], so without this it would read as
-    // authenticated -- which is the whole trap here. Keyed on the reserved id
-    // rather than on a flag, so no caller can reach offline mode by accident.
     final offline = user?.id == offlineUserId;
 
     // Firebase's stream has no offline concept, so it reports "no user" for a
     // session that was never signed in and for one the user walked away from
-    // offline mode. Acting on the first would silently undo the choice they just
-    // made and drop them back on the login screen a frame after entering.
-    //
-    // A real user still wins: signing in while offline is a deliberate
-    // replacement, not a stray event.
-
-    // Firebase's stream has no offline concept, so it reports "no user" for a
-    // session that was never signed in and for one the user walked away from
-    // offline mode. Acting on the first would silently undo the choice they just
-    // made and drop them back on the login screen a frame after entering.
-    //
-    // A real user still wins: signing in while offline is a deliberate
-    // replacement, not a stray event.
+    // offline mode. Acting on the first would silently undo the choice they
+    // just made.
     if (user == null && _status == AuthStatus.offline) return;
 
     _user = user;
+    _role = user?.role;
     _status = offline
         ? AuthStatus.offline
-        : (user == null ? AuthStatus.unauthenticated : AuthStatus.authenticated);
-    // A state change means whatever the previous request reported is no longer
-    // the current error, so a failed sign-in message must not survive a sign-out
-    // and greet the user on the login screen.
+        : (user == null
+            ? AuthStatus.unauthenticated
+            : AuthStatus.authenticated);
     if (clearError) _error = null;
     _safeNotify();
   }
@@ -105,9 +106,6 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _repository.refreshUser();
     } catch (e) {
-      // Never let this escape: an unhandled error here used to leave
-      // _initializing stuck at true, which silently discarded every later
-      // auth event and pinned the app to the login screen.
       _error = _describeError(e);
     }
 
@@ -116,20 +114,22 @@ class AuthProvider extends ChangeNotifier {
     final current = await _repository.getCurrentUser();
     if (current != null) {
       await _offlineSession.write(false);
+      await _roleStore.write(current.role);
       _applyAuthState(current, clearError: _error == null);
       return;
     }
 
     if (await _offlineSession.read()) {
-      _applyAuthState(offlineUser, clearError: _error == null);
+      // The role is read from preferences rather than from the offline user
+      // object, so a future change to the default role does not retroactively
+      // change a session that was started under the old one.
+      _role = await _roleStore.read() ?? UserRole.guest;
+      _user = offlineUser;
+      _status = AuthStatus.offline;
+      _safeNotify();
       return;
     }
 
-    // Seed from the live Firebase session *after* stream events are being
-    // accepted, so a sign-in that raced the refresh is not lost. getCurrentUser
-    // reads authoritative state, so a concurrent sign-out is picked up too.
-    // clearError is false only when the refresh above actually failed, so that
-    // diagnostic survives instead of being wiped by the state change.
     _applyAuthState(null, clearError: _error == null);
   }
 
@@ -152,23 +152,30 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> signInWithGoogle() {
-    return _run(() => _repository.signInWithGoogle(), onSuccess: _applyAuthState);
+    return _run(
+      () => _repository.signInWithGoogle(),
+      onSuccess: _applyAuthState,
+    );
   }
 
   bool get isOffline => _status == AuthStatus.offline;
 
   Future<void> enterOfflineMode() async {
     await _offlineSession.write(true);
+    await _roleStore.write(UserRole.guest);
     _status = AuthStatus.offline;
     _user = offlineUser;
+    _role = UserRole.guest;
     _error = null;
     _safeNotify();
   }
 
   Future<void> exitOfflineMode() async {
     await _offlineSession.write(false);
+    await _roleStore.write(null);
     _status = AuthStatus.unauthenticated;
     _user = null;
+    _role = null;
     _error = null;
     _safeNotify();
   }
@@ -183,6 +190,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _repository.logout();
       await _offlineSession.write(false);
+      await _roleStore.write(null);
       return true;
     } catch (e) {
       _error = _describeError(e);
@@ -199,8 +207,8 @@ class AuthProvider extends ChangeNotifier {
     void Function(UserModel? user)? onSuccess,
   }) async {
     // Guard against double submission: the auth sheet triggers _submit from
-    // both the keyboard action and the button, and Firebase rejects the second
-    // sign-in attempt as a conflict.
+    // both the keyboard action and the button, and Firebase rejects the
+    // second sign-in attempt as a conflict.
     if (_requestInFlight) return false;
     _requestInFlight = true;
     _isLoading = true;
@@ -210,15 +218,16 @@ class AuthProvider extends ChangeNotifier {
     try {
       final user = await action();
       if (user != null) {
+        await _roleStore.write(user.role);
         onSuccess?.call(user);
-        // Every sign-in path goes through here, so this is the one place that has
-        // to forget offline mode. Left set, the next cold start would find the
-        // flag and drop a properly signed-in pharmacist into a guest session.
         await _offlineSession.write(false);
       }
       return user != null;
     } on FirebaseAuthException catch (e) {
       _error = _mapFirebaseError(e);
+      return false;
+    } on AuthException catch (e) {
+      _error = e.message;
       return false;
     } on PlatformException catch (e) {
       _error = _mapPlatformError(e);
@@ -279,14 +288,15 @@ class AuthProvider extends ChangeNotifier {
   String _describeError(Object error) {
     final text = error.toString();
     return text
-        .replaceFirst(RegExp(r'^(Exception|Bad state|Unsupported error):\s*'), '')
+        .replaceFirst(
+          RegExp(r'^(Exception|Bad state|Unsupported error):\s*'),
+          '',
+        )
         .trim();
   }
 
   @override
   void dispose() {
-    // Flipped before the subscription is cancelled: cancelling is async, so an
-    // in-flight callback can still arrive after this returns.
     _disposed = true;
     _authSubscription?.cancel();
     _authSubscription = null;

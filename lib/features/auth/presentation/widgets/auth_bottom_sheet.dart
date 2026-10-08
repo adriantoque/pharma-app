@@ -10,7 +10,12 @@ enum AuthSheetMode { login, signup }
 class AuthBottomSheet extends StatefulWidget {
   final AuthSheetMode mode;
 
-  const AuthBottomSheet({super.key, required this.mode});
+  /// What the sheet calls itself. Defaults to the mode's own label so a
+  /// caller that does not care about admin-versus-staff still gets a sensible
+  /// title.
+  final String? title;
+
+  const AuthBottomSheet({super.key, required this.mode, this.title});
 
   @override
   State<AuthBottomSheet> createState() => _AuthBottomSheetState();
@@ -26,7 +31,8 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
 
   bool get _isLogin => widget.mode == AuthSheetMode.login;
 
-  String get _title => _isLogin ? 'Login' : 'Create account';
+  String get _title =>
+      widget.title ?? (_isLogin ? 'Login' : 'Create account');
 
   String get _buttonLabel => _isLogin ? 'Login' : 'Signup';
 
@@ -65,16 +71,16 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
     setState(() => _submitting = false);
 
     if (success) {
-      // Navigate by popping only. Calling context.go() after pop() looks up an
-      // inherited widget on a context that is being deactivated, and the
+      // Navigate by popping only. Calling context.go() after pop() looks up
+      // an inherited widget on a context that is being deactivated, and the
       // router's auth redirect already sends a signed-in user to the home
       // screen on its own.
       navigator.pop();
       return;
     }
 
-    // Shown through the messenger captured above: a messenger resolved from the
-    // sheet's own context would render behind the modal barrier.
+    // Shown through the messenger captured above: a messenger resolved from
+    // the sheet's own context would render behind the modal barrier.
     messenger.showSnackBar(
       SnackBar(content: Text(auth.error ?? 'Something went wrong')),
     );
@@ -90,10 +96,12 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) {
-      return 'Email is required';
+      return _isLogin ? 'Username is required' : 'Email is required';
     }
-    // Deliberately simple, but stricter than a bare `contains('@')` so obvious
-    // typos fail in the form instead of round-tripping to Firebase.
+    // The demo accounts sign in with a bare username, so the strict email
+    // check is only applied when the sheet is creating an account.
+    if (_isLogin) return null;
+
     if (!RegExp(r'^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$').hasMatch(email)) {
       return 'Enter a valid email address';
     }
@@ -146,8 +154,13 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
             ],
             AuthTextField(
               controller: _emailController,
-              label: 'Email',
-              keyboardType: TextInputType.emailAddress,
+              // The demo backend signs in with a username; a real one would
+              // sign in with an email. The label changes with the backend,
+              // the field does not.
+              label: _isLogin ? 'Username' : 'Email',
+              keyboardType: _isLogin
+                  ? TextInputType.text
+                  : TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               enabled: !isLoading,
               validator: _validateEmail,

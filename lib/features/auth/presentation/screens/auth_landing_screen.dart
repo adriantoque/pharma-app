@@ -8,28 +8,24 @@ import '../widgets/auth_bottom_sheet.dart';
 class AuthLandingScreen extends StatelessWidget {
   const AuthLandingScreen({super.key});
 
-  void _openSheet(BuildContext context, AuthSheetMode mode) {
+  /// Opens the sign-in sheet in [mode], with a title that tells the user which
+  /// account they are being asked for.
+  void _openSheet(
+    BuildContext context, {
+    required AuthSheetMode mode,
+    required String title,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      builder: (context) => AuthBottomSheet(mode: mode),
+      builder: (context) => AuthBottomSheet(mode: mode, title: title),
     );
   }
 
-  Future<void> _signInWithGoogle(BuildContext context) async {
-    final auth = context.read<AuthProvider>();
-    final messenger = ScaffoldMessenger.of(context);
-    final success = await auth.signInWithGoogle();
-    if (!context.mounted) return;
-    if (!success && auth.error != null) {
-      messenger.showSnackBar(SnackBar(content: Text(auth.error ?? 'An unknown error occurred')));
-    }
-  }
-
-  Future<void> _continueOffline(BuildContext context) async {
+  Future<void> _continueAsGuest(BuildContext context) async {
     final auth = context.read<AuthProvider>();
     // Navigation is left entirely to the router's redirect, exactly as a
     // successful sign-in does: entering offline mode flips AuthStatus, and the
@@ -47,11 +43,7 @@ class AuthLandingScreen extends StatelessWidget {
       backgroundColor: scheme.surface,
       // The button column is fixed-height and the screen has no natural scroll
       // room on a short device, so the body is made scrollable and given the
-      // viewport as a floor: the two Spacers still split the slack when there is
-      // any, and the column is allowed to exceed the viewport when there is not,
-      // rather than overflowing and throwing. LayoutBuilder is what supplies that
-      // height -- a plain `minHeight: double.infinity` would be an unbounded
-      // constraint and the IntrinsicHeight below would reject it.
+      // viewport as a floor.
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
@@ -101,95 +93,38 @@ class AuthLandingScreen extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      FilledButton(
-                        onPressed: isBusy
-                            ? null
-                            : () => _openSheet(context, AuthSheetMode.login),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                          backgroundColor: AppColors.tealSurface,
-                          foregroundColor: AppColors.teal,
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                      _RoleButton(
+                        icon: Icons.admin_panel_settings_outlined,
+                        label: 'Sign in as Admin',
+                        enabled: !isBusy,
+                        filled: true,
+                        onPressed: () => _openSheet(
+                          context,
+                          mode: AuthSheetMode.login,
+                          title: 'Admin sign in',
                         ),
-                        child: const Text('Login'),
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: isBusy
-                            ? null
-                            : () => _openSheet(context, AuthSheetMode.signup),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                          backgroundColor: AppColors.tealSurface,
-                          foregroundColor: AppColors.teal,
-                          side: const BorderSide(
-                            color: AppColors.tealSurfaceBorder,
-                          ),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                      _RoleButton(
+                        icon: Icons.badge_outlined,
+                        label: 'Sign in as Staff',
+                        enabled: !isBusy,
+                        filled: false,
+                        onPressed: () => _openSheet(
+                          context,
+                          mode: AuthSheetMode.login,
+                          title: 'Staff sign in',
                         ),
-                        child: const Text('Signup'),
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: isBusy
-                            ? null
-                            : () => _signInWithGoogle(context),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(52),
-                          backgroundColor: scheme.surface,
-                          foregroundColor: AppColors.teal,
-                          elevation: 0.5,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: AppColors.tealSurfaceBorder,
-                            ),
-                          ),
-                        ),
-                        icon: isBusy
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.g_mobiledata, size: 28),
-                        label: Text(
-                          isBusy ? 'Signing in…' : 'Continue with Google',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
+                      _RoleButton(
+                        icon: Icons.person_outline,
+                        label: 'Continue as Guest',
+                        enabled: !isBusy,
+                        filled: false,
+                        onPressed: () => _continueAsGuest(context),
                       ),
-                      const SizedBox(height: 4),
-                      TextButton.icon(
-                        onPressed: isBusy
-                            ? null
-                            : () => _continueOffline(context),
-                        icon: const Icon(Icons.cloud_off_outlined, size: 18),
-                        label: const Text(
-                          'Continue offline',
-                          style: TextStyle(color: AppColors.teal, fontSize: 14),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.teal,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -198,6 +133,66 @@ class AuthLandingScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One of the three landing buttons.
+///
+/// Filled for the primary role and outlined for the rest, so the eye lands on
+/// "Sign in as Admin" first without the other two looking disabled.
+class _RoleButton extends StatelessWidget {
+  const _RoleButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.filled,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final bool filled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    const shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(20)),
+    );
+    const textStyle = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 16,
+    );
+
+    if (filled) {
+      return FilledButton.icon(
+        onPressed: enabled ? onPressed : null,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          backgroundColor: AppColors.tealSurface,
+          foregroundColor: AppColors.teal,
+          textStyle: textStyle,
+          shape: shape,
+        ),
+        icon: Icon(icon),
+        label: Text(label),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: enabled ? onPressed : null,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        backgroundColor: AppColors.tealSurface,
+        foregroundColor: AppColors.teal,
+        side: const BorderSide(color: AppColors.tealSurfaceBorder),
+        textStyle: textStyle,
+        shape: shape,
+      ),
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }
