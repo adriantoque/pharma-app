@@ -18,6 +18,8 @@ import '../features/finder/presentation/screens/finder_screen.dart';
 import '../features/sales/presentation/screens/new_sale_screen.dart';
 import '../features/sales/domain/payment_method.dart';
 import '../features/sales/presentation/screens/cart_screen.dart';
+import '../features/admin/presentation/screens/admin_home_screen.dart';
+import '../features/admin/presentation/screens/users_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
@@ -26,6 +28,8 @@ abstract final class AppRoutes {
   static const String orders = '/orders';
   static const String reports = '/reports';
   static const String finder = '/finder';
+  static const String admin = '/admin';
+  static const String adminUsers = '/admin/users';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
   /// the tile the user tapped from.
@@ -89,6 +93,18 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         builder: (context, state) => FinderScreen(
           onNavigate: (entry) => context.go(entry.routePath),
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.admin,
+        name: 'admin',
+        builder: (context, state) => const AdminHomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'users',
+            name: 'admin-users',
+            builder: (context, state) => const UsersScreen(),
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

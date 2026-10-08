@@ -11,10 +11,12 @@ import 'bootstrap/splash_screen.dart';
 import 'core/connectivity/connection_source.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
-import 'features/auth/data/repositories/demo_auth_repository.dart';
+import 'features/auth/data/repositories/firebase_auth_repository.dart';
 import 'features/auth/domain/user_role.dart';
 import 'features/auth/data/repositories/offline_session.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/admin/data/repositories/audit_repository.dart';
+import 'features/admin/data/repositories/user_repository.dart';
 import 'features/orders/data/repositories/local_order_draft_store.dart';
 import 'features/orders/data/repositories/local_order_history_repository.dart';
 import 'features/orders/data/repositories/order_draft_store.dart';
@@ -119,14 +121,21 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         // whole app. Firestore will take tens of seconds of its own backoff to
         // admit a lost connection; this is what puts the banner up before then.
         Provider<ConnectionSource>(create: (_) => PlatformConnectionSource()),
-                // Demo authentication: three roles, credentials compiled into the app.
-        // Swapping this line for `FirebaseAuthRepository()` is the entire
-        // migration to a real backend; nothing above it needs to change.
-        Provider<AuthRepository>(create: (_) => DemoAuthRepository()),
+                // Real Firebase authentication, with the user's role read from their
+        // `users/{uid}` Firestore document on every sign-in and refresh.
+        // Swapping this line for `DemoAuthRepository()` is the entire
+        // migration back to the demo, if that is ever useful.
+        Provider<AuthRepository>(create: (_) => FirebaseAuthRepository()),
         // One Firestore handle for the whole app. FirebaseFirestore.instance is
         // already a singleton, so this is a shared handle rather than a shared
         // database, and every store can be built from the same object.
         Provider<FirebaseFirestore>(create: (_) => FirebaseFirestore.instance),
+        Provider<UserRepository>(
+          create: (ctx) => UserRepository(firestore: ctx.read<FirebaseFirestore>()),
+        ),
+        Provider<AuditRepository>(
+          create: (ctx) => AuditRepository(firestore: ctx.read<FirebaseFirestore>()),
+        ),
         Provider<OfflineSession>(
           create: (_) => StoredOfflineSession(
             readStorage: () async => (await SharedPreferences.getInstance())
