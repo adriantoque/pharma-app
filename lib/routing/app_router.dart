@@ -74,7 +74,14 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         case AuthStatus.unauthenticated:
           return atLogin ? null : AppRoutes.login;
         case AuthStatus.authenticated:
-          return atLogin ? AppRoutes.home : null;
+          // Only redirect at the moment of signing in. Anywhere else, the
+          // user goes where they asked -- otherwise an admin could never
+          // leave the Admin tab.
+          if (!atLogin) return null;
+          // Admins land on their own dashboard; everyone else on Home. The
+          // role has already been read from Firestore by the time this
+          // switch runs, so it is the real role and not a guess.
+          return auth.isAdmin ? AppRoutes.admin : AppRoutes.home;
         case AuthStatus.offline:
           return atLogin ? AppRoutes.home : null;
         case AuthStatus.unknown:

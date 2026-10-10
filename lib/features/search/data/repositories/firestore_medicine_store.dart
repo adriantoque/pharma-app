@@ -10,11 +10,10 @@ import '../sync/sync_status_source.dart';
 import '../sync/transport_failure.dart';
 import 'medicine_store.dart';
 
-/// The price list in Firestore, scoped to one signed-in user's account.
+/// The shared price list in Firestore, accessible by all pharmacy staff.
 ///
-/// Everything is under `users/{uid}`, so two accounts never see each other's
-/// catalogue and the security rules can be as simple as "you may only read and
-/// write your own".
+/// Stored under `pharmacy/medicines`, so all accounts (admin, staff) share the
+/// same catalogue. Security rules control access by role.
 ///
 /// ## Where offline lives
 ///
@@ -43,14 +42,13 @@ class FirestoreMedicineStore
     implements MedicineStore, SyncStatusSource, DisposableStore {
   FirestoreMedicineStore({
     required FirebaseFirestore firestore,
-    required String uid,
     required this._queue,
     this._connection,
   }) : _firestore = firestore,
        _collection = firestore
-           .collection('users')
-           .doc(uid)
-           .collection('medicines') {
+           .collection('pharmacy')
+           .doc('medicines')
+           .collection('items') {
     _connectionSubscription = _connection?.watch().listen(_onConnectionChanged);
     // Started here rather than at the first snapshot: a queued write left over
     // from a previous run has to go out before the stream reports itself clean,

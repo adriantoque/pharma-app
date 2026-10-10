@@ -71,11 +71,16 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
     setState(() => _submitting = false);
 
     if (success) {
-      // Navigate by popping only. Calling context.go() after pop() looks up
-      // an inherited widget on a context that is being deactivated, and the
-      // router's auth redirect already sends a signed-in user to the home
-      // screen on its own.
-      navigator.pop();
+      // The auth state change has already fired the router's redirect, which
+      // is navigating away from the landing screen in this same frame.
+      // Popping the sheet immediately would arrive while that transition has
+      // the Navigator locked, which trips the framework's `_debugLocked`
+      // assertion. Deferring the pop to the next frame lets the redirect
+      // finish first, then the sheet is dismissed cleanly on top of the
+      // destination it revealed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) navigator.pop();
+      });
       return;
     }
 

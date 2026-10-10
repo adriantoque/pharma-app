@@ -166,30 +166,29 @@ class SeededMedicineStore
     return List.unmodifiable(merged);
   }
 
-  /// Uploads the bundled price list the first time an account is found empty.
-  ///
-  /// This replaces signing up and then running `tool/seed_firestore.dart` from a
-  /// laptop, which was the only other way a new account ever got a price list and
-  /// needed a connection to do it.
-  ///
-  /// An account that already has lines is left alone, including lines removed at
-  /// the counter on purpose: putting them back on every launch would undo a
-  /// decision the pharmacist made.
-  Future<void> _seedIfEmpty(List<MedicineModel> remote) async {
-    if (_seedAttempted) return;
-    _seedAttempted = true;
-    if (remote.isNotEmpty) return;
+/// Uploads the bundled price list the first time the shared collection is found empty.
+///
+/// This replaces signing up and then running `tool/seed_firestore.dart` from a
+/// laptop, which was the only other way a new pharmacy ever got a price list and
+/// needed a connection to do it.
+///
+/// If the shared collection already has lines (added by another user), it is left
+/// alone: putting the bundled list back would undo edits the pharmacist made.
+Future<void> _seedIfEmpty(List<MedicineModel> remote) async {
+  if (_seedAttempted) return;
+  _seedAttempted = true;
+  if (remote.isNotEmpty) return;
 
-    final base = await _loadBase();
-    if (_disposed || base.isEmpty) return;
+  final base = await _loadBase();
+  if (_disposed || base.isEmpty) return;
 
-    try {
-      await _remote.upsertAll(base);
-    } catch (_) {
-      // Offline, or refused. The bundled list is already on screen, and this is
-      // offered again the next time the app starts.
-    }
+  try {
+    await _remote.upsertAll(base);
+  } catch (_) {
+    // Offline, or refused. The bundled list is already on screen, and this is
+    // offered again the next time the app starts.
   }
+}
 
   @override
   Stream<SyncStatus> watchSyncStatus() {

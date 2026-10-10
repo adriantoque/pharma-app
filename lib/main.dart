@@ -167,29 +167,27 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         ),
         // Above the router, so the price list outlives a tab switch. Built from a
         // factory because the store is scoped to a user id, and signing in as
-        // somebody else has to give it a different one.
-        //
+        // Shared medicine catalogue for all pharmacy staff (admin + staff).
         // Wrapped in SeededMedicineStore so the bundled price list is on screen
-        // before any network call finishes, and so a brand new account seeds
-        // itself instead of sitting empty until somebody runs
-        // tool/seed_firestore.dart from a laptop.
+        // before any network call finishes, and seeds the shared collection on
+        // first run instead of sitting empty.
         ChangeNotifierProvider<MedicineProvider>(
           create: (ctx) {
             final firestore = ctx.read<FirebaseFirestore>();
+            // One shared remote store for all online users.
+            final sharedRemote = FirestoreMedicineStore(
+              firestore: firestore,
+              connection: ctx.read<ConnectionSource>(),
+              queue: _queueFor('shared'),
+            );
             return MedicineProvider(
               auth: ctx.read<AuthProvider>(),
               storeFor: (uid) {
                 if (uid == AuthProvider.offlineUserId) {
                   return LocalMedicineStore();
                 }
-                return SeededMedicineStore(
-                  remote: FirestoreMedicineStore(
-                    firestore: firestore,
-                    uid: uid,
-                    connection: ctx.read<ConnectionSource>(),
-                    queue: _queueFor(uid),
-                  ),
-                );
+                // All online users (admin, staff) share the same catalogue.
+                return SeededMedicineStore(remote: sharedRemote);
               },
             );
           },
@@ -289,18 +287,17 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
     );
   }
 
-  /// The app's own record of writes the server has not confirmed, for one
-  /// account.
-  ///
-  /// Kept in preferences under a key namespaced by uid: a shared counter tablet
-  /// is signed in and out all day, and one pharmacist's unsent stock counts must
-  /// not turn up as another's.
-  ///
-  /// A read failure is not fatal -- [StoredPendingWriteQueue] falls back to an
-  /// empty queue, which costs the second copy of each write and nothing else,
-  /// because Firestore's own queue is still behind it.
-  static PendingWriteQueue _queueFor(String uid) {
-    final key = 'pendingWrites/$uid';
+/// The app's own record of writes the server has not confirmed.
+///
+/// Kept in preferences under a key namespaced by scope (uid or 'shared'): a
+/// shared counter tablet is signed in and out all day, and unsent stock counts
+/// are tracked per scope.
+///
+/// A read failure is not fatal -- [StoredPendingWriteQueue] falls back to an
+/// empty queue, which costs the second copy of each write and nothing else,
+/// because Firestore's own queue is still behind it.
+static PendingWriteQueue _queueFor(String scope) {
+    final key = 'pendingWrites/$scope';
     return StoredPendingWriteQueue(
       readStorage: () async =>
           (await SharedPreferences.getInstance()).getString(key),
