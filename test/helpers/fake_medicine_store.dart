@@ -53,13 +53,6 @@ class FakeMedicineStore implements MedicineStore {
   }
 
   @override
-  Future<void> setExpiry(MedicineModel medicine, DateTime? expiry) async {
-    _operations.add('setExpiry ${medicine.name} -> $expiry');
-    if (writeError != null) throw writeError!;
-    _replaceWhere(medicine, (item) => item.copyWith(expiryDate: expiry));
-  }
-
-  @override
   Future<void> upsert(MedicineModel medicine) async {
     _operations.add('upsert ${medicine.name}');
     if (writeError != null) throw writeError!;

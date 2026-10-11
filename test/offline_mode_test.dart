@@ -191,17 +191,6 @@ void main() {
       expect(latest.firstWhere((m) => m.name == 'Cetirizine').isStockUnknown, isTrue);
     });
 
-    test('an expiry date survives a restart', () async {
-      final store = buildStore();
-      await store.setExpiry(cetirizine, DateTime(2027, 3, 9));
-
-      final medicines = await firstList(buildRestartedStore());
-
-      final line = medicines.firstWhere((m) => m.name == 'Cetirizine');
-      expect(line.expiryDate, DateTime(2027, 3, 9));
-      expect(line.isStockUnknown, isTrue);
-    });
-
     test('a stock count survives a restart', () async {
       final store = buildStore();
       await store.setStock(amox, 3);

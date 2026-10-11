@@ -178,12 +178,8 @@ void main() {
       );
 
       await store.setStock(medicine('A'), 4);
-      await store.setExpiry(medicine('A'), DateTime(2027, 3, 1));
 
-      expect(remote.operations, [
-        'setStock A -> 4',
-        'setExpiry A -> 2027-03-01 00:00:00.000',
-      ]);
+      expect(remote.operations, ['setStock A -> 4']);
     });
   });
 

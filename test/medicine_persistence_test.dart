@@ -10,7 +10,6 @@ void main() {
     stock: 12,
     aliases: ['cetirizine', 'ceterizinne'],
     genericKey: 'Cetirizine',
-    expiryDate: null,
   );
 
   group('the document id', () {
@@ -48,17 +47,13 @@ void main() {
       );
     });
 
-    test('is unaffected by stock, aliases or expiry', () {
+    test('is unaffected by stock or aliases', () {
       // Those are state, not identity. A count typed at the counter has to land
       // on the same document the import created.
       expect(line.documentId, line.copyWith(stock: 0).documentId);
       expect(
         line.documentId,
         line.copyWith(aliases: const ['x']).documentId,
-      );
-      expect(
-        line.documentId,
-        line.copyWith(expiryDate: DateTime(2027, 3, 1)).documentId,
       );
     });
 
@@ -105,57 +100,6 @@ void main() {
       expect(restored.isStockUnknown, isFalse);
     });
 
-    test('writes the expiry as a plain date, with no time of day', () {
-      const dated = MedicineModel(
-        name: 'Amox',
-        priceCentavos: 400,
-        stock: 1,
-        expiryDate: null,
-      );
-      // A shelf expiry is a date; a Timestamp would invent a time of day that
-      // nobody recorded.
-      expect(
-        MedicineModel.fromFirestore(
-          dated.copyWith(expiryDate: DateTime(2027, 3, 9)).toFirestore(),
-        ).expiryDate,
-        DateTime(2027, 3, 9),
-      );
-    });
-
-    test('reads an expiry back at midnight, not at the stored time', () {
-      final restored = MedicineModel.fromFirestore({
-        'name': 'Amox',
-        'priceCentavos': 400,
-        'stock': null,
-        'expiryDate': '2027-03-09T14:30:00.000Z',
-      });
-
-      expect(restored.expiryDate, isNotNull);
-      expect(restored.expiryDate!.hour, 0);
-    });
-
-    test('reads an unpadded date', () {
-      expect(
-        MedicineModel.fromFirestore({
-          'name': 'Amox',
-          'priceCentavos': 400,
-          'expiryDate': '2027-3-9',
-        }).expiryDate,
-        DateTime(2027, 3, 9),
-      );
-    });
-
-    test('reads a Timestamp expiry, as written by hand in the console', () {
-      expect(
-        MedicineModel.fromFirestore({
-          'name': 'Amox',
-          'priceCentavos': 400,
-          'expiryDate': DateTime(2027, 3, 9, 14, 30),
-        }).expiryDate,
-        DateTime(2027, 3, 9),
-      );
-    });
-
     test('reads a number stored as a double', () {
       expect(
         MedicineModel.fromFirestore({
@@ -182,25 +126,6 @@ void main() {
           'priceCentavos': 400,
           'stock': 'not a number',
         }).stock,
-        isNull,
-      );
-    });
-
-    test('reads an unreadable expiry as no expiry', () {
-      expect(
-        MedicineModel.fromFirestore({
-          'name': 'Amox',
-          'priceCentavos': 400,
-          'expiryDate': 'soon',
-        }).expiryDate,
-        isNull,
-      );
-      expect(
-        MedicineModel.fromFirestore({
-          'name': 'Amox',
-          'priceCentavos': 400,
-          'expiryDate': '2027-13-45',
-        }).expiryDate,
         isNull,
       );
     });
@@ -246,7 +171,6 @@ void main() {
 
       expect(updated.stock, 12);
       expect(updated.genericKey, 'Cetirizine');
-      expect(updated.expiryDate, isNull);
     });
 
     test('clears a count when null is passed', () {
@@ -258,12 +182,6 @@ void main() {
       expect(line.copyWith(stock: 12).copyWith(stock: null).stock, isNull);
     });
 
-    test('clears an expiry when null is passed', () {
-      final dated = line.copyWith(expiryDate: DateTime(2026, 3));
-
-      expect(dated.expiryDate, DateTime(2026, 3));
-      expect(dated.copyWith(expiryDate: null).expiryDate, isNull);
-    });
 
     test('clears a generic link when null is passed', () {
       expect(line.copyWith(genericKey: null).genericKey, isNull);

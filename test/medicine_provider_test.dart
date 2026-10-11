@@ -214,36 +214,6 @@ void main() {
     });
   });
 
-  group('recording an expiry', () {
-    test('paints the date and keeps it', () async {
-      final provider = await signedIn('u1', catalogue: [cetirizine]);
-      final expiry = DateTime(2026, 3, 31);
-
-      await provider.setExpiry(cetirizine, expiry);
-
-      expect(provider.all().single.expiryDate, expiry);
-    });
-
-    test('clears the date when null is passed', () async {
-      final provider = await signedIn('u1', catalogue: [cetirizine]);
-      await provider.setExpiry(cetirizine, DateTime(2026, 3, 31));
-
-      await provider.setExpiry(cetirizine, null);
-
-      expect(provider.all().single.expiryDate, isNull);
-    });
-
-    test('leaves the count alone', () async {
-      // The two are written one key at a time, so neither may drag the other.
-      final provider = await signedIn('u1', catalogue: [cetirizine]);
-      await provider.setStock(cetirizine, 4);
-
-      await provider.setExpiry(cetirizine, DateTime(2026, 3, 31));
-
-      expect(provider.all().single.stock, 4);
-    });
-  });
-
   group('searching', () {
     test('finds a line by its own name', () async {
       final provider = await signedIn('u1', catalogue: [amox, cetirizine]);

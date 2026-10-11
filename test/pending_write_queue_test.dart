@@ -30,7 +30,10 @@ class _FakeStorage {
 }
 
 StoredPendingWriteQueue _queueOver(_FakeStorage storage) =>
-    StoredPendingWriteQueue(readStorage: storage.read, writeStorage: storage.write);
+    StoredPendingWriteQueue(
+      readStorage: storage.read,
+      writeStorage: storage.write,
+    );
 
 Map<String, dynamic> decode(String? raw) =>
     jsonDecode(raw!) as Map<String, dynamic>;
@@ -41,16 +44,18 @@ void main() {
       final write = PendingWrite(
         id: '7',
         documentId: 'abc123',
-        fields: const {'stock': 12, 'expiryDate': null},
+        fields: const {'stock': 12},
         queuedAt: DateTime.fromMillisecondsSinceEpoch(1712000000000),
       );
 
-      final restored = PendingWrite.fromJson(jsonDecode(jsonEncode(write.toJson())));
+      final restored = PendingWrite.fromJson(
+        jsonDecode(jsonEncode(write.toJson())),
+      );
 
       expect(restored, isNotNull);
       expect(restored!.id, '7');
       expect(restored.documentId, 'abc123');
-      expect(restored.fields, {'stock': 12, 'expiryDate': null});
+      expect(restored.fields, {'stock': 12});
       expect(restored.queuedAt, write.queuedAt);
     });
 
@@ -95,24 +100,27 @@ void main() {
   });
 
   group('InMemoryPendingWriteQueue', () {
-    test('records writes with unique ids and hands back an unmodifiable list', () async {
-      final queue = InMemoryPendingWriteQueue();
+    test(
+      'records writes with unique ids and hands back an unmodifiable list',
+      () async {
+        final queue = InMemoryPendingWriteQueue();
 
-      expect(queue.isEmpty, isTrue);
+        expect(queue.isEmpty, isTrue);
 
-      final first = await queue.add(
-        documentId: 'abc',
-        fields: const {'stock': 1},
-      );
-      final second = await queue.add(
-        documentId: 'abc',
-        fields: const {'stock': 2},
-      );
+        final first = await queue.add(
+          documentId: 'abc',
+          fields: const {'stock': 1},
+        );
+        final second = await queue.add(
+          documentId: 'abc',
+          fields: const {'stock': 2},
+        );
 
-      expect(first.id, isNot(second.id));
-      expect(queue.pending.map((w) => w.documentId), ['abc', 'abc']);
-      expect(() => queue.pending.add(first), throwsUnsupportedError);
-    });
+        expect(first.id, isNot(second.id));
+        expect(queue.pending.map((w) => w.documentId), ['abc', 'abc']);
+        expect(() => queue.pending.add(first), throwsUnsupportedError);
+      },
+    );
 
     test('forgets the ids it is given and ignores the rest', () async {
       final queue = InMemoryPendingWriteQueue();
@@ -127,16 +135,19 @@ void main() {
       expect(queue.pending.map((w) => w.documentId), ['b']);
     });
 
-    test('copies the fields so a later edit by the caller cannot rewrite history', () async {
-      final queue = InMemoryPendingWriteQueue();
-      final fields = <String, dynamic>{'stock': 1};
+    test(
+      'copies the fields so a later edit by the caller cannot rewrite history',
+      () async {
+        final queue = InMemoryPendingWriteQueue();
+        final fields = <String, dynamic>{'stock': 1};
 
-      final write = await queue.add(documentId: 'a', fields: fields);
-      fields['stock'] = 999;
+        final write = await queue.add(documentId: 'a', fields: fields);
+        fields['stock'] = 999;
 
-      expect(write.fields, {'stock': 1});
-      expect(queue.pending.single.fields, {'stock': 1});
-    });
+        expect(write.fields, {'stock': 1});
+        expect(queue.pending.single.fields, {'stock': 1});
+      },
+    );
   });
 
   group('StoredPendingWriteQueue, recording', () {
@@ -190,19 +201,23 @@ void main() {
       });
     });
 
-    test('keeps only the fields it was given, never a write timestamp', () async {
-      // A server timestamp is not a storable value, and a replayed write should be
-      // dated when it landed rather than when it was first typed -- so `fields` is
-      // everything but the stamp, and the store adds that per attempt.
-      final storage = _FakeStorage();
-      final queue = _queueOver(storage);
-      await queue.read();
+    test(
+      'keeps only the fields it was given, never a write timestamp',
+      () async {
+        // A server timestamp is not a storable value, and a replayed write should be
+        // dated when it landed rather than when it was first typed -- so `fields` is
+        // everything but the stamp, and the store adds that per attempt.
+        final storage = _FakeStorage();
+        final queue = _queueOver(storage);
+        await queue.read();
 
-      await queue.add(documentId: 'abc', fields: const {'stock': 12});
+        await queue.add(documentId: 'abc', fields: const {'stock': 12});
 
-      final fields = (decode(storage.value)['writes'] as List).single['fields'];
-      expect(fields, {'stock': 12});
-    });
+        final fields =
+            (decode(storage.value)['writes'] as List).single['fields'];
+        expect(fields, {'stock': 12});
+      },
+    );
 
     test('hands the record back before the storage write has landed', () async {
       final storage = _FakeStorage();
@@ -273,12 +288,7 @@ void main() {
 
   group('StoredPendingWriteQueue, unreadable storage', () {
     test('a malformed payload is an empty queue, not a failure', () async {
-      for (final raw in [
-        'not json at all',
-        '"a bare string"',
-        '[]',
-        '{',
-      ]) {
+      for (final raw in ['not json at all', '"a bare string"', '[]', '{']) {
         final queue = _queueOver(_FakeStorage(raw));
 
         await queue.read();
@@ -473,7 +483,10 @@ void main() {
         'doc1',
         reason: 'the count a pharmacist typed thirty seconds ago outranks a day-old one',
       );
-      expect(stored.last['documentId'], 'doc${StoredPendingWriteQueue.maxEntries}');
+      expect(
+        stored.last['documentId'],
+        'doc${StoredPendingWriteQueue.maxEntries}',
+      );
       expect(
         queue.pending,
         hasLength(StoredPendingWriteQueue.maxEntries + 1),
@@ -521,18 +534,17 @@ void main() {
         'request timed out',
         'Connection reset by peer',
       ]) {
-        expect(
-          isTransportFailure(Exception(message)),
-          isTrue,
-          reason: message,
-        );
+        expect(isTransportFailure(Exception(message)), isTrue, reason: message);
       }
     });
 
-    test('is case-insensitive, because these arrive capitalised from some layers', () {
-      expect(isTransportFailure(Exception('TIMEOUT')), isTrue);
-      expect(isTransportFailure(Exception('Network Error')), isTrue);
-    });
+    test(
+      'is case-insensitive, because these arrive capitalised from some layers',
+      () {
+        expect(isTransportFailure(Exception('TIMEOUT')), isTrue);
+        expect(isTransportFailure(Exception('Network Error')), isTrue);
+      },
+    );
 
     test('an unrelated error is not a lost connection', () {
       expect(isTransportFailure(Exception('bad state')), isFalse);

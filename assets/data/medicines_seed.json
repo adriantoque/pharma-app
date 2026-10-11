@@ -3,7 +3,6 @@
     "name": "Alcohol Med",
     "priceCentavos": 6500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -18,7 +17,6 @@
     "name": "Alcohol Small",
     "priceCentavos": 2700,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -33,7 +31,6 @@
     "name": "Alchol",
     "priceCentavos": 6500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -48,7 +45,6 @@
     "name": "Amox",
     "priceCentavos": 400,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -63,7 +59,6 @@
     "name": "Amox 250 Cap",
     "priceCentavos": 400,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -78,7 +73,6 @@
     "name": "Amox 500mg",
     "priceCentavos": 400,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -93,7 +87,6 @@
     "name": "Amplodiphine",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -108,7 +101,6 @@
     "name": "Ascorbic Tablet",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -123,7 +115,6 @@
     "name": "Aspirin",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -138,7 +129,6 @@
     "name": "Baby Oil",
     "priceCentavos": 3000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -153,7 +143,6 @@
     "name": "Biogesic",
     "priceCentavos": 600,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -168,7 +157,6 @@
     "name": "Bioflu",
     "priceCentavos": 1100,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -183,7 +171,6 @@
     "name": "Calmosipten",
     "priceCentavos": 5000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -198,7 +185,6 @@
     "name": "Carbo Cap",
     "priceCentavos": 400,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -213,7 +199,6 @@
     "name": "Cefalexin",
     "priceCentavos": 4500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -228,7 +213,6 @@
     "name": "Ceterizine Syrup",
     "priceCentavos": 6000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -243,7 +227,6 @@
     "name": "Ceterizine Tab",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -258,7 +241,6 @@
     "name": "Cinnarizine",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -273,7 +255,6 @@
     "name": "Cloxacillin",
     "priceCentavos": 700,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -288,7 +269,6 @@
     "name": "Decolgen",
     "priceCentavos": 1000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -303,7 +283,6 @@
     "name": "Diatabs",
     "priceCentavos": 1100,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -318,7 +297,6 @@
     "name": "Diclofenac",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -333,7 +311,6 @@
     "name": "Efficasent",
     "priceCentavos": 3500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -348,7 +325,6 @@
     "name": "ElShadai",
     "priceCentavos": 2000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -363,7 +339,6 @@
     "name": "Enervon",
     "priceCentavos": 1200,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -378,7 +353,6 @@
     "name": "Erceflora",
     "priceCentavos": 5000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -393,7 +367,6 @@
     "name": "Eyemo",
     "priceCentavos": 10500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -408,7 +381,6 @@
     "name": "FernC Syrup",
     "priceCentavos": 16500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -423,7 +395,6 @@
     "name": "Flanax",
     "priceCentavos": 2700,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -438,7 +409,6 @@
     "name": "Hivent",
     "priceCentavos": 1800,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -453,7 +423,6 @@
     "name": "Katialis",
     "priceCentavos": 3200,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -468,7 +437,6 @@
     "name": "Katinko",
     "priceCentavos": 3800,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -483,7 +451,6 @@
     "name": "Katinko Roll",
     "priceCentavos": 5500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -498,7 +465,6 @@
     "name": "Lady Pills",
     "priceCentavos": 5500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -513,7 +479,6 @@
     "name": "Losartan",
     "priceCentavos": 400,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -528,7 +493,6 @@
     "name": "Manzanilla",
     "priceCentavos": 2100,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -543,7 +507,6 @@
     "name": "Mefenamic",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -558,7 +521,6 @@
     "name": "Medicol",
     "priceCentavos": 900,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -573,7 +535,6 @@
     "name": "Naproxen",
     "priceCentavos": 700,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -588,7 +549,6 @@
     "name": "Nutriflex",
     "priceCentavos": 32500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -603,7 +563,6 @@
     "name": "Off Lotion",
     "priceCentavos": 1300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -618,7 +577,6 @@
     "name": "Omeprazole",
     "priceCentavos": 1000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -633,7 +591,6 @@
     "name": "Para Syrup",
     "priceCentavos": 4800,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -648,7 +605,6 @@
     "name": "Paracetamol 125",
     "priceCentavos": 4500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -663,7 +619,6 @@
     "name": "Pharex",
     "priceCentavos": 600,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -678,7 +633,6 @@
     "name": "PT",
     "priceCentavos": 4500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -693,7 +647,6 @@
     "name": "Pyroflora",
     "priceCentavos": 3500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -708,7 +661,6 @@
     "name": "Salbutamol 4mg",
     "priceCentavos": 300,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -723,7 +675,6 @@
     "name": "Salonpas",
     "priceCentavos": 4700,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -738,7 +689,6 @@
     "name": "Suppository",
     "priceCentavos": 1900,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -753,7 +703,6 @@
     "name": "Symdex",
     "priceCentavos": 8000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -768,7 +717,6 @@
     "name": "Tawas",
     "priceCentavos": 2200,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -783,7 +731,6 @@
     "name": "Tempra 1-5",
     "priceCentavos": 13500,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -798,7 +745,6 @@
     "name": "Tramadol",
     "priceCentavos": 1000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -813,7 +759,6 @@
     "name": "Trust Pills",
     "priceCentavos": 6000,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -828,7 +773,6 @@
     "name": "Tuseran",
     "priceCentavos": 1400,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {
@@ -843,7 +787,6 @@
     "name": "Vicks",
     "priceCentavos": 3600,
     "stock": 5,
-    "expiryDate": null,
     "aliases": [],
     "genericKey": null,
     "meta": {

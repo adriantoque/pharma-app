@@ -1,67 +1,93 @@
-import 'medicine_model.dart';
-
-/// General, non-diagnostic information for catalogue items with a clear generic
-/// identity. Brand or shorthand names without a verified identity are not guessed.
 class MedicineInformation {
-  const MedicineInformation({
-    required this.type,
-    required this.purpose,
-    this.importantNote,
-  });
+  const MedicineInformation({required this.type, required this.purpose});
 
   final String type;
   final String purpose;
-  final String? importantNote;
 
-  static const MedicineInformation unavailable = MedicineInformation(
-    type: 'Information not available',
-    purpose: 'The product type and purpose have not been confirmed for this catalogue entry.',
-  );
-
-  static const Map<String, MedicineInformation> _byCatalogueName = {
+  static const Map<String, MedicineInformation> _byName = {
+    'amox': MedicineInformation(
+      type: 'Antibiotic',
+      purpose: 'Amoxicillin is used for certain bacterial infections. It does not treat viral illnesses.',
+    ),
+    'amox 250 cap': MedicineInformation(
+      type: 'Antibiotic',
+      purpose: 'Amoxicillin is used for certain bacterial infections. It does not treat viral illnesses.',
+    ),
+    'amox 500mg': MedicineInformation(
+      type: 'Antibiotic',
+      purpose: 'Amoxicillin is used for certain bacterial infections. It does not treat viral illnesses.',
+    ),
     'ascorbic tablet': MedicineInformation(
-      type: 'Vitamin C supplement',
-      purpose: 'Provides vitamin C and may be used to prevent or treat vitamin C deficiency.',
+      type: 'Vitamin supplement',
+      purpose: 'Provides vitamin C.',
+    ),
+    'biogesic': MedicineInformation(
+      type: 'Pain reliever and fever reducer',
+      purpose: 'Paracetamol is used to relieve mild pain and reduce fever.',
     ),
     'cetirizine': MedicineInformation(
       type: 'Antihistamine',
-      purpose: 'Commonly used to relieve allergy symptoms such as sneezing, a runny nose, and itchy or watery eyes.',
+      purpose: 'Used to relieve allergy symptoms such as sneezing and itching.',
     ),
     'cetirizine syrup': MedicineInformation(
       type: 'Antihistamine',
-      purpose: 'Commonly used to relieve allergy symptoms such as sneezing, a runny nose, and itchy or watery eyes.',
+      purpose: 'Used to relieve allergy symptoms such as sneezing and itching.',
     ),
     'cetirizine tab': MedicineInformation(
       type: 'Antihistamine',
-      purpose: 'Commonly used to relieve allergy symptoms such as sneezing, a runny nose, and itchy or watery eyes.',
+      purpose: 'Used to relieve allergy symptoms such as sneezing and itching.',
     ),
-    'cinnarizine': MedicineInformation(
-      type: 'Antihistamine',
-      purpose: 'May be used for motion sickness or vertigo; follow the product label or a clinician’s advice.',
+    'cloxacillin': MedicineInformation(
+      type: 'Antibiotic',
+      purpose: 'Used for certain bacterial infections when prescribed by a healthcare professional.',
+    ),
+    'diatabs': MedicineInformation(
+      type: 'Anti-diarrheal',
+      purpose: 'Used for symptomatic relief of diarrhea.',
+    ),
+    'enervon': MedicineInformation(
+      type: 'Vitamin supplement',
+      purpose:
+          'Provides vitamins; check the package for its specific ingredients.',
+    ),
+    'erceflora': MedicineInformation(
+      type: 'Probiotic',
+      purpose: 'Provides probiotic microorganisms to support gut flora.',
+    ),
+    'flanax': MedicineInformation(
+      type: 'Pain reliever and anti-inflammatory',
+      purpose: 'Naproxen is used to relieve pain and inflammation.',
     ),
     'losartan': MedicineInformation(
-      type: 'Angiotensin II receptor blocker (ARB)',
-      purpose: 'Used to treat high blood pressure and certain heart or kidney conditions when prescribed.',
+      type: 'Blood pressure medicine',
+      purpose: 'Used to treat high blood pressure.',
+    ),
+    'mefenamic': MedicineInformation(
+      type: 'Pain reliever and anti-inflammatory',
+      purpose: 'Mefenamic acid is used to relieve pain.',
     ),
     'naproxen': MedicineInformation(
-      type: 'Nonsteroidal anti-inflammatory drug (NSAID)',
-      purpose: 'Used for temporary relief of pain and inflammation. Ask a pharmacist or clinician whether it is appropriate for you.',
+      type: 'Pain reliever and anti-inflammatory',
+      purpose: 'Used to relieve pain and inflammation.',
     ),
     'paracetamol 125': MedicineInformation(
       type: 'Pain reliever and fever reducer',
-      purpose: 'Paracetamol is used for temporary relief of pain and fever. The catalogue name does not confirm the product strength or form.',
+      purpose: 'Paracetamol is used to relieve mild pain and reduce fever.',
     ),
     'salbutamol 4mg': MedicineInformation(
       type: 'Bronchodilator',
-      purpose: 'Salbutamol is used to relieve wheezing and airway narrowing. Follow the prescribed instructions for this product.',
+      purpose: 'Used to relieve wheezing and shortness of breath.',
+    ),
+    'tempra 1-5': MedicineInformation(
+      type: 'Pain reliever and fever reducer',
+      purpose: 'Paracetamol is used to relieve mild pain and reduce fever.',
     ),
     'tramadol': MedicineInformation(
-      type: 'Prescription opioid pain medicine',
-      purpose: 'Used for certain types of moderate to severe pain when prescribed by a clinician.',
-      importantNote: 'Can cause dependence and serious side effects. Use only as prescribed and ask a pharmacist or clinician about risks.',
+      type: 'Prescription pain reliever',
+      purpose: 'Used for pain when prescribed. It can cause serious side effects and dependence.',
     ),
   };
 
-  factory MedicineInformation.forMedicine(MedicineModel medicine) =>
-      _byCatalogueName[medicine.name.trim().toLowerCase()] ?? unavailable;
+  static MedicineInformation? forName(String name) =>
+      _byName[name.trim().toLowerCase()];
 }

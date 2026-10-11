@@ -369,8 +369,9 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Alcohol'), findsWidgets);
+      expect(find.widgetWithText(TextButton, 'View'), findsWidgets);
 
-      await tester.tap(find.widgetWithText(ListTile, 'Alcohol').first);
+      await tester.tap(find.widgetWithText(TextButton, 'View').first);
       await tester.pumpAndSettle();
       expect(find.text('Medicine information'), findsOneWidget);
       expect(find.text('Price'), findsOneWidget);
@@ -389,10 +390,7 @@ void main() {
       await tester.tap(find.widgetWithText(ListTile, 'Cetirizine').first);
       await tester.pumpAndSettle();
       expect(find.text('Antihistamine'), findsOneWidget);
-      expect(
-        find.textContaining('relieve allergy symptoms'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('relieve allergy symptoms'), findsOneWidget);
       await tester.tap(find.byTooltip('Close medicine information'));
       await tester.pumpAndSettle();
 

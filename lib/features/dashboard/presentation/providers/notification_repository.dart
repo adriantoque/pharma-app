@@ -28,15 +28,6 @@ class InMemoryNotificationRepository implements NotificationRepository {
       ),
       NotificationItem(
         id: '3',
-        title: 'Expiring Medicine Warning',
-        message: 'Mefenamic Acid 500mg expires in 5 days.',
-        timestamp: now.subtract(const Duration(hours: 3)),
-        category: NotificationCategory.expiry,
-        isRead: true,
-        // No explicit route: falls through to /home/expiring.
-      ),
-      NotificationItem(
-        id: '4',
         title: 'Low Stock Threshold',
         message: 'Amoxicillin 500mg has 2 units remaining (Threshold: 10).',
         timestamp: now.subtract(const Duration(days: 1)),

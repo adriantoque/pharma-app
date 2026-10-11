@@ -110,6 +110,15 @@ class _MedicineTile extends StatelessWidget {
 
   final MedicineModel medicine;
 
+  void _showDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (_) => _MedicineDetailsSheet(medicine: medicine),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -123,12 +132,7 @@ class _MedicineTile extends StatelessWidget {
 
     return Card(
       child: ListTile(
-        onTap: () => showModalBottomSheet<void>(
-          context: context,
-          useSafeArea: true,
-          isScrollControlled: true,
-          builder: (_) => _MedicineDetailsSheet(medicine: medicine),
-        ),
+        onTap: () => _showDetails(context),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
         leading: Container(
           width: 38,
@@ -152,22 +156,9 @@ class _MedicineTile extends StatelessWidget {
           stockLabel,
           style: theme.textTheme.bodySmall?.copyWith(color: stockColor),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              medicine.formattedPrice,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
+        trailing: TextButton(
+          onPressed: () => _showDetails(context),
+          child: const Text('View'),
         ),
       ),
     );
@@ -184,7 +175,7 @@ class _MedicineDetailsSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final (stockLabel, _) = medicine.stockLine;
     final expiry = medicine.expiryDate;
-    final information = MedicineInformation.forMedicine(medicine);
+    final information = MedicineInformation.forName(medicine.name);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -210,19 +201,16 @@ class _MedicineDetailsSheet extends StatelessWidget {
           const SizedBox(height: 8),
           Text(medicine.name, style: theme.textTheme.headlineSmall),
           const SizedBox(height: 16),
-          _MedicineInfoRow(label: 'Type', value: information.type),
-          _MedicineInfoRow(label: 'Common purpose', value: information.purpose),
-          if (information.importantNote case final importantNote?)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 12),
-              child: Text(
-                importantNote,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
-          const Divider(height: 24),
+          _MedicineInfoRow(
+            label: 'Type',
+            value: information?.type ?? 'Information not available',
+          ),
+          _MedicineInfoRow(
+            label: 'Purpose',
+            value:
+                information?.purpose ??
+                'Purpose information is not recorded for this medicine.',
+          ),
           _MedicineInfoRow(label: 'Price', value: medicine.formattedPrice),
           _MedicineInfoRow(label: 'Stock', value: stockLabel),
           _MedicineInfoRow(
@@ -246,12 +234,10 @@ class _MedicineDetailsSheet extends StatelessWidget {
               label: 'Also searched as',
               value: medicine.aliases.join(', '),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            'General information only. Products and formulations can vary. '
-            'Follow the package label or your prescriber’s instructions, and '
-            'ask a pharmacist if you are unsure. No dosage or treatment '
-            'recommendation is provided here.',
+            'General information only. Check the product label and ask a '
+            'pharmacist for advice. Dosage is not provided here.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

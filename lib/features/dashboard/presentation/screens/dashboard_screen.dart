@@ -26,13 +26,6 @@ import '../widgets/stock_sheet.dart';
 /// model used to hand back is what lets `unknown` get its own colour instead of
 /// falling through to the healthy one.
 abstract final class _StockColors {
-  /// Amber used for the expiry and low-stock attention tiles, which colour a
-  /// whole tile rather than a single stock line.
-  static Color warning(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return dark ? const Color(0xFFFFD98A) : const Color(0xFF8A5A00);
-  }
-
   static Color status(BuildContext context, StockState state) {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -370,7 +363,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _browseList(AttentionData attention) {
     final theme = Theme.of(context);
     final preview = attention.lowStock.take(_attentionPreviewCount).toList();
-    final warning = _StockColors.warning(context);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
@@ -456,7 +448,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(
           children: [
             Expanded(
-              child: Text('Need attention', style: theme.textTheme.titleMedium),
+              child: Text('Low stock', style: theme.textTheme.titleMedium),
             ),
             TextButton(
               onPressed: () => context.goNamed('inventory'),
@@ -465,37 +457,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: _AttentionTile(
-                count: attention.expired,
-                label: 'Expired',
-                colour: theme.colorScheme.error,
-                onTap: () => context.pushNamed('home-expiring'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _AttentionTile(
-                count: attention.expiringSoon,
-                label: 'Expiring soon',
-                colour: warning,
-                onTap: () => context.pushNamed('home-expiring'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _AttentionTile(
-                count: attention.lowStock.length,
-                label: 'Low stock',
-                colour: warning,
-                onTap: () => context.goNamed('inventory'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
         _LowStockCard(
           lines: preview,
           totalCount: attention.lowStock.length,
@@ -831,64 +792,6 @@ class _CurrentOrderStrip extends StatelessWidget {
                 Icons.chevron_right,
                 size: 18,
                 color: theme.colorScheme.primary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AttentionTile extends StatelessWidget {
-  const _AttentionTile({
-    required this.count,
-    required this.label,
-    required this.colour,
-    required this.onTap,
-  });
-
-  final int count;
-  final String label;
-  final Color colour;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 7, 7, 7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$count',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: count == 0
-                      ? theme.colorScheme.onSurfaceVariant
-                      : colour,
-                ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
               ),
             ],
           ),
