@@ -14,6 +14,7 @@ import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
 import '../features/orders/presentation/screens/order_history_screen.dart';
+import '../features/profile/presentation/screens/appearance_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
@@ -45,6 +46,7 @@ abstract final class AppRoutes {
   static const String homeExpiring = '/home/expiring';
   static const String homeScan = '/home/scan';
   static const String homeProfile = '/home/profile';
+  static const String homeProfileAppearance = '/home/profile/appearance';
   static const String homeNotifications = '/home/notifications';
   static const String newSale = '/new-sale';
 }
@@ -184,6 +186,13 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                     path: 'profile',
                     name: 'home-profile',
                     builder: (context, state) => const ProfileScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'appearance',
+                        name: 'home-profile-appearance',
+                        builder: (context, state) => const AppearanceScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'notifications',
