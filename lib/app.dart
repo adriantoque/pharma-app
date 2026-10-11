@@ -31,6 +31,7 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     return ChangeNotifierProvider<AppThemeController>.value(
       value: _themeController,
       child: Consumer<AppThemeController>(
@@ -58,6 +59,21 @@ class _AppState extends State<App> {
           routerConfig: context.read<GoRouter>(),
         ),
       ),
+=======
+    final themeMode = context.select<ThemeModeProvider, ThemeMode>(
+      (provider) =>
+          provider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+    );
+
+    return MaterialApp.router(
+      title: 'PharmaGuide',
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(Brightness.light),
+      darkTheme: buildAppTheme(Brightness.dark),
+      themeMode: themeMode,
+      // The router is owned and disposed by its Provider.
+      routerConfig: context.read<GoRouter>(),
+>>>>>>> b01c65e (jhjasdg)
     );
   }
 }

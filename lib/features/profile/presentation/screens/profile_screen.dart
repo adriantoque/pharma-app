@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -46,7 +47,9 @@ Future<void> _confirmLogout(BuildContext context) async {
   // The router's redirect sends the user back to the login screen once the
   // auth state flips, so no manual navigation is needed here.
   if (!success && auth.error != null) {
-    messenger.showSnackBar(SnackBar(content: Text(auth.error ?? 'An unknown error occurred')));
+    messenger.showSnackBar(
+      SnackBar(content: Text(auth.error ?? 'An unknown error occurred')),
+    );
   }
 }
 
@@ -139,10 +142,10 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (name, email, isOffline) =
-        context.select<AuthProvider, (String?, String?, bool)>(
-      (a) => (a.user?.name, a.user?.email, a.isOffline),
-    );
+    final (name, email, isOffline) = context
+        .select<AuthProvider, (String?, String?, bool)>(
+          (a) => (a.user?.name, a.user?.email, a.isOffline),
+        );
 
     return Card(
       elevation: 0,
@@ -257,6 +260,32 @@ class _BusinessSection extends StatelessWidget {
           onTap: () => context.pushNamed('home-profile-appearance'),
         ),
       ],
+    );
+  }
+}
+
+class _AppearanceTile extends StatelessWidget {
+  const _AppearanceTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeModeProvider>();
+
+    return SwitchListTile(
+      secondary: const Icon(Icons.dark_mode_outlined),
+      title: const Text('Dark mode'),
+      subtitle: const Text('Use a darker color theme'),
+      value: themeMode.isDarkMode,
+      onChanged: (enabled) async {
+        try {
+          await themeMode.setDarkMode(enabled);
+        } catch (error) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save appearance: $error')),
+          );
+        }
+      },
     );
   }
 }
@@ -418,8 +447,8 @@ class _SignOutButton extends StatelessWidget {
       onPressed: isLoading
           ? null
           : () => isOffline
-              ? _confirmExitOffline(context)
-              : _confirmLogout(context),
+                ? _confirmExitOffline(context)
+                : _confirmLogout(context),
       icon: isLoading
           ? const SizedBox.square(
               dimension: 18,
