@@ -1,35 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_bottom_sheet.dart';
 
+/// The first screen, for a signed-out app.
+///
+/// Three doors, each leading somewhere different. Admin and Staff are full
+/// pages pushed on top of this one, so the back arrow returns here; Guest is
+/// a single tap that lands on the regular app in a read-only role.
+///
+/// The sign-in sheet still exists -- reachable from a fallback link -- for
+/// anyone who reaches this screen mid-session and needs to sign in without
+/// choosing a door first. Its route through the shared sheet is unchanged.
 class AuthLandingScreen extends StatelessWidget {
   const AuthLandingScreen({super.key});
 
-  /// Opens the sign-in sheet in [mode], with a title that tells the user which
-  /// account they are being asked for.
-  void _openSheet(
-    BuildContext context, {
-    required AuthSheetMode mode,
-    required String title,
-  }) {
+  void _openSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      builder: (context) => AuthBottomSheet(mode: mode, title: title),
+      builder: (context) => const AuthBottomSheet(mode: AuthSheetMode.login),
     );
   }
 
   Future<void> _continueAsGuest(BuildContext context) async {
     final auth = context.read<AuthProvider>();
     // Navigation is left entirely to the router's redirect, exactly as a
-    // successful sign-in does: entering offline mode flips AuthStatus, and the
-    // redirect sends the user to the home tab on its own.
+    // successful sign-in does: entering offline mode flips AuthStatus, and
+    // the redirect sends the user to the home tab on its own.
     await auth.enterOfflineMode();
   }
 
@@ -41,9 +45,6 @@ class AuthLandingScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: scheme.surface,
-      // The button column is fixed-height and the screen has no natural scroll
-      // room on a short device, so the body is made scrollable and given the
-      // viewport as a floor.
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => SingleChildScrollView(
@@ -98,11 +99,7 @@ class AuthLandingScreen extends StatelessWidget {
                         label: 'Sign in as Admin',
                         enabled: !isBusy,
                         filled: true,
-                        onPressed: () => _openSheet(
-                          context,
-                          mode: AuthSheetMode.login,
-                          title: 'Admin sign in',
-                        ),
+                        onPressed: () => context.pushNamed('admin-login'),
                       ),
                       const SizedBox(height: 12),
                       _RoleButton(
@@ -110,11 +107,7 @@ class AuthLandingScreen extends StatelessWidget {
                         label: 'Sign in as Staff',
                         enabled: !isBusy,
                         filled: false,
-                        onPressed: () => _openSheet(
-                          context,
-                          mode: AuthSheetMode.login,
-                          title: 'Staff sign in',
-                        ),
+                        onPressed: () => context.pushNamed('staff-login'),
                       ),
                       const SizedBox(height: 12),
                       _RoleButton(
@@ -124,7 +117,16 @@ class AuthLandingScreen extends StatelessWidget {
                         filled: false,
                         onPressed: () => _continueAsGuest(context),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: isBusy ? null : () => _openSheet(context),
+                        child: Text(
+                          'Other sign-in options',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -137,7 +139,7 @@ class AuthLandingScreen extends StatelessWidget {
   }
 }
 
-/// One of the three landing buttons.
+/// One of the landing buttons.
 ///
 /// Filled for the primary role and outlined for the rest, so the eye lands on
 /// "Sign in as Admin" first without the other two looking disabled.

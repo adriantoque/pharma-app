@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../core/navigation/app_shell.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_landing_screen.dart';
+import '../features/auth/presentation/screens/role_login_screen.dart';
+import '../features/auth/domain/user_role.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
@@ -23,6 +25,8 @@ import '../features/admin/presentation/screens/users_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
+  static const String adminLogin = '/admin-login';
+  static const String staffLogin = '/staff-login';
   static const String home = '/home';
   static const String inventory = '/inventory';
   static const String orders = '/orders';
@@ -45,45 +49,67 @@ abstract final class AppRoutes {
   static const String newSale = '/new-sale';
 }
 
-/// Builds the app router. The caller owns the returned instance and is
-/// responsible for disposing it, which is why this is a factory rather than a
-/// global — a global GoRouter is never disposed, survives hot restart, and
-/// leaks navigation state between widget tests.
+/// Creates the router for the whole app.
+///
+/// The one subtle piece of state here is [coldStartRouted]. The redirect runs
+/// on every navigation, and once a signed-in admin exists we want to send them
+/// to the admin workspace *the first time only* -- not every time they come
+/// back to Home on purpose. A local flag inside the factory gives the router
+/// one bit of memory without the flag leaking between test cases the way a
+/// top-level variable would.
 GoRouter createAppRouter({required Listenable refreshListenable}) {
+  var coldStartRouted = false;
+
   return GoRouter(
-    // No '/' route: the signed-in area is a shell whose branches own their own
-    // paths, so the app starts on the first branch directly.
+    // The shell owns the bottom bar, and its first branch is Home. Starting
+    // anywhere else would paint a different tab for a frame before the
+    // redirect below corrected it.
     initialLocation: AppRoutes.home,
-    // The provider is its own refresh Listenable, so an auth change re-runs the
-    // redirect below without a ChangeNotifier bridge.
     refreshListenable: refreshListenable,
     redirect: (context, state) async {
       final auth = context.read<AuthProvider>();
 
-      // Hold routing until the persisted session has been resolved. The router
-      // is created as soon as the provider graph is built, so on a cold start
-      // the status really is still unknown here. Without this await, the login
-      // screen paints for one frame before bouncing a signed-in user onward.
+      // Hold routing until the persisted session has been resolved. The
+      // router is created as soon as the provider graph is built, so on a
+      // cold start the status really is still unknown here. Without this
+      // await, the login screen paints for one frame before bouncing a
+      // signed-in user onward.
       if (auth.status == AuthStatus.unknown) {
         await auth.ready;
       }
 
-      final atLogin = state.matchedLocation == AppRoutes.login;
+      // The screens a signed-out user is allowed to sit on. All three are
+      // treated the same so signing in from any of them lands in the same
+      // place, and signing out from anywhere falls back to the landing screen.
+      final atAuthScreen = state.matchedLocation == AppRoutes.login ||
+          state.matchedLocation == AppRoutes.adminLogin ||
+          state.matchedLocation == AppRoutes.staffLogin;
 
       switch (auth.status) {
         case AuthStatus.unauthenticated:
-          return atLogin ? null : AppRoutes.login;
+          return atAuthScreen ? null : AppRoutes.login;
+
         case AuthStatus.authenticated:
-          // Only redirect at the moment of signing in. Anywhere else, the
-          // user goes where they asked -- otherwise an admin could never
-          // leave the Admin tab.
-          if (!atLogin) return null;
-          // Admins land on their own dashboard; everyone else on Home. The
-          // role has already been read from Firestore by the time this
-          // switch runs, so it is the real role and not a guess.
-          return auth.isAdmin ? AppRoutes.admin : AppRoutes.home;
+          // Just signed in on one of the doors: go to the destination the
+          // role owns. An admin lands on their workspace, everyone else on
+          // Home. The role is the one Firestore answered with, not a guess.
+          if (atAuthScreen) {
+            return auth.isAdmin ? AppRoutes.admin : AppRoutes.home;
+          }
+          // Cold start, already signed in. A stored admin session lands on
+          // the admin workspace; everyone else stays on Home. Only once, so
+          // an admin who deliberately navigates back to Home is left there.
+          if (!coldStartRouted) {
+            coldStartRouted = true;
+            if (auth.isAdmin) return AppRoutes.admin;
+          }
+          return null;
+
         case AuthStatus.offline:
-          return atLogin ? AppRoutes.home : null;
+          if (atAuthScreen) return AppRoutes.home;
+          coldStartRouted = true;
+          return null;
+
         case AuthStatus.unknown:
           return null;
       }
@@ -95,12 +121,28 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         builder: (context, state) => const AuthLandingScreen(),
       ),
       GoRoute(
+        path: AppRoutes.adminLogin,
+        name: 'admin-login',
+        builder: (context, state) =>
+            const RoleLoginScreen(role: UserRole.admin),
+      ),
+      GoRoute(
+        path: AppRoutes.staffLogin,
+        name: 'staff-login',
+        builder: (context, state) =>
+            const RoleLoginScreen(role: UserRole.staff),
+      ),
+      GoRoute(
         path: AppRoutes.finder,
         name: 'finder',
         builder: (context, state) => FinderScreen(
           onNavigate: (entry) => context.go(entry.routePath),
         ),
       ),
+      // The admin workspace, outside the shell. Deliberately not a bottom-nav
+      // tab: an admin working through user management is not tapping between
+      // Home and Inventory, and giving them the tabs would put the ordinary
+      // screens one gesture away from a screen whose job is to be different.
       GoRoute(
         path: AppRoutes.admin,
         name: 'admin',

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../domain/auth_exception.dart';
@@ -30,6 +31,10 @@ class FirebaseAuthRepository implements AuthRepository {
   final FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
   final FirebaseFirestore _firestore;
+
+  /// The last role each account was seen with, so a failed Firestore read can
+  /// fall back to a known-good value instead of the staff default.
+  final Map<String, UserRole> _roleCache = {};
 
   @override
   Stream<UserModel?> get authStateChanges {
@@ -178,14 +183,28 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<UserModel> _enrich(User user) async {
     try {
       final doc = await _firestore.collection('users').doc(user.uid).get();
-      return UserModel.fromFirestore(
+      debugPrint('[AUTH] doc.exists=${doc.exists} uid=${user.uid}');
+      debugPrint('[AUTH] data=${doc.data()}');
+
+      final model = UserModel.fromFirestore(
         uid: user.uid,
         data: doc.data(),
         fallbackName: user.displayName,
         fallbackEmail: user.email,
       );
-    } catch (_) {
-      return UserModel.fromFirebase(user);
+      debugPrint('[AUTH] resolved role=${model.role.name} active=${model.active}');
+      _roleCache[user.uid] = model.role;
+      return model;
+    } catch (e, s) {
+      debugPrint('[AUTH] _enrich FAILED: $e');
+      debugPrint('[AUTH] stack: $s');
+      final cached = _roleCache[user.uid];
+      return UserModel(
+        id: user.uid,
+        name: user.displayName,
+        email: user.email,
+        role: cached ?? UserRole.staff,
+      );
     }
   }
 

@@ -140,6 +140,53 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
+  /// Signs in, then verifies the account has administrator access.
+  ///
+  /// A staff credential entered on the admin door is signed back out with a
+  /// message. The role check runs after the backend has answered, so a fake
+  /// role cannot be claimed in the UI -- what is checked is what Firestore
+  /// said, not what the form asked for.
+  Future<bool> loginAsAdmin({
+    required String email,
+    required String password,
+  }) async {
+    final ok = await login(email: email, password: password);
+    if (!ok) return false;
+
+    if (_role != UserRole.admin) {
+      // Sign back out so the staff session does not survive a failed admin
+      // attempt. The message is set afterwards because logout() clears the
+      // error field as part of its own tidy-up.
+      await logout();
+      _error = 'This account does not have administrator access.';
+      _safeNotify();
+      return false;
+    }
+    return true;
+  }
+
+  /// Signs in, then verifies the account is not an administrator.
+  ///
+  /// Symmetrical to [loginAsAdmin]: an admin credential entered on the staff
+  /// door is signed back out. The two doors stay clean, so a person cannot
+  /// use the wrong one by mistake and end up somewhere they were not
+  /// expecting.
+  Future<bool> loginAsStaff({
+    required String email,
+    required String password,
+  }) async {
+    final ok = await login(email: email, password: password);
+    if (!ok) return false;
+
+    if (_role == UserRole.admin) {
+      await logout();
+      _error = 'Please use the administrator sign-in for this account.';
+      _safeNotify();
+      return false;
+    }
+    return true;
+  }
+
   Future<bool> signup({
     required String name,
     required String email,

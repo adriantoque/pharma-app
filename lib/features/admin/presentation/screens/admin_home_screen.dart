@@ -22,6 +22,14 @@ class AdminHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        // The workspace is outside the shell, so there is no bottom bar to
+        // tap away from. This is the way back to the regular app, and it
+        // goes to Home because that is where a pharmacist returns to.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to app',
+          onPressed: () => context.goNamed('home'),
+        ),
         title: const Text('Admin'),
         centerTitle: true,
       ),

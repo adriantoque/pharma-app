@@ -280,6 +280,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           centerTitle: true,
           automaticallyImplyLeading: false,
           actions: [
+            // Only an admin sees the way into the workspace; everyone else
+            // has no business there and no door to it.
+            if (context.select<AuthProvider, bool>((a) => a.isAdmin))
+              IconButton(
+                tooltip: 'Admin',
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                onPressed: () => context.pushNamed('admin'),
+              ),
             // The one search affordance on this screen: opens the full-screen
             // finder, which browses every screen by name.
             IconButton(
