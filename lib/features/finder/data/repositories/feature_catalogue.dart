@@ -75,6 +75,15 @@ const List<FeatureEntry> featureCatalogue = [
     parent: 'Inventory',
     iconKey: 'inventory',
   ),
+  FeatureEntry(
+    id: 'medicines',
+    title: 'Medicine',
+    subtitle: 'Browse and search the full medicine price list',
+    routePath: FeatureRoutes.medicines,
+    aliases: ['medicines', 'catalogue', 'catalog', 'products', 'price list'],
+    parent: 'Medicine',
+    iconKey: 'medicine',
+  ),
 
   // --- Orders ------------------------------------------------------------
   FeatureEntry(

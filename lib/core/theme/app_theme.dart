@@ -1,54 +1,56 @@
 import 'package:flutter/material.dart';
 
-/// Brand colours used across the app.
+/// Brand colours shared by the app's screens and navigation.
 abstract final class AppColors {
-  static const Color teal = Color(0xFF00695C);
-  static const Color tealSurface = Color(0xFFE0F2F1);
-  static const Color tealSurfaceBorder = Color(0xFFB2DFDB);
+  static const Color primary = Color(0xFF1678ED);
+  static const Color primarySurface = Color(0xFFE8F1FF);
+  static const Color primarySurfaceBorder = Color(0xFFBBD5F8);
+  static const Color pageBackground = Color(0xFFF4F8FB);
+  static const Color cardSurface = Color(0xFFEEF2F5);
 }
 
 ThemeData buildAppTheme(Brightness brightness) {
   final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.teal,
+    seedColor: AppColors.primary,
     brightness: brightness,
   );
+  final isLight = brightness == Brightness.light;
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    // Plain white background per tab. In dark mode the surface colour keeps
-    // things readable, but the app is pinned to light anyway.
-    scaffoldBackgroundColor:
-        brightness == Brightness.light ? Colors.white : scheme.surface,
-    appBarTheme: const AppBarTheme(
-      // Transparent reads as the scaffold's white under it, so the bar never
-      // punches a seam into the screen above a scrolled list.
-      backgroundColor: Colors.transparent,
+    scaffoldBackgroundColor: isLight ? AppColors.pageBackground : scheme.surface,
+    appBarTheme: AppBarTheme(
+      backgroundColor: isLight ? AppColors.pageBackground : scheme.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      // Defaults to 3, which smears a tinted scrim as soon as a list scrolls
-      // under the bar.
       scrolledUnderElevation: 0,
+      centerTitle: true,
+    ),
+    cardTheme: CardThemeData(
+      color: isLight ? AppColors.cardSurface : scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      margin: EdgeInsets.zero,
     ),
     navigationBarTheme: NavigationBarThemeData(
-      // The one piece of chrome that must stay opaque. It sits directly on the
-      // background, and a transparent bar left the destinations unreadable.
-      backgroundColor: scheme.surface,
-      // Left on, M3 tints this elevated surface with primary, which would put
-      // a teal film over the bottom of the screen.
+      backgroundColor: isLight ? AppColors.pageBackground : scheme.surface,
       surfaceTintColor: Colors.transparent,
-      // Lifts the bar off the background now that it no longer relies on being
-      // transparent for contrast.
-      elevation: 3,
-      indicatorColor: scheme.secondaryContainer,
-      // Keeps all four labels visible at every size; the default hides them on
-      // short viewports, which is how a destination ends up as an unlabelled
-      // icon.
+      elevation: 0,
+      indicatorColor:
+          isLight ? AppColors.primarySurface : scheme.secondaryContainer,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
     ),
-    // SnackBars are raised over the shell's bottom bar. The M3 default is
-    // already opaque, but pinning it here means a future theme change cannot
-    // quietly make errors unreadable.
+    tabBarTheme: TabBarThemeData(
+      labelColor: scheme.primary,
+      unselectedLabelColor: scheme.onSurfaceVariant,
+      indicatorColor: scheme.primary,
+      dividerColor: scheme.outlineVariant,
+    ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: scheme.inverseSurface,
       contentTextStyle: TextStyle(color: scheme.onInverseSurface),
@@ -56,20 +58,31 @@ ThemeData buildAppTheme(Brightness brightness) {
       elevation: 6,
     ),
     inputDecorationTheme: InputDecorationTheme(
-      // Themed rather than hard-coded so the fields stay legible in dark mode.
       filled: true,
-      fillColor: scheme.surfaceContainerHighest,
+      fillColor: isLight ? AppColors.cardSurface : scheme.surfaceContainerHighest,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: scheme.primary, width: 2),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        minimumSize: const Size(48, 44),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide(color: scheme.outlineVariant),
       ),
     ),
   );

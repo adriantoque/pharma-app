@@ -47,7 +47,7 @@ class SplashScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontSize: 40,
-                  color: AppColors.teal,
+                  color: AppColors.primary,
                   fontFamily: 'PlayfairDisplay',
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
@@ -59,7 +59,7 @@ class SplashScreen extends StatelessWidget {
                 height: 26,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: AppColors.teal.withValues(alpha: 0.7),
+                  color: AppColors.primary.withValues(alpha: 0.7),
                 ),
               ),
             ],

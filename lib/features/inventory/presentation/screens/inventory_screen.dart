@@ -688,11 +688,6 @@ class _SearchRow extends StatelessWidget {
                         tooltip: 'Clear',
                         onPressed: onClear,
                       ),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: BorderSide.none,
-                ),
               ),
             ),
           ),
@@ -778,7 +773,6 @@ class _ProgressCard extends StatelessWidget {
       child: Card(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: theme.colorScheme.surfaceContainerLow,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Column(

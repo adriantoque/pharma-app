@@ -60,34 +60,40 @@ void main() {
   // Regression: a throwing refreshUser used to escape _verifySession, leaving
   // _initializing stuck at true so every later auth event was discarded and the
   // app was pinned to the login screen forever.
-  test('a failing session refresh still resolves and keeps tracking auth', () async {
-    repository.refreshUserError = StateError('network is down');
-    final auth = createProvider();
+  test(
+    'a failing session refresh still resolves and keeps tracking auth',
+    () async {
+      repository.refreshUserError = StateError('network is down');
+      final auth = createProvider();
 
-    await auth.ready;
+      await auth.ready;
 
-    expect(auth.status, AuthStatus.unauthenticated);
-    expect(auth.error, contains('network is down'));
+      expect(auth.status, AuthStatus.unauthenticated);
+      expect(auth.error, contains('network is down'));
 
-    repository.emit(UserModel(id: 'abc', email: 'a@b.com'));
-    await Future<void>.delayed(Duration.zero);
+      repository.emit(UserModel(id: 'abc', email: 'a@b.com'));
+      await Future<void>.delayed(Duration.zero);
 
-    expect(auth.status, AuthStatus.authenticated);
-    expect(auth.user?.email, 'a@b.com');
-  });
+      expect(auth.status, AuthStatus.authenticated);
+      expect(auth.user?.email, 'a@b.com');
+    },
+  );
 
-  test('adopts a user that signs in while the session refresh is in flight', () async {
-    repository.blockRefresh = true;
-    final auth = createProvider();
-    final pending = auth.ready;
+  test(
+    'adopts a user that signs in while the session refresh is in flight',
+    () async {
+      repository.blockRefresh = true;
+      final auth = createProvider();
+      final pending = auth.ready;
 
-    repository.currentUser = UserModel(id: 'raced', email: 'race@x.com');
-    repository.completeRefresh();
-    await pending;
+      repository.currentUser = UserModel(id: 'raced', email: 'race@x.com');
+      repository.completeRefresh();
+      await pending;
 
-    expect(auth.status, AuthStatus.authenticated);
-    expect(auth.user?.id, 'raced');
-  });
+      expect(auth.status, AuthStatus.authenticated);
+      expect(auth.user?.id, 'raced');
+    },
+  );
 
   test('login sets the user and clears any previous error', () async {
     final auth = createProvider();
@@ -160,17 +166,15 @@ void main() {
     await Future<void>.delayed(Duration.zero);
   });
 
-/// Puts a [MedicineProvider] over the tree, as main.dart does.
+  /// Puts a [MedicineProvider] over the tree, as main.dart does.
   ///
   /// AppShell reads `syncStatus` from it for the offline banner, so any test that
   /// pumps the real chrome needs one. Backed by the in-memory [store] and the
   /// same fake auth provider, so it settles the same way the app does.
   Widget medicineProvider({required Widget child}) =>
       ChangeNotifierProvider<MedicineProvider>(
-        create: (_) => MedicineProvider(
-          auth: provider!,
-          storeFor: (_) => store,
-        ),
+        create: (_) =>
+            MedicineProvider(auth: provider!, storeFor: (_) => store),
         child: child,
       );
 
@@ -233,15 +237,19 @@ void main() {
               child: Provider<ReportsRepository>(
                 create: (ctx) => ReportsRepositoryImpl(
                   medicineProvider: ctx.read<MedicineProvider>(),
-                  historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
-                    ctx.read<AuthProvider>().user?.id ?? '',
-                  ),
+                  historyFactory: () =>
+                      ctx.read<OrderHistoryRepositoryFactory>()(
+                        ctx.read<AuthProvider>().user?.id ?? '',
+                      ),
                 ),
                 child: ChangeNotifierProvider<ReportsProvider>(
                   create: (ctx) => ReportsProvider(
                     repository: ctx.read<ReportsRepository>(),
                   ),
-                  child: Provider<GoRouter>.value(value: router, child: const App()),
+                  child: Provider<GoRouter>.value(
+                    value: router,
+                    child: const App(),
+                  ),
                 ),
               ),
             ),
@@ -265,10 +273,12 @@ void main() {
       expect(find.text('Welcome to'), findsOneWidget);
     });
 
-    testWidgets('an authenticated user lands on the home tab', (
-      tester,
-    ) async {
-      repository.currentUser = UserModel(id: '1', name: 'Ada', email: 'a@b.com');
+    testWidgets('an authenticated user lands on the home tab', (tester) async {
+      repository.currentUser = UserModel(
+        id: '1',
+        name: 'Ada',
+        email: 'a@b.com',
+      );
       final auth = createProvider();
       await auth.ready;
       expect(auth.status, AuthStatus.authenticated);
@@ -277,10 +287,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text("Today's sales"), findsOneWidget);
+      expect(
+        find.image(const AssetImage('assets/images/baseIcon.png')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Yesterday'), findsOneWidget);
+      expect(find.text('Scan'), findsOneWidget);
+      expect(find.text('Add stock'), findsOneWidget);
+      expect(find.text('Returns'), findsOneWidget);
+      expect(find.text('Customers'), findsOneWidget);
+      expect(find.text('Need attention'), findsOneWidget);
+      expect(find.text('Restock'), findsWidgets);
       expect(find.text('Welcome to'), findsNothing);
     });
 
-// Regression: the home screen previously had no way to sign out. Sign-out
+    // Regression: the home screen previously had no way to sign out. Sign-out
     // now lives on the Profile page pushed from a Home tile, so the user has to
     // navigate there first.
     testWidgets('signing out from the profile page returns to login', (
@@ -315,7 +336,7 @@ void main() {
       expect(find.text('Welcome to'), findsOneWidget);
     });
 
-testWidgets('the bottom bar switches between the tabs', (tester) async {
+    testWidgets('the bottom bar switches between the tabs', (tester) async {
       final auth = createProvider();
       await auth.ready;
       await auth.login(email: 'a@b.com', password: 'secret');
@@ -330,23 +351,66 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
         of: find.byType(NavigationBar),
         matching: find.text(label),
       );
-      int selectedIndex() =>
-          tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
+      int selectedIndex() => tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .selectedIndex;
 
       await tester.tap(tab('Inventory'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 1);
       expect(find.widgetWithText(AppBar, 'Inventory'), findsOneWidget);
 
-      await tester.tap(tab('Orders'));
+      await tester.tap(tab('Medicine'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 2);
-      expect(find.text('No all orders right now.'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Medicine'), findsOneWidget);
+      expect(
+        find.text('${const StaticMedicineRepository().all().length} medicines'),
+        findsOneWidget,
+      );
+      expect(find.text('Alcohol'), findsWidgets);
 
-      await tester.tap(tab('Reports'));
+      await tester.tap(find.widgetWithText(ListTile, 'Alcohol').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Medicine information'), findsOneWidget);
+      expect(find.text('Price'), findsOneWidget);
+      expect(find.text('₱65.00'), findsWidgets);
+      expect(find.text('Stock'), findsOneWidget);
+      expect(find.text('240 in stock'), findsWidgets);
+      expect(find.text('Expiry date'), findsOneWidget);
+      expect(find.text('Not recorded'), findsOneWidget);
+      expect(find.text('Type'), findsOneWidget);
+      expect(find.text('Information not available'), findsOneWidget);
+      await tester.tap(find.byTooltip('Close medicine information'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Cetirizine');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Cetirizine').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Antihistamine'), findsOneWidget);
+      expect(
+        find.textContaining('relieve allergy symptoms'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Close medicine information'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Amox');
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${const StaticMedicineRepository().search('Amox').length} matching medicines',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Amox'), findsWidgets);
+      expect(find.text('Alcohol'), findsNothing);
+
+      await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 3);
-      expect(find.widgetWithText(AppBar, 'Sales & Analytics Report'), findsOneWidget);
+      expect(find.text('No pending orders'), findsOneWidget);
 
       await tester.tap(tab('Home'));
       await tester.pumpAndSettle();
@@ -354,7 +418,7 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       expect(find.text("Today's sales"), findsOneWidget);
     });
 
-    testWidgets('orders sits at index 2 and reports at 3', (
+    testWidgets('medicine and orders align with their branches', (
       tester,
     ) async {
       final auth = createProvider();
@@ -368,23 +432,20 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
         of: find.byType(NavigationBar),
         matching: find.text(label),
       );
-      int selectedIndex() =>
-          tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
+      int selectedIndex() => tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .selectedIndex;
 
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
-      expect(find.text('No all orders right now.'), findsOneWidget);
-      expect(selectedIndex(), 2);
-
-      // The regression this guards: inserting or removing a branch shifts every
-      // later one, so the bar would highlight one tab while showing another.
-      await tester.tap(tab('Reports'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, 'Sales & Analytics Report'), findsOneWidget);
+      expect(find.text('No pending orders'), findsOneWidget);
       expect(selectedIndex(), 3);
+
+      // The regression this guards: inserting a branch before Orders shifts
+      // its index, so the bar would highlight one tab while showing another.
     });
 
-    testWidgets('the bar shows four destinations in order on a 360dp phone', (
+    testWidgets('the bar shows five destinations in order on a 360dp phone', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(360, 720);
@@ -398,19 +459,22 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // Four slots across 360dp is 90dp each, and "Inventory" is the longest
+      // Five slots across 360dp is 72dp each, and "Inventory" is the longest
       // label, so this proves the bar does not clip on the narrowest screen the
       // app is expected to run on.
-      expect(AppShell.destinations, hasLength(4));
-      expect(
-        AppShell.destinations.map((d) => d.label),
-        ['Home', 'Inventory', 'Orders', 'Reports'],
-      );
+      expect(AppShell.destinations, hasLength(5));
+      expect(AppShell.destinations.map((d) => d.label), [
+        'Home',
+        'Inventory',
+        'Medicine',
+        'Orders',
+        'Reports',
+      ]);
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-testWidgets('a home action opens a child page and back returns home', (
+    testWidgets('a home action opens a child page and back returns home', (
       tester,
     ) async {
       final auth = createProvider();
@@ -450,10 +514,8 @@ testWidgets('a home action opens a child page and back returns home', (
 
     /// The title inside the AppBar, excluding the bottom bar's identically
     /// labelled destination.
-    Finder appBarTitle(String label) => find.descendant(
-      of: find.byType(AppBar),
-      matching: find.text(label),
-    );
+    Finder appBarTitle(String label) =>
+        find.descendant(of: find.byType(AppBar), matching: find.text(label));
 
     testWidgets('the four tab titles sit on the centreline', (tester) async {
       final auth = createProvider();
@@ -542,25 +604,29 @@ testWidgets('a home action opens a child page and back returns home', (
       expect(find.text('Password'), findsOneWidget);
     });
 
-    testWidgets('an invalid email is rejected by the form, not the repository', (
-      tester,
-    ) async {
-      final auth = createProvider();
-      await auth.ready;
+    testWidgets(
+      'an invalid email is rejected by the form, not the repository',
+      (tester) async {
+        final auth = createProvider();
+        await auth.ready;
 
-      await pumpApp(tester, auth);
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
-      await tester.pumpAndSettle();
+        await pumpApp(tester, auth);
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Login'));
+        await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(0), 'not-an-email');
-      await tester.enterText(find.byType(TextFormField).at(1), 'secret');
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
-      await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextFormField).at(0),
+          'not-an-email',
+        );
+        await tester.enterText(find.byType(TextFormField).at(1), 'secret');
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Enter a valid email address'), findsOneWidget);
-      expect(repository.loginAttempts, 0);
-    });
+        expect(find.text('Enter a valid email address'), findsOneWidget);
+        expect(repository.loginAttempts, 0);
+      },
+    );
 
     testWidgets('a successful login pops the sheet and opens home', (
       tester,

@@ -10,6 +10,7 @@ import '../features/auth/domain/user_role.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
+import '../features/search/presentation/screens/medicine_screen.dart';
 import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
@@ -30,6 +31,7 @@ abstract final class AppRoutes {
   static const String staffLogin = '/staff-login';
   static const String home = '/home';
   static const String inventory = '/inventory';
+  static const String medicines = '/medicines';
   static const String orders = '/orders';
   static const String reports = '/reports';
   static const String finder = '/finder';
@@ -231,6 +233,15 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 path: AppRoutes.inventory,
                 name: 'inventory',
                 builder: (context, state) => const InventoryScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.medicines,
+                name: 'medicines',
+                builder: (context, state) => const MedicineScreen(),
               ),
             ],
           ),

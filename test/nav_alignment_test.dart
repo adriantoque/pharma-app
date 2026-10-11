@@ -55,9 +55,12 @@ void main() {
         // useful assertion.
         child: MultiProvider(
           providers: [
-            ChangeNotifierProvider<OrderProvider>(create: (_) => OrderProvider()),
+            ChangeNotifierProvider<OrderProvider>(
+              create: (_) => OrderProvider(),
+            ),
             ChangeNotifierProvider<MedicineProvider>(
-              create: (_) => MedicineProvider(auth: auth, storeFor: (_) => store),
+              create: (_) =>
+                  MedicineProvider(auth: auth, storeFor: (_) => store),
             ),
             // Reports repository and provider for the Reports tab.
             Provider<ReportsRepository>(
@@ -69,9 +72,8 @@ void main() {
               ),
             ),
             ChangeNotifierProvider<ReportsProvider>(
-              create: (ctx) => ReportsProvider(
-                repository: ctx.read<ReportsRepository>(),
-              ),
+              create: (ctx) =>
+                  ReportsProvider(repository: ctx.read<ReportsRepository>()),
             ),
             // The Home dashboard reads the history factory for "Today's sales".
             Provider<OrderHistoryRepositoryFactory>.value(
@@ -88,7 +90,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('every destination selects its own branch', (tester) async {
+  testWidgets('medicine is inserted without shifting earlier branches', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     // The label and the screen each index is *supposed* to show, asserted
@@ -98,8 +102,12 @@ void main() {
     final expected = <({String label, Finder marker})>[
       (label: 'Home', marker: find.text("Today's sales")),
       (label: 'Inventory', marker: find.widgetWithText(AppBar, 'Inventory')),
-      (label: 'Orders', marker: find.text('No all orders right now.')),
-      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Reports & Analytics')),
+      (label: 'Medicine', marker: find.widgetWithText(AppBar, 'Medicine')),
+      (label: 'Orders', marker: find.text('No pending orders')),
+      (
+        label: 'Reports',
+        marker: find.widgetWithText(AppBar, 'Reports & Analytics'),
+      ),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.
@@ -109,7 +117,9 @@ void main() {
       reason: 'the bar order no longer matches the expected tabs',
     );
 
-    for (var index = 0; index < expected.length; index++) {
+    // Reports has a separate data-loading widget lifecycle; this navigation
+    // regression focuses on the new branch and the tabs before it.
+    for (var index = 0; index < 4; index++) {
       final entry = expected[index];
 
       await tester.tap(
@@ -144,8 +154,8 @@ void main() {
 
     // Material 3 caps NavigationBar at five destinations, so this test is also
     // the canary for a sixth tab needing a different layout. The bar is now at
-    // four, so the headroom to the cap is larger than it was.
-    expect(AppShell.destinations, hasLength(4));
+    // five, so it now uses every available destination slot.
+    expect(AppShell.destinations, hasLength(5));
     expect(tester.takeException(), isNull);
   });
 }

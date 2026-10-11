@@ -13,6 +13,7 @@ const IconData _fallback = Icons.widgets_outlined;
 const Map<String, IconData> _icons = {
   'search': Icons.search,
   'inventory': Icons.inventory_2_outlined,
+  'medicine': Icons.medication_outlined,
   'expiring': Icons.event_busy_outlined,
   'orders': Icons.receipt_long_outlined,
   'sale': Icons.point_of_sale_outlined,
@@ -43,28 +44,40 @@ class FeatureRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ListTile(
-      leading: Icon(iconFor(entry.iconKey), color: theme.colorScheme.primary),
-      title: Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: entry.subtitle == null
-          ? null
-          : Text(
-              entry.subtitle!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-      // The section on the right rather than as a header, which keeps the list
-      // flat. If grouping is added later this moves into a header and this
-      // trailing goes away.
-      trailing: entry.parent == null
-          ? null
-          : Text(
-              entry.parent!,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
+    return Card(
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            iconFor(entry.iconKey),
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+        ),
+        title: Text(entry.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: entry.subtitle == null
+            ? null
+            : Text(
+                entry.subtitle!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-      onTap: onTap,
+        trailing: entry.parent == null
+            ? const Icon(Icons.chevron_right)
+            : Text(
+                entry.parent!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+        onTap: onTap,
+      ),
     );
   }
 }

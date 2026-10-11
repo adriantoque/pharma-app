@@ -60,7 +60,7 @@ class _FinderScreenState extends State<FinderScreen> {
                     // index and a narrowed list animates entries into the wrong
                     // positions, which reads as the results having shuffled.
                     key: ValueKey(provider.query),
-                    padding: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                     itemCount: provider.resultCount,
                     itemBuilder: (context, index) {
                       final entry = provider.results[index];
@@ -88,7 +88,7 @@ class _ResultCount extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(

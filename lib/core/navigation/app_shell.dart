@@ -13,7 +13,7 @@ import '../widgets/offline_mode_banner.dart';
 /// [NavigationBar] below every tab: each branch keeps its own navigator, so a
 /// tab's stack and scroll position survive switching to another tab and back.
 ///
-/// Four destinations, always. The Admin workspace is a full-screen route
+/// Five destinations, always. The Admin workspace is a full-screen route
 /// outside the shell rather than a tab -- it has a different job from the
 /// tabs around it, and an admin who enters it is not switching between work
 /// and the rest of the app.
@@ -36,6 +36,11 @@ class AppShell extends StatelessWidget {
       icon: Icon(Icons.inventory_2_outlined),
       selectedIcon: Icon(Icons.inventory_2),
       label: 'Inventory',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.medication_outlined),
+      selectedIcon: Icon(Icons.medication),
+      label: 'Medicine',
     ),
     NavigationDestination(
       icon: Icon(Icons.receipt_long_outlined),
