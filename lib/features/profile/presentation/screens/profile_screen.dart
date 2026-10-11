@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -45,7 +46,9 @@ Future<void> _confirmLogout(BuildContext context) async {
   // The router's redirect sends the user back to the login screen once the
   // auth state flips, so no manual navigation is needed here.
   if (!success && auth.error != null) {
-    messenger.showSnackBar(SnackBar(content: Text(auth.error ?? 'An unknown error occurred')));
+    messenger.showSnackBar(
+      SnackBar(content: Text(auth.error ?? 'An unknown error occurred')),
+    );
   }
 }
 
@@ -138,10 +141,10 @@ class _HeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (name, email, isOffline) =
-        context.select<AuthProvider, (String?, String?, bool)>(
-      (a) => (a.user?.name, a.user?.email, a.isOffline),
-    );
+    final (name, email, isOffline) = context
+        .select<AuthProvider, (String?, String?, bool)>(
+          (a) => (a.user?.name, a.user?.email, a.isOffline),
+        );
 
     return Card(
       elevation: 0,
@@ -253,7 +256,7 @@ class _BusinessSection extends StatelessWidget {
         _NavTile(
           icon: Icons.palette_outlined,
           label: 'Appearance',
-          onTap: () => _comingSoon(context, 'Appearance'),
+          onTap: () => context.pushNamed('home-profile-appearance'),
         ),
       ],
     );
@@ -417,8 +420,8 @@ class _SignOutButton extends StatelessWidget {
       onPressed: isLoading
           ? null
           : () => isOffline
-              ? _confirmExitOffline(context)
-              : _confirmLogout(context),
+                ? _confirmExitOffline(context)
+                : _confirmLogout(context),
       icon: isLoading
           ? const SizedBox.square(
               dimension: 18,

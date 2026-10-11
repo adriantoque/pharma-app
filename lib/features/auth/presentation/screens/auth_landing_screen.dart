@@ -70,7 +70,7 @@ class AuthLandingScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: theme.textTheme.displaySmall?.copyWith(
                           fontSize: 40,
-                          color: AppColors.teal,
+                          color: AppColors.primary,
                           fontFamily: 'PlayfairDisplay',
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
@@ -173,8 +173,8 @@ class _RoleButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          backgroundColor: AppColors.tealSurface,
-          foregroundColor: AppColors.teal,
+          backgroundColor: AppColors.primarySurface,
+          foregroundColor: AppColors.primary,
           textStyle: textStyle,
           shape: shape,
         ),
@@ -187,9 +187,9 @@ class _RoleButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
-        backgroundColor: AppColors.tealSurface,
-        foregroundColor: AppColors.teal,
-        side: const BorderSide(color: AppColors.tealSurfaceBorder),
+        backgroundColor: AppColors.primarySurface,
+        foregroundColor: AppColors.primary,
+        side: const BorderSide(color: AppColors.primarySurfaceBorder),
         textStyle: textStyle,
         shape: shape,
       ),

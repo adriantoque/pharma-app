@@ -20,6 +20,7 @@ abstract final class FeatureRoutes {
   static const String notifications = '/home/notifications';
 
   static const String inventory = '/inventory';
+  static const String medicines = '/medicines';
   static const String orders = '/orders';
   static const String newSale = '/new-sale';
   static const String reports = '/reports';

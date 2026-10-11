@@ -64,7 +64,7 @@ class _ReportsScreenState extends State<ReportsScreen>
             children: [
               // Time Range Selector
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                 child: SegmentedButton<ReportRange>(
                   segments: const [
                     ButtonSegment(
@@ -254,7 +254,7 @@ class _SalesReportView extends StatelessWidget {
     final theme = Theme.of(context);
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
       children: [
         // Metric Cards Grid
         LayoutBuilder(
@@ -296,7 +296,7 @@ class _SalesReportView extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
         Text('Sales Breakdown', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -327,7 +327,7 @@ class _SalesReportView extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -352,9 +352,9 @@ class _MetricCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: color.withValues(alpha: 0.08),
+      color: color.withValues(alpha: 0.07),
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: color.withValues(alpha: 0.2)),
+        side: BorderSide(color: color.withValues(alpha: 0.16)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(

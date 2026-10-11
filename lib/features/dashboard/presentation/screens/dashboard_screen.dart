@@ -13,6 +13,7 @@ import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../search/presentation/providers/attention_data.dart';
+import '../widgets/stock_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers & Utilities
@@ -25,20 +26,14 @@ import '../../../search/presentation/providers/attention_data.dart';
 /// model used to hand back is what lets `unknown` get its own colour instead of
 /// falling through to the healthy one.
 abstract final class _StockColors {
-  /// Amber used for the expiry and low-stock attention tiles, which colour a
-  /// whole tile rather than a single stock line.
-  static Color warning(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return dark ? const Color(0xFFFFD98A) : const Color(0xFF8A5A00);
-  }
-
   static Color status(BuildContext context, StockState state) {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     return switch (state) {
       StockState.outOfStock => scheme.error,
-      StockState.low => dark ? const Color(0xFFFFD98A) : const Color(0xFF8A5A00),
+      StockState.low =>
+        dark ? const Color(0xFFFFD98A) : const Color(0xFF8A5A00),
       StockState.unknown => scheme.outline,
       StockState.available => scheme.onSurfaceVariant,
     };
@@ -51,9 +46,10 @@ abstract final class _StockColors {
 
     return switch (state) {
       StockState.outOfStock => (scheme.errorContainer, scheme.onErrorContainer),
-      StockState.low => dark
-          ? (const Color(0xFF4A3600), const Color(0xFFFFD98A))
-          : (const Color(0xFFFFE8B8), const Color(0xFF6B4A00)),
+      StockState.low =>
+        dark
+            ? (const Color(0xFF4A3600), const Color(0xFFFFD98A))
+            : (const Color(0xFFFFE8B8), const Color(0xFF6B4A00)),
       _ => (scheme.surfaceContainerHighest, scheme.onSurface),
     };
   }
@@ -135,6 +131,7 @@ class TodaySalesProvider extends ChangeNotifier {
 class SalesSummary {
   const SalesSummary({
     required this.totalCentavos,
+    required this.yesterdayCentavos,
     required this.orderCount,
     required this.itemsSold,
     required this.hourly,
@@ -147,6 +144,7 @@ class SalesSummary {
   static const int bucketCount = closeHour - openHour + 1;
 
   final int totalCentavos;
+  final int yesterdayCentavos;
   final int orderCount;
   final int itemsSold;
   final List<int> hourly;
@@ -177,6 +175,7 @@ class SalesSummary {
     );
 
     var total = 0;
+    var yesterdayTotal = 0;
     var orders = 0;
     var items = 0;
     var yesterdaySoFar = 0;
@@ -193,6 +192,7 @@ class SalesSummary {
         hourly[_bucketFor(at)] += sale.totalCentavos;
       } else if (!at.isBefore(startOfYesterday)) {
         yesterdayHadSales = true;
+        yesterdayTotal += sale.totalCentavos;
         if (!at.isAfter(sameTimeYesterday)) {
           yesterdaySoFar += sale.totalCentavos;
         }
@@ -205,6 +205,7 @@ class SalesSummary {
 
     return SalesSummary(
       totalCentavos: total,
+      yesterdayCentavos: yesterdayTotal,
       orderCount: orders,
       itemsSold: items,
       hourly: List.unmodifiable(hourly),
@@ -217,6 +218,7 @@ class SalesSummary {
   bool operator ==(Object other) =>
       other is SalesSummary &&
       other.totalCentavos == totalCentavos &&
+      other.yesterdayCentavos == yesterdayCentavos &&
       other.orderCount == orderCount &&
       other.itemsSold == itemsSold &&
       other.currentBucket == currentBucket &&
@@ -225,13 +227,14 @@ class SalesSummary {
 
   @override
   int get hashCode => Object.hash(
-        totalCentavos,
-        orderCount,
-        itemsSold,
-        currentBucket,
-        changeVsYesterday,
-        Object.hashAll(hourly),
-      );
+    totalCentavos,
+    yesterdayCentavos,
+    orderCount,
+    itemsSold,
+    currentBucket,
+    changeVsYesterday,
+    Object.hashAll(hourly),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -269,13 +272,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final historyFactory =
         widget.historyFactory ??
         () => context.read<OrderHistoryRepositoryFactory>()(
-              context.read<AuthProvider>().user?.id ?? '',
-            );
+          context.read<AuthProvider>().user?.id ?? '',
+        );
 
     return ChangeNotifierProvider<TodaySalesProvider>(
       create: (_) => TodaySalesProvider(historyFactory: historyFactory),
       child: Scaffold(
         appBar: AppBar(
+          leadingWidth: 48,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F8F4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/baseIcon.png',
+                  fit: BoxFit.cover,
+                  semanticLabel: 'PharmaGuide logo',
+                ),
+              ),
+            ),
+          ),
           title: const Text("Wilma Pharmacy's"),
           centerTitle: true,
           automaticallyImplyLeading: false,
@@ -322,7 +343,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// an empty pharmacy is not a state this app has to handle, whereas a first
   /// read that has not landed is, and showing an empty list during it would read
   /// as "the pharmacy stocks nothing".
-  Widget _body(AttentionData attention, String? catalogueError, bool isLoading) {
+  Widget _body(
+    AttentionData attention,
+    String? catalogueError,
+    bool isLoading,
+  ) {
     if (catalogueError != null) {
       return _CatalogueError(
         message: catalogueError,
@@ -338,33 +363,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _browseList(AttentionData attention) {
     final theme = Theme.of(context);
     final preview = attention.lowStock.take(_attentionPreviewCount).toList();
-    final warning = _StockColors.warning(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
       children: [
-        _TodaySalesCard(onViewReport: () => _comingSoon('Sales report — coming soon')),
+        const _TodaySalesCard(),
         const SizedBox(height: 8),
-        _CurrentOrderStrip(onTap: () => context.goNamed('new-sale')),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: () => context.goNamed('new-sale'),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.point_of_sale_outlined, size: 18),
-                SizedBox(width: 6),
-                Text('New sale'),
-              ],
-            ),
-          ),
-        ),
         Row(
           children: [
             Expanded(
-              child: Text('Need attention', style: theme.textTheme.titleMedium),
+              flex: 6,
+              child: _CurrentOrderStrip(
+                onTap: () => context.goNamed('new-sale'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 5,
+              child: SizedBox(
+                height: 42,
+                child: FilledButton(
+                  onPressed: () => context.goNamed('new-sale'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1678ED),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add, size: 18),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'New sale',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickAction(
+                icon: Icons.document_scanner_outlined,
+                label: 'Scan',
+                onTap: () => context.pushNamed('home-scan'),
+              ),
+            ),
+            Expanded(
+              child: _QuickAction(
+                icon: Icons.inventory_2_outlined,
+                label: 'Add stock',
+                onTap: () => context.goNamed('inventory'),
+              ),
+            ),
+            Expanded(
+              child: _QuickAction(
+                icon: Icons.assignment_return_outlined,
+                label: 'Returns',
+                onTap: () => _comingSoon('Returns — coming soon'),
+              ),
+            ),
+            Expanded(
+              child: _QuickAction(
+                icon: Icons.people_outline,
+                label: 'Customers',
+                onTap: () => _comingSoon('Customers — coming soon'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Low stock', style: theme.textTheme.titleMedium),
             ),
             TextButton(
               onPressed: () => context.goNamed('inventory'),
@@ -373,37 +457,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: _AttentionTile(
-                count: attention.expired,
-                label: 'Expired',
-                colour: theme.colorScheme.error,
-                onTap: () => context.pushNamed('home-expiring'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _AttentionTile(
-                count: attention.expiringSoon,
-                label: 'Expiring soon',
-                colour: warning,
-                onTap: () => context.pushNamed('home-expiring'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _AttentionTile(
-                count: attention.lowStock.length,
-                label: 'Low stock',
-                colour: warning,
-                onTap: () => context.goNamed('inventory'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
         _LowStockCard(
           lines: preview,
           totalCount: attention.lowStock.length,
@@ -449,14 +502,22 @@ class _CatalogueError extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _TodaySalesCard extends StatelessWidget {
-  const _TodaySalesCard({required this.onViewReport});
-
-  final VoidCallback onViewReport;
+  const _TodaySalesCard();
 
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   static String _dateLabel(DateTime date) =>
@@ -468,186 +529,80 @@ class _TodaySalesCard extends StatelessWidget {
     final summary = context.select<TodaySalesProvider, SalesSummary>(
       (today) => today.summary,
     );
-    final muted = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
+    const white = Colors.white;
+    final smallStyle = theme.textTheme.labelSmall?.copyWith(
+      color: white.withValues(alpha: 0.78),
     );
-    final change = summary.changeVsYesterday;
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: theme.colorScheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2589F5), Color(0xFF0861D2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x262677E5),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Expanded(child: Text("Today's sales", style: muted)),
-                Text(_dateLabel(DateTime.now()), style: muted),
+                Expanded(child: Text("Today's sales", style: smallStyle)),
+                Text(_dateLabel(DateTime.now()), style: smallStyle),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               formatCentavos(summary.totalCentavos),
-              style: theme.textTheme.headlineMedium?.copyWith(
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: white,
                 fontWeight: FontWeight.w700,
-                color: summary.isEmpty
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.primary,
+                height: 1.1,
               ),
             ),
-            if (summary.isEmpty)
-              const _EmptySales()
-            else ...[
-              if (change != null) ...[
-                const SizedBox(height: 6),
-                _DeltaChip(change: change),
+            Text(
+              'Yesterday ${formatCentavos(summary.yesterdayCentavos)}',
+              style: smallStyle,
+            ),
+            const SizedBox(height: 10),
+            _SalesTrend(
+              values: summary.hourly,
+              currentBucket: summary.currentBucket,
+            ),
+            const SizedBox(height: 9),
+            Row(
+              children: [
+                Expanded(
+                  child: _SalesMetric(
+                    value: '${summary.orderCount}',
+                    label: 'Orders',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _SalesMetric(
+                    value: '${summary.itemsSold}',
+                    label: 'Items sold',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _SalesMetric(
+                    value: formatCentavos(summary.averageCentavos),
+                    label: 'Avg order',
+                  ),
+                ),
               ],
-              const SizedBox(height: 16),
-              _HourlyBars(
-                values: summary.hourly,
-                currentBucket: summary.currentBucket,
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
-              IntrinsicHeight(
-                child: Row(
-                  children: [
-                    _Stat(value: '${summary.orderCount}', label: 'Orders'),
-                    VerticalDivider(width: 1),
-                    _Stat(value: '${summary.itemsSold}', label: 'Items sold'),
-                    VerticalDivider(width: 1),
-                    _Stat(
-                      value: formatCentavos(summary.averageCentavos),
-                      label: 'Average',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Divider(height: 16),
-              InkWell(
-                onTap: onViewReport,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'View sales report',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptySales extends StatelessWidget {
-  const _EmptySales();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.receipt_long_outlined,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'No sales yet today. Completed orders will show up here.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeltaChip extends StatelessWidget {
-  const _DeltaChip({required this.change});
-
-  final double change;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final dark = theme.brightness == Brightness.dark;
-    final percent = (change * 100).round();
-
-    final (background, foreground, icon) = switch (percent.sign) {
-      1 => (
-          dark ? const Color(0xFF1E3A24) : const Color(0xFFD7F0DC),
-          dark ? const Color(0xFFA5D6A7) : const Color(0xFF1B5E20),
-          Icons.trending_up,
-        ),
-      -1 => (scheme.errorContainer, scheme.onErrorContainer, Icons.trending_down),
-      _ => (
-          scheme.surfaceContainerHighest,
-          scheme.onSurfaceVariant,
-          Icons.trending_flat,
-        ),
-    };
-
-    final text = percent == 0
-        ? 'Level with yesterday at this time'
-        : '${percent > 0 ? '+' : '-'}${percent.abs()}% vs yesterday at this time';
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: foreground),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                text,
-                style: theme.textTheme.labelMedium?.copyWith(color: foreground),
-              ),
             ),
           ],
         ),
@@ -656,110 +611,127 @@ class _DeltaChip extends StatelessWidget {
   }
 }
 
-class _HourlyBars extends StatelessWidget {
-  const _HourlyBars({required this.values, required this.currentBucket});
+class _SalesTrend extends StatelessWidget {
+  const _SalesTrend({required this.values, required this.currentBucket});
 
   final List<int> values;
   final int currentBucket;
 
-  static const double _height = 56;
-
-  static String _hourLabel(int hour) {
-    if (hour == 0) return '12 am';
-    if (hour < 12) return '$hour am';
-    if (hour == 12) return '12 pm';
-    return '${hour - 12} pm';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final peak = values.fold<int>(0, (a, b) => a > b ? a : b);
-    final label = theme.textTheme.labelSmall?.copyWith(
-      color: scheme.onSurfaceVariant,
-    );
-    const open = SalesSummary.openHour;
-    const close = SalesSummary.closeHour;
+    final peak = values.fold<int>(0, (highest, value) {
+      return value > highest ? value : highest;
+    });
 
     return Semantics(
-      label: 'Sales by hour, ${_hourLabel(open)} to ${_hourLabel(close)}',
-      child: ExcludeSemantics(
-        child: Column(
-          children: [
-            SizedBox(
-              height: _height,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (var i = 0; i < values.length; i++)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Container(
-                            height: i > currentBucket || peak == 0
-                                ? 4
-                                : (_height * values[i] / peak).clamp(4, _height),
-                            decoration: BoxDecoration(
-                              color: i > currentBucket
-                                  ? scheme.surfaceContainerHighest
-                                  : i == currentBucket
-                                      ? scheme.primary
-                                      : scheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ),
+      label: 'Sales trend by hour',
+      child: Row(
+        children: [
+          for (var index = 0; index < values.length; index++)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: index > currentBucket || peak == 0
+                        ? 1
+                        : (values[index] / peak).clamp(0.16, 1),
+                    minHeight: 4,
+                    backgroundColor: Colors.white.withValues(alpha: 0.26),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.white.withValues(
+                        alpha: index > currentBucket ? 0.34 : 0.96,
                       ),
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(_hourLabel(open), style: label),
-                Text(_hourLabel(((open + close) / 2).round()), style: label),
-                Text(_hourLabel(close), style: label),
-              ],
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label});
+class _SalesMetric extends StatelessWidget {
+  const _SalesMetric({required this.value, required this.label});
 
   final String value;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final style = Theme.of(context).textTheme;
 
-    return Expanded(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.17),
+        borderRadius: BorderRadius.circular(11),
+      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style.labelSmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.84),
+            ),
+          ),
+          const SizedBox(height: 1),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium,
-          ),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: style.titleSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              height: 1.05,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+        child: Column(
+          children: [
+            Icon(icon, color: const Color(0xFF1680F5), size: 21),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -785,14 +757,15 @@ class _CurrentOrderStrip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           child: Row(
             children: [
               Icon(
                 Icons.shopping_cart_outlined,
-                color: theme.colorScheme.onSurfaceVariant,
+                color: const Color(0xFF1680F5),
+                size: 18,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 7),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,74 +774,24 @@ class _CurrentOrderStrip extends StatelessWidget {
                       count == 0
                           ? 'Current order is empty'
                           : 'Current order · ${count == 1 ? '1 item' : '$count items'}',
-                      style: theme.textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
                     ),
                     if (count > 0)
                       Text(
                         '$total so far',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AttentionTile extends StatelessWidget {
-  const _AttentionTile({
-    required this.count,
-    required this.label,
-    required this.colour,
-    required this.onTap,
-  });
-
-  final int count;
-  final String label;
-  final Color colour;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$count',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: count == 0 ? theme.colorScheme.onSurfaceVariant : colour,
-                ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: theme.colorScheme.primary,
               ),
             ],
           ),
@@ -965,7 +888,7 @@ class _LowStockRow extends StatelessWidget {
     final (background, foreground) = _StockColors.pill(context, state);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
           Expanded(
@@ -987,22 +910,37 @@ class _LowStockRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Container(
-            constraints: const BoxConstraints(minWidth: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              '${medicine.stock ?? 0}',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: foreground,
-                fontWeight: FontWeight.w600,
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  medicine.stock == null ? 'Count' : '${medicine.stock} left',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              TextButton(
+                onPressed: () => showStockSheet(context, medicine: medicine),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(48, 26),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Restock'),
+              ),
+            ],
           ),
         ],
       ),

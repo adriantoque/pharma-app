@@ -1,26 +1,23 @@
 import 'package:flutter/material.dart';
 
-enum NotificationCategory { all, stock, orders, expiry }
+enum NotificationCategory { all, stock, orders }
 
 extension NotificationCategoryX on NotificationCategory {
   String get label => switch (this) {
         NotificationCategory.all => 'All',
         NotificationCategory.stock => 'Stock Alerts',
         NotificationCategory.orders => 'Orders',
-        NotificationCategory.expiry => 'Expiring',
       };
 
   IconData get icon => switch (this) {
         NotificationCategory.all => Icons.notifications_outlined,
         NotificationCategory.stock => Icons.inventory_2_outlined,
         NotificationCategory.orders => Icons.receipt_long_outlined,
-        NotificationCategory.expiry => Icons.event_busy_outlined,
       };
 
   Color color(ColorScheme scheme) => switch (this) {
         NotificationCategory.stock => Colors.amber.shade900,
         NotificationCategory.orders => scheme.primary,
-        NotificationCategory.expiry => scheme.error,
         NotificationCategory.all => scheme.secondary,
       };
 
@@ -28,7 +25,6 @@ extension NotificationCategoryX on NotificationCategory {
         NotificationCategory.all => 'You are all caught up!',
         NotificationCategory.stock => 'No stock alerts right now.',
         NotificationCategory.orders => 'No order notifications.',
-        NotificationCategory.expiry => 'Nothing expiring soon.',
       };
 
   /// Where a "View details" tap goes when nothing more specific is on the item.
@@ -40,7 +36,6 @@ extension NotificationCategoryX on NotificationCategory {
   String? get defaultRoute => switch (this) {
         NotificationCategory.stock => '/inventory',
         NotificationCategory.orders => '/orders',
-        NotificationCategory.expiry => '/home/expiring',
         NotificationCategory.all => null,
       };
 }
