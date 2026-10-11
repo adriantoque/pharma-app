@@ -66,8 +66,6 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
-  integration_test:
-    sdk: flutter
   excel: ^4.0.6
   # Not used by the app, only by `test/connection_source_test.dart`, which swaps
   # `ConnectivityPlatform.instance` for a fake so the platform channel can be

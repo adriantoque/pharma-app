@@ -5,9 +5,8 @@ import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
+import 'package:pharmaguide/features/orders/presentation/providers/orders_provider.dart';
 import 'package:pharmaguide/features/orders/presentation/screens/orders_screen.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_card.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_tabs.dart';
 import 'package:pharmaguide/features/sales/presentation/screens/new_sale_screen.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
@@ -87,16 +86,22 @@ void main() {
       ],
     );
 
+    final orders = OrdersProvider(historyFactory: () => history);
+    addTearDown(orders.dispose);
+
     await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: auth,
-        child: ChangeNotifierProvider<OrderProvider>.value(
-          value: order,
-          child: ChangeNotifierProvider<MedicineProvider>.value(
-            value: catalogue,
-            child: MaterialApp.router(
-              routerConfig: router,
-              theme: buildAppTheme(Brightness.light),
+      ChangeNotifierProvider<OrdersProvider>.value(
+        value: orders,
+        child: ChangeNotifierProvider<AuthProvider>.value(
+          value: auth,
+          child: ChangeNotifierProvider<OrderProvider>.value(
+            value: order,
+            child: ChangeNotifierProvider<MedicineProvider>.value(
+              value: catalogue,
+              child: MaterialApp.router(
+                routerConfig: router,
+                theme: buildAppTheme(Brightness.light),
+              ),
             ),
           ),
         ),
@@ -354,7 +359,7 @@ void main() {
   });
 
   group('completing a sale', () {
-    testWidgets('lands the order on the Orders tab as New', (tester) async {
+    testWidgets('lands the order on the Orders tab as pending', (tester) async {
       await pumpSaleToOrders(tester);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
@@ -370,27 +375,23 @@ void main() {
       await pumpEventQueue();
 
       expect(order.isEmpty, isTrue);
-      expect(find.text('Orders'), findsOneWidget);
-      expect(find.text('Order #'), findsOneWidget);
-      expect(find.text('Alcohol'), findsOneWidget);
-      expect(find.text('cefalexin'), findsOneWidget);
-      expect(find.text('× 1'), findsNWidgets(2));
+      expect(find.text('Order List'), findsOneWidget);
+      expect(find.textContaining('Order #'), findsOneWidget);
+      // 6500 + 4500 = 11000 centavos.
       expect(find.text('₱110.00'), findsOneWidget);
 
-      expect(
-        find.descendant(of: find.byType(OrderCard), matching: find.text('New')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(OrderCard),
-          matching: find.text('Approve'),
-        ),
-        findsOneWidget,
-      );
+      // The line items and the decision buttons live inside the collapsed tile.
+      await tester.tap(find.byType(ExpansionTile).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1x Alcohol'), findsOneWidget);
+      expect(find.text('1x cefalexin'), findsOneWidget);
+      expect(find.text('Approve'), findsOneWidget);
     });
 
-    testWidgets('the new order shows under the New tab', (tester) async {
+    testWidgets('approving clears the order from the pending list', (
+      tester,
+    ) async {
       await pumpSaleToOrders(tester);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
@@ -399,62 +400,13 @@ void main() {
       await tester.tap(find.text('Continue'));
       await pumpEventQueue();
 
-      await tester.tap(
-        find.descendant(of: find.byType(OrderTabs), matching: find.text('New')),
-      );
-      await pumpEventQueue();
+      await tester.tap(find.byType(ExpansionTile).first);
+      await tester.pumpAndSettle();
 
-      expect(
-        find.descendant(of: find.byType(OrderCard), matching: find.text('New')),
-        findsOneWidget,
-      );
+      await tester.tap(find.text('Approve'));
+      await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.descendant(
-          of: find.byType(OrderTabs),
-          matching: find.text('Approved'),
-        ),
-      );
-      await pumpEventQueue();
-
-      expect(find.byType(OrderCard), findsNothing);
-      expect(find.text('No approved orders right now.'), findsOneWidget);
-    });
-
-    testWidgets('approving moves it out of New and into Approved', (tester) async {
-      await pumpSaleToOrders(tester);
-
-      await tester.tap(find.byTooltip('Add Alcohol'));
-      await pumpEventQueue();
-      await tapProceed(tester);
-      await tester.tap(find.text('Continue'));
-      await pumpEventQueue();
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(OrderCard),
-          matching: find.text('Approve'),
-        ),
-      );
-      await pumpEventQueue();
-
-      expect(
-        find.descendant(
-          of: find.byType(OrderCard),
-          matching: find.text('Approved'),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(OrderTabs),
-          matching: find.text('New'),
-        ),
-      );
-      await pumpEventQueue();
-
-      expect(find.text('No new orders right now.'), findsOneWidget);
+      expect(find.text('No pending orders'), findsOneWidget);
     });
   });
 }

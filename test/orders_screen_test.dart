@@ -6,10 +6,10 @@ import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/orders/data/models/order_history_model.dart';
 import 'package:pharmaguide/features/orders/data/models/order_line_model.dart';
 import 'package:pharmaguide/features/orders/data/repositories/order_history_repository.dart';
+import 'package:pharmaguide/features/orders/presentation/providers/orders_provider.dart';
 import 'package:pharmaguide/features/orders/presentation/screens/orders_screen.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_card.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_tabs.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:provider/provider.dart';
 
 /// A fake [OrderHistoryRepository] for widget tests.
 ///
@@ -101,20 +101,8 @@ void main() {
     items: [OrderLineModel(medicine: cefalexin, quantity: 3)],
   );
 
-  /// Finds a tab label scoped to the tab bar, so it never collides with the
-  /// status badge text on an order card.
-  Finder tab(String label) => find.descendant(
-    of: find.byType(OrderTabs),
-    matching: find.text(label),
-  );
-
-  /// Finds text scoped to an order card, so it never collides with the tab
-  /// bar labels.
-  Finder card(String text) => find.descendant(
-    of: find.byType(OrderCard),
-    matching: find.text(text),
-  );
-
+  /// Pumps the Orders screen with an [OrdersProvider] above it, as `main.dart`
+  /// does, so the card's Approve/Reject taps resolve.
   Future<void> pumpOrders(
     WidgetTester tester,
     FakeOrderHistoryRepository repository,
@@ -123,139 +111,36 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
+    final provider = OrdersProvider(historyFactory: () => repository);
+    addTearDown(provider.dispose);
+
     await tester.pumpWidget(
-      MaterialApp(
-        theme: buildAppTheme(Brightness.light),
-        home: OrdersScreen(historyFactory: () => repository),
+      ChangeNotifierProvider<OrdersProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: OrdersScreen(historyFactory: () => repository),
+        ),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  group('tab filtering', () {
-    testWidgets('shows all orders on the All tab', (tester) async {
+  Future<void> expandFirstOrder(WidgetTester tester) async {
+    await tester.tap(find.byType(ExpansionTile).first);
+    await tester.pumpAndSettle();
+  }
+
+  group('pending list', () {
+    testWidgets('shows only the orders awaiting a decision', (tester) async {
       final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
 
       await pumpOrders(tester, repo);
-
-      expect(find.text('Order #1'), findsOneWidget);
-      expect(find.text('Order #2'), findsOneWidget);
-      expect(tab('All'), findsOneWidget);
-      expect(tab('New'), findsOneWidget);
-      expect(tab('Approved'), findsOneWidget);
-    });
-
-    testWidgets('the New tab shows only new orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      await tester.tap(tab('New'));
-      await tester.pumpAndSettle();
 
       expect(find.text('Order #1'), findsOneWidget);
       expect(find.text('Order #2'), findsNothing);
     });
 
-    testWidgets('the Approved tab shows only approved orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      await tester.tap(tab('Approved'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Order #1'), findsNothing);
-      expect(find.text('Order #2'), findsOneWidget);
-    });
-
-    testWidgets('tab counts reflect the number of orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      // Counts live in the tab bar, so they are read from there rather than from
-      // the whole tree, where an order line could show the same digit.
-      final counts = find.descendant(
-        of: find.byType(OrderTabs),
-        matching: find.text('1'),
-      );
-      expect(counts, findsNWidgets(2));
-      expect(
-        find.descendant(
-          of: find.byType(OrderTabs),
-          matching: find.text('2'),
-        ),
-        findsOneWidget,
-      );
-    });
-  });
-
-  group('order card rendering', () {
-    testWidgets('shows the order id, time, items and total', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder]);
-
-      await pumpOrders(tester, repo);
-
-      expect(find.text('Order #1'), findsOneWidget);
-      expect(find.text('Alcohol'), findsOneWidget);
-      expect(find.text('× 2'), findsOneWidget);
-      expect(find.text('cefalexin'), findsOneWidget);
-      expect(find.text('× 1'), findsOneWidget);
-      // 6500 * 2 + 4500 * 1 = 17500 centavos.
-      expect(find.text('₱175.00'), findsOneWidget);
-    });
-
-    testWidgets('shows the status label', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder]);
-
-      await pumpOrders(tester, repo);
-
-      expect(card('New'), findsOneWidget);
-    });
-
-    testWidgets('shows the Approve button for new orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder]);
-
-      await pumpOrders(tester, repo);
-
-      expect(find.text('Approve'), findsOneWidget);
-    });
-
-    testWidgets('hides the Approve button for approved orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      expect(find.text('Approve'), findsNothing);
-      expect(card('Approved'), findsOneWidget);
-    });
-  });
-
-  group('approveOrder', () {
-    testWidgets('tapping Approve moves the order to the Approved tab', (
-      tester,
-    ) async {
-      final repo = FakeOrderHistoryRepository([newOrder]);
-
-      await pumpOrders(tester, repo);
-
-      await tester.tap(find.text('Approve'));
-      await tester.pumpAndSettle();
-
-      // Still on All tab, so the order is still visible but now approved.
-      expect(find.text('Order #1'), findsOneWidget);
-      expect(card('Approved'), findsOneWidget);
-      expect(find.text('Approve'), findsNothing);
-
-      // The New tab should now be empty.
-      await tester.tap(tab('New'));
-      await tester.pumpAndSettle();
-      expect(find.text('Order #1'), findsNothing);
-    });
-  });
-
-  group('empty states', () {
     testWidgets('shows an empty message when there are no orders', (
       tester,
     ) async {
@@ -263,34 +148,82 @@ void main() {
 
       await pumpOrders(tester, repo);
 
-      expect(find.text('No all orders right now.'), findsOneWidget);
+      expect(find.text('No pending orders'), findsOneWidget);
+      expect(
+        find.text('New orders waiting for approval will appear here.'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('shows an empty message on the New tab when none are new', (
-      tester,
-    ) async {
+    testWidgets('shows an empty message when none are pending', (tester) async {
       final repo = FakeOrderHistoryRepository([approvedOrder]);
 
       await pumpOrders(tester, repo);
 
-      await tester.tap(tab('New'));
-      await tester.pumpAndSettle();
+      expect(find.text('No pending orders'), findsOneWidget);
+    });
+  });
 
-      expect(find.text('No new orders right now.'), findsOneWidget);
+  group('order card rendering', () {
+    testWidgets('shows the order id, item count and total', (tester) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      await pumpOrders(tester, repo);
+
+      expect(find.text('Order #1'), findsOneWidget);
+      expect(find.textContaining('2 item(s)'), findsOneWidget);
+      // 6500 * 2 + 4500 * 1 = 17500 centavos.
+      expect(find.text('₱175.00'), findsOneWidget);
     });
 
-    testWidgets(
-      'shows an empty message on the Approved tab when none are approved',
-      (tester) async {
-        final repo = FakeOrderHistoryRepository([newOrder]);
+    testWidgets('expanding reveals the line items and the decision buttons', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
 
-        await pumpOrders(tester, repo);
+      await pumpOrders(tester, repo);
+      await expandFirstOrder(tester);
 
-await tester.tap(tab('Approved'));
+      expect(find.text('Order Line Items'), findsOneWidget);
+      expect(find.text('2x Alcohol'), findsOneWidget);
+      expect(find.text('1x cefalexin'), findsOneWidget);
+      // Per-line totals: 6500 * 2 = 13000 and 4500 * 1 = 4500 centavos.
+      expect(find.text('₱130.00'), findsOneWidget);
+      expect(find.text('₱45.00'), findsOneWidget);
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Reject'), findsOneWidget);
+    });
+  });
+
+  group('decision', () {
+    testWidgets('approving clears the order from the pending list', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      await pumpOrders(tester, repo);
+      await expandFirstOrder(tester);
+
+      await tester.tap(find.text('Approve'));
       await tester.pumpAndSettle();
 
-      expect(find.text('No approved orders right now.'), findsOneWidget);
-      },
-    );
+      expect(find.text('Order #1'), findsNothing);
+      expect(find.text('No pending orders'), findsOneWidget);
+    });
+
+    testWidgets('rejecting clears the order from the pending list', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      await pumpOrders(tester, repo);
+      await expandFirstOrder(tester);
+
+      await tester.tap(find.text('Reject'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Order #1'), findsNothing);
+      expect(find.text('No pending orders'), findsOneWidget);
+    });
   });
 }

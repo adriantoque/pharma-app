@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -260,32 +259,6 @@ class _BusinessSection extends StatelessWidget {
           onTap: () => context.pushNamed('home-profile-appearance'),
         ),
       ],
-    );
-  }
-}
-
-class _AppearanceTile extends StatelessWidget {
-  const _AppearanceTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final themeMode = context.watch<ThemeModeProvider>();
-
-    return SwitchListTile(
-      secondary: const Icon(Icons.dark_mode_outlined),
-      title: const Text('Dark mode'),
-      subtitle: const Text('Use a darker color theme'),
-      value: themeMode.isDarkMode,
-      onChanged: (enabled) async {
-        try {
-          await themeMode.setDarkMode(enabled);
-        } catch (error) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save appearance: $error')),
-          );
-        }
-      },
     );
   }
 }

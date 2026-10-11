@@ -10,7 +10,6 @@ import 'bootstrap/firebase_bootstrap.dart';
 import 'bootstrap/splash_screen.dart';
 import 'core/connectivity/connection_source.dart';
 import 'core/theme/app_theme.dart';
-import 'core/theme/theme_mode_provider.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/data/repositories/firebase_auth_repository.dart';
 import 'features/auth/domain/user_role.dart';
@@ -118,9 +117,6 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
     return MultiProvider(
       key: const ValueKey('app'),
       providers: [
-        ChangeNotifierProvider<ThemeModeProvider>(
-          create: (_) => ThemeModeProvider()..load(),
-        ),
         // The operating system's answer about the network, read once for the
         // whole app. Firestore will take tens of seconds of its own backoff to
         // admit a lost connection; this is what puts the banner up before then.
