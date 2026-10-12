@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -232,6 +233,63 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
   }
 
+  Future<void> _exportCsv() async {
+    final catalogue = context.read<MedicineProvider>().all();
+    final lines = <String>['Name,Price (₱),Stock,State'];
+    for (final medicine in catalogue) {
+      final (label, state) = medicine.stockLine;
+      final price = medicine.formattedPrice;
+      final stock = medicine.stock ?? 0;
+      final stateName = switch (state) {
+        StockState.unknown => 'Uncounted',
+        StockState.outOfStock => 'Out of stock',
+        StockState.low => 'Low',
+        StockState.available => 'Available',
+      };
+      // Escape commas in name if any
+      final nameEscaped = medicine.name.replaceAll(',', ';');
+      lines.add('$nameEscaped,$price,$stock,$stateName');
+    }
+    final csvString = lines.join('\n');
+    _showCsvDialog(csvString);
+  }
+
+  void _showCsvDialog(String csv) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Inventory CSV Export'),
+        content: SingleChildScrollView(
+          child: SizedBox(
+            width: double.maxFinite,
+            child: SelectableText(
+              csv,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: csv));
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('CSV copied to clipboard')),
+              );
+            },
+            child: const Text('Copy to clipboard'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Photograph a label, read it on the device, and put the product name in the
   /// search field. The filter widens to All so a line that is already counted
   /// still turns up.
@@ -364,7 +422,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             onSelected: (action) => switch (action) {
               _MenuAction.bulkCount =>
                 _comingSoon('Bulk count entry — coming soon'),
-              _MenuAction.export => _comingSoon('Export CSV — coming soon'),
+              _MenuAction.export => _exportCsv(),
             },
             itemBuilder: (context) => const [
               PopupMenuItem(

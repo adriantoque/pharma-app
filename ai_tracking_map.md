@@ -42,6 +42,7 @@ Structured tracking system for AI-assisted development of PharmaGuide Flutter ap
 | **Reports** | ReportsProvider + sales_seed.json parsing | Done | G3 (export buttons), G4 (live history) |
 | **Scan** | ML Kit OCR + camera | In Progress | D1 (integration test, needs device) |
 | **Core** | Navigation (go_router), theme, connectivity | Done | - |
+| **Finder** | FeatureEntry + FeatureRepository + StaticCatalogue | Done | Structure complete; no widget tests |
 
 ---
 
@@ -70,6 +71,7 @@ Structured tracking system for AI-assisted development of PharmaGuide Flutter ap
 - End-to-end New Sale → Orders tab flow ( §12 item 4)
 - Reports widget tests - commented out with TODOs
 - Medicine catalog widget tests
+- Feature finder widget tests - no widget tests exist for finder screen
 
 ---
 

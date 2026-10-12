@@ -393,11 +393,15 @@ class MedicineModel {
     final needle = _normalise(trimmed);
     if (needle.isEmpty) return true;
 
+    // 1. Match against name, aliases, or generic key
     for (final candidate in searchableNames) {
       if (_normalise(candidate).contains(needle)) return true;
     }
 
-    if (_priceQuery(trimmed) case final centavos?) {
+    // 2. Match as a price: `65`, `65.00`, `65.5`, `₱65.00`
+    // Bare one- and two-digit numbers are excluded from price matching
+    // so a stray `4` does not dump every 4-peso item.
+    if (_priceQuery(trimmed) case final int? centavos?) {
       return priceCentavos == centavos;
     }
     return false;
