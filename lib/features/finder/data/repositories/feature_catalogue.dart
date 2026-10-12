@@ -17,6 +17,10 @@ import 'feature_routes.dart';
 ///
 /// Titles mirror the screens' own AppBar titles where there is one, so a user
 /// who reads "Expiring Meds" on the screen finds the same words here.
+///
+/// Admin-only routes are deliberately absent. The finder is only reachable from
+/// the staff shell, and an admin never reaches that shell -- a Reports entry
+/// here would offer a staff member a door the router's redirect would refuse.
 const List<FeatureEntry> featureCatalogue = [
   // --- Home --------------------------------------------------------------
   FeatureEntry(
@@ -103,16 +107,5 @@ const List<FeatureEntry> featureCatalogue = [
     aliases: ['sell', 'checkout', 'transaction', 'counter', 'pos'],
     parent: 'Orders',
     iconKey: 'sale',
-  ),
-
-  // --- Reports -----------------------------------------------------------
-  FeatureEntry(
-    id: 'reports',
-    title: 'Reports',
-    subtitle: 'Sales and stock analytics',
-    routePath: FeatureRoutes.reports,
-    aliases: ['analytics', 'summary', 'sales report', 'totals'],
-    parent: 'Reports',
-    iconKey: 'reports',
   ),
 ];

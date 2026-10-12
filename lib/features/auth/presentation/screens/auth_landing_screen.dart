@@ -2,15 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_bottom_sheet.dart';
+
+/// Brand greens for the landing screen.
+///
+/// Local to this file so the rest of the app keeps its blue theme until the
+/// whole palette is moved over. The deep green matches the `brandColor` used
+/// on the order cards; the surface and border are its lighter tints.
+abstract final class _LandingColors {
+  static const Color primary = Color(0xFF0E5A52);
+  static const Color primarySurface = Color(0xFFE2F1ED);
+  static const Color primarySurfaceBorder = Color(0xFFA7CFC6);
+}
 
 /// The first screen, for a signed-out app.
 ///
 /// Three doors, each leading somewhere different. Admin and Staff are full
-/// pages pushed on top of this one, so the back arrow returns here; Guest is
-/// a single tap that lands on the regular app in a read-only role.
+/// pages pushed on top of this one, so the back arrow returns here; Offline
+/// is a single tap that lands on the regular app with no server behind it.
 ///
 /// The sign-in sheet still exists -- reachable from a fallback link -- for
 /// anyone who reaches this screen mid-session and needs to sign in without
@@ -29,7 +39,7 @@ class AuthLandingScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _continueAsGuest(BuildContext context) async {
+  Future<void> _continueOffline(BuildContext context) async {
     final auth = context.read<AuthProvider>();
     // Navigation is left entirely to the router's redirect, exactly as a
     // successful sign-in does: entering offline mode flips AuthStatus, and
@@ -70,7 +80,7 @@ class AuthLandingScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: theme.textTheme.displaySmall?.copyWith(
                           fontSize: 40,
-                          color: AppColors.primary,
+                          color: _LandingColors.primary,
                           fontFamily: 'PlayfairDisplay',
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
@@ -111,11 +121,11 @@ class AuthLandingScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _RoleButton(
-                        icon: Icons.person_outline,
-                        label: 'Continue as Guest',
+                        icon: Icons.cloud_off_outlined,
+                        label: 'Continue Offline',
                         enabled: !isBusy,
                         filled: false,
-                        onPressed: () => _continueAsGuest(context),
+                        onPressed: () => _continueOffline(context),
                       ),
                       const SizedBox(height: 16),
                       TextButton(
@@ -173,8 +183,8 @@ class _RoleButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          backgroundColor: AppColors.primarySurface,
-          foregroundColor: AppColors.primary,
+          backgroundColor: _LandingColors.primarySurface,
+          foregroundColor: _LandingColors.primary,
           textStyle: textStyle,
           shape: shape,
         ),
@@ -187,9 +197,9 @@ class _RoleButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
-        backgroundColor: AppColors.primarySurface,
-        foregroundColor: AppColors.primary,
-        side: const BorderSide(color: AppColors.primarySurfaceBorder),
+        backgroundColor: _LandingColors.primarySurface,
+        foregroundColor: _LandingColors.primary,
+        side: const BorderSide(color: _LandingColors.primarySurfaceBorder),
         textStyle: textStyle,
         shape: shape,
       ),

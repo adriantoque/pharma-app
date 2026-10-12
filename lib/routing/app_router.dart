@@ -33,10 +33,12 @@ abstract final class AppRoutes {
   static const String inventory = '/inventory';
   static const String medicines = '/medicines';
   static const String orders = '/orders';
-  static const String reports = '/reports';
   static const String finder = '/finder';
+
+  /// The admin workspace, outside the shell. An admin never leaves it.
   static const String admin = '/admin';
   static const String adminUsers = '/admin/users';
+  static const String adminReports = '/admin/reports';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
   /// the tile the user tapped from.
@@ -55,15 +57,13 @@ abstract final class AppRoutes {
 
 /// Creates the router for the whole app.
 ///
-/// The one subtle piece of state here is [coldStartRouted]. The redirect runs
-/// on every navigation, and once a signed-in admin exists we want to send them
-/// to the admin workspace *the first time only* -- not every time they come
-/// back to Home on purpose. A local flag inside the factory gives the router
-/// one bit of memory without the flag leaking between test cases the way a
-/// top-level variable would.
+/// The role split is the one piece of state that matters here: an admin is
+/// held in the `/admin` subtree and never reaches the staff shell, and a staff
+/// member (or guest) is held out of it. The redirect runs on every navigation,
+/// so a role that changes mid-session -- a demotion that arrives on a refresh,
+/// say -- is enforced on the next tap without any screen having to know the
+/// rules.
 GoRouter createAppRouter({required Listenable refreshListenable}) {
-  var coldStartRouted = false;
-
   return GoRouter(
     // The shell owns the bottom bar, and its first branch is Home. Starting
     // anywhere else would paint a different tab for a frame before the
@@ -82,36 +82,35 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         await auth.ready;
       }
 
-      // The screens a signed-out user is allowed to sit on. All three are
-      // treated the same so signing in from any of them lands in the same
-      // place, and signing out from anywhere falls back to the landing screen.
-      final atAuthScreen = state.matchedLocation == AppRoutes.login ||
-          state.matchedLocation == AppRoutes.adminLogin ||
-          state.matchedLocation == AppRoutes.staffLogin;
+      final location = state.matchedLocation;
+      final atAuthScreen = location == AppRoutes.login ||
+          location == AppRoutes.adminLogin ||
+          location == AppRoutes.staffLogin;
+      final atAdmin = location == AppRoutes.admin ||
+          location.startsWith('${AppRoutes.admin}/');
 
       switch (auth.status) {
         case AuthStatus.unauthenticated:
           return atAuthScreen ? null : AppRoutes.login;
 
         case AuthStatus.authenticated:
-          // Just signed in on one of the doors: go to the destination the
-          // role owns. An admin lands on their workspace, everyone else on
-          // Home. The role is the one Firestore answered with, not a guess.
-          if (atAuthScreen) {
-            return auth.isAdmin ? AppRoutes.admin : AppRoutes.home;
+          if (auth.isAdmin) {
+            // Admins live in the admin workspace. The staff shell is
+            // unreachable on purpose: the two experiences are separate, and
+            // an admin who lands on Home goes straight to the workspace
+            // instead.
+            return atAdmin ? null : AppRoutes.admin;
           }
-          // Cold start, already signed in. A stored admin session lands on
-          // the admin workspace; everyone else stays on Home. Only once, so
-          // an admin who deliberately navigates back to Home is left there.
-          if (!coldStartRouted) {
-            coldStartRouted = true;
-            if (auth.isAdmin) return AppRoutes.admin;
-          }
+          // Staff may not enter the admin workspace.
+          if (atAdmin) return AppRoutes.home;
+          // Just signed in on one of the doors: land on Home.
+          if (atAuthScreen) return AppRoutes.home;
           return null;
 
         case AuthStatus.offline:
-          if (atAuthScreen) return AppRoutes.home;
-          coldStartRouted = true;
+          // Guest mode: no admin access, and the auth screens are out of
+          // reach once a session has started.
+          if (atAdmin || atAuthScreen) return AppRoutes.home;
           return null;
 
         case AuthStatus.unknown:
@@ -143,10 +142,15 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           onNavigate: (entry) => context.go(entry.routePath),
         ),
       ),
-      // The admin workspace, outside the shell. Deliberately not a bottom-nav
-      // tab: an admin working through user management is not tapping between
-      // Home and Inventory, and giving them the tabs would put the ordinary
-      // screens one gesture away from a screen whose job is to be different.
+      // The admin workspace, outside the shell. Not a bottom-nav tab: an
+      // admin working through user management is not tapping between Home
+      // and Inventory, and the two experiences are separated by role rather
+      // than by a tab.
+      //
+      // Reports lives under this branch, not in the staff shell, because it
+      // is admin-only: `UserRole.canViewReports` is true for admins alone,
+      // and a screen a staff member cannot open has no business being one of
+      // their tabs.
       GoRoute(
         path: AppRoutes.admin,
         name: 'admin',
@@ -156,6 +160,11 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
             path: 'users',
             name: 'admin-users',
             builder: (context, state) => const UsersScreen(),
+          ),
+          GoRoute(
+            path: 'reports',
+            name: 'admin-reports',
+            builder: (context, state) => const ReportsScreen(),
           ),
         ],
       ),
@@ -171,8 +180,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 builder: (context, state) => const DashboardScreen(),
                 // Nested under Home so each tile pushes a page onto the Home
                 // branch: the bottom bar keeps Home selected and the back arrow
-                // has somewhere to go. Inventory and Reports are tabs in their own
-                // right, so they are top-level branches below instead.
+                // has somewhere to go. Inventory and Medicine are tabs in their
+                // own right, so they are top-level branches below instead.
                 routes: [
                   GoRoute(
                     path: 'expiring',
@@ -262,15 +271,6 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                     builder: (context, state) => const OrderHistoryScreen(),
                   ),
                 ],
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.reports,
-                name: 'reports',
-                builder: (context, state) => const ReportsScreen(),
               ),
             ],
           ),

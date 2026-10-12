@@ -9,12 +9,17 @@ import '../../data/repositories/audit_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../domain/audit_event.dart';
 
-/// The Admin tab's landing.
+/// The Admin workspace: the only screen an administrator sees.
+///
+/// An admin is held here by the router's redirect and never reaches the
+/// staff shell, so there is no "back to app" arrow -- there is nowhere to
+/// go back to. The AppBar menu carries sign-out, which is the one way out of
+/// the workspace short of closing the app.
 ///
 /// A dashboard rather than a menu: an admin who opens this screen should be
 /// able to see the shape of the team at a glance and the last few things that
-/// happened, without tapping into each section first. The three destinations
-/// are still here, under the numbers they act on.
+/// happened, without tapping into each section first. The destinations are
+/// still here, under the numbers they act on.
 class AdminHomeScreen extends StatelessWidget {
   const AdminHomeScreen({super.key});
 
@@ -22,16 +27,32 @@ class AdminHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // The workspace is outside the shell, so there is no bottom bar to
-        // tap away from. This is the way back to the regular app, and it
-        // goes to Home because that is where a pharmacist returns to.
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back to app',
-          onPressed: () => context.goNamed('home'),
-        ),
+        // No leading widget on purpose. An admin is pinned to this subtree;
+        // an arrow back to the staff app would open a door the redirect
+        // would immediately slam shut.
+        automaticallyImplyLeading: false,
         title: const Text('Admin'),
         centerTitle: true,
+        actions: [
+          PopupMenuButton<_AdminMenuAction>(
+            tooltip: 'More',
+            onSelected: (action) => switch (action) {
+              _AdminMenuAction.signOut => _confirmSignOut(context),
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _AdminMenuAction.signOut,
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 8),
+                    Text('Sign out'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -49,7 +70,45 @@ class AdminHomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// Confirms and performs sign-out.
+  ///
+  /// The router's redirect sends the user to the login screen the moment the
+  /// auth state flips, so nothing navigates here.
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('You will need to sign in again to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await auth.logout();
+    if (!success && auth.error != null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(auth.error ?? 'An unknown error occurred')),
+      );
+    }
+  }
 }
+
+enum _AdminMenuAction { signOut }
 
 // ---------------------------------------------------------------------------
 // Greeting
@@ -239,6 +298,13 @@ class _QuickActions extends StatelessWidget {
           title: 'Manage users',
           subtitle: 'Add, edit, deactivate accounts',
           onTap: () => context.pushNamed('admin-users'),
+        ),
+        const SizedBox(height: 12),
+        _ActionTile(
+          icon: Icons.bar_chart_outlined,
+          title: 'Reports',
+          subtitle: 'Sales and stock analytics',
+          onTap: () => context.pushNamed('admin-reports'),
         ),
         const SizedBox(height: 12),
         _ActionTile(
