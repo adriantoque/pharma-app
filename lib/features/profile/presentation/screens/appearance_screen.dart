@@ -62,7 +62,7 @@ class AppearanceScreen extends StatelessWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      child: _ThemePreview(mode: mode),
+                      child: _ThemePreview(mode: mode, textScale: scale),
                     ),
                   ],
                 ),
@@ -120,9 +120,10 @@ class AppearanceScreen extends StatelessWidget {
 /// to, so the choice is visible before leaving the screen. [ThemeMode.system]
 /// is resolved against the platform brightness here, exactly as the app does.
 class _ThemePreview extends StatelessWidget {
-  const _ThemePreview({required this.mode});
+  const _ThemePreview({required this.mode, required this.textScale});
 
   final ThemeMode mode;
+  final double textScale;
 
   @override
   Widget build(BuildContext context) {
@@ -134,52 +135,56 @@ class _ThemePreview extends StatelessWidget {
 
     return Theme(
       data: buildAppTheme(brightness),
-      child: Builder(
-        builder: (context) {
-          final theme = Theme.of(context);
-          final scheme = theme.colorScheme;
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: Builder(
+          builder: (context) {
+            final theme = Theme.of(context);
+            final scheme = theme.colorScheme;
 
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: scheme.outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Preview', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(
-                  'Text and controls follow the selected theme.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    FilledButton(
-                      onPressed: () {},
-                      child: const Text('Button'),
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Preview', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Text and controls follow the selected theme.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
-                    Chip(label: const Text('Chip')),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton(
+                        onPressed: () {},
+                        child: const Text('Button'),
+                      ),
+                      const Chip(label: Text('Chip')),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 }
-
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
 

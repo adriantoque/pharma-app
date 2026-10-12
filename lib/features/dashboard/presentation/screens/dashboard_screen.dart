@@ -3,21 +3,29 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../orders/data/models/order_history_model.dart';
+import '../../../orders/data/repositories/order_history_repository.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
+import '../../../search/data/sync/sync_status.dart';
+import '../../../search/presentation/providers/medicine_provider.dart';
 import '../providers/notification_provider.dart';
+
+/// Days ahead that count as "expiring soon" on the dashboard.
+///
+/// Matches the Expiring Meds screen so the number on Home and the list it
+/// opens always agree.
+const int _expirySoonDays = 90;
 
 /// The Home tab.
 ///
-/// Deliberately a thin screen: the AppBar carries the account actions, and the
-/// body is the current order plus the one shortcut a counter reaches for
-/// mid-sale -- scanning a prescription. Inventory counting and sales reporting
-/// both live on their own tabs, so nothing about either is repeated here.
+/// Staff only. Every figure and action here is something a counter staff
+/// member does or needs to know. Stock counting and reports are admin tasks
+/// and live on the admin screen, so they do not appear here.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = context.select<AuthProvider, bool>((a) => a.isAdmin);
     final unread = context.select<NotificationsProvider, int>(
       (p) => p.unreadCount,
     );
@@ -46,16 +54,6 @@ class DashboardScreen extends StatelessWidget {
         centerTitle: true,
         automaticallyImplyLeading: false,
         actions: [
-          // Only an admin sees the way into the workspace; everyone else
-          // has no business there and no door to it.
-          if (isAdmin)
-            IconButton(
-              tooltip: 'Admin',
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              onPressed: () => context.pushNamed('admin'),
-            ),
-          // The one search affordance on this screen: opens the full-screen
-          // finder, which browses every screen by name.
           IconButton(
             tooltip: 'Search screens',
             icon: const Icon(Icons.manage_search),
@@ -80,6 +78,12 @@ class DashboardScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
         children: [
+          const _SyncCard(),
+          const SizedBox(height: 12),
+          const _PendingOrdersCard(),
+          const SizedBox(height: 12),
+          const _AttentionRow(),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -110,7 +114,7 @@ class DashboardScreen extends StatelessWidget {
                         SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            'New sale',
+                            'New order',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -122,7 +126,7 @@ class DashboardScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _QuickAction(
             icon: Icons.document_scanner_outlined,
             label: 'Scan',
@@ -133,6 +137,299 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Sync status
+// ---------------------------------------------------------------------------
+
+/// Whether offline work has reached the server. Reads the same [SyncStatus]
+/// as the shell's offline banner, so the two cannot disagree.
+class _SyncCard extends StatelessWidget {
+  const _SyncCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final status = context.select<MedicineProvider, SyncStatus>(
+      (p) => p.syncStatus,
+    );
+
+    final waiting = status.hasPendingChanges;
+    final count = status.pendingWriteCount;
+
+    final icon =
+        waiting ? Icons.cloud_upload_outlined : Icons.cloud_done_outlined;
+    final text = waiting
+        ? (count == 1
+            ? '1 change waiting to sync'
+            : '$count changes waiting to sync')
+        : 'All changes synced';
+    final background =
+        waiting ? scheme.tertiaryContainer : scheme.surfaceContainerLow;
+    final foreground =
+        waiting ? scheme.onTertiaryContainer : scheme.onSurfaceVariant;
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: background,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: foreground),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pending orders
+// ---------------------------------------------------------------------------
+
+/// Orders waiting for cashier approval, opening the Orders tab.
+///
+/// Reads the same per-user history the Orders tab reads, through the factory
+/// registered in `main.dart`. Offline that is the in-memory history; online it
+/// is Firestore. A signed-out state shows zero rather than subscribing.
+class _PendingOrdersCard extends StatefulWidget {
+  const _PendingOrdersCard();
+
+  @override
+  State<_PendingOrdersCard> createState() => _PendingOrdersCardState();
+}
+
+class _PendingOrdersCardState extends State<_PendingOrdersCard> {
+  Stream<List<OrderHistory>>? _orders;
+  String? _uid;
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = context.select<AuthProvider, String?>((a) => a.user?.id);
+
+    // Subscribe once per account. Creating the stream on every build would
+    // resubscribe to Firestore each time the dashboard rebuilds.
+    if (uid != _uid) {
+      _uid = uid;
+      _orders = uid == null
+          ? null
+          : context.read<OrderHistoryRepositoryFactory>()(uid).watchAll();
+    }
+
+    return StreamBuilder<List<OrderHistory>>(
+      stream: _orders,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _PendingCard(
+            count: 0,
+            failed: true,
+            onTap: () => context.goNamed('orders'),
+          );
+        }
+        return _PendingCard(
+          count: _countNew(snapshot.data),
+          failed: false,
+          onTap: () => context.goNamed('orders'),
+        );
+      },
+    );
+  }
+
+  /// Orders still awaiting approval. Null data (the stream has not answered
+  /// yet) counts as zero rather than a figure that might be wrong.
+  static int _countNew(List<OrderHistory>? orders) {
+    if (orders == null) return 0;
+    return orders.where((o) => o.status == OrderStatus.new_).length;
+  }
+}
+
+class _PendingCard extends StatelessWidget {
+  const _PendingCard({
+    required this.count,
+    required this.failed,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool failed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final hasPending = count > 0;
+
+    final foreground = failed
+        ? scheme.onErrorContainer
+        : hasPending
+            ? scheme.onPrimaryContainer
+            : scheme.onSurfaceVariant;
+    final background = failed
+        ? scheme.errorContainer
+        : hasPending
+            ? scheme.primaryContainer
+            : scheme.surfaceContainerLow;
+
+    final String text;
+    if (failed) {
+      text = 'Could not load orders';
+    } else if (hasPending) {
+      text = count == 1
+          ? '1 order needs approval'
+          : '$count orders need approval';
+    } else {
+      text = 'No orders waiting for approval';
+    }
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: background,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                failed ? Icons.error_outline : Icons.pending_actions_outlined,
+                color: foreground,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  text,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: hasPending ? FontWeight.w600 : null,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: foreground),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Expiry and stock attention
+// ---------------------------------------------------------------------------
+
+/// Lines expiring soon and lines out of stock. Each opens a staff screen
+/// where the problem is handled: Expiring Meds for dates, Medicine for stock.
+class _AttentionRow extends StatelessWidget {
+  const _AttentionRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final medicines = context.watch<MedicineProvider>().all();
+
+    final expiring = medicines.where((m) {
+      if (m.expiryDate == null) return false;
+      if (m.isExpired) return true;
+      final days = m.daysUntilExpiry;
+      return days != null && days <= _expirySoonDays;
+    }).length;
+
+    final outOfStock = medicines.where((m) => m.isOutOfStock).length;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _CountTile(
+            icon: Icons.event_busy_outlined,
+            count: expiring,
+            label: expiring == 1 ? 'line expiring' : 'lines expiring',
+            onTap: () => context.pushNamed('home-expiring'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _CountTile(
+            icon: Icons.inventory_2_outlined,
+            count: outOfStock,
+            label: 'out of stock',
+            onTap: () => context.goNamed('medicines'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CountTile extends StatelessWidget {
+  const _CountTile({
+    required this.icon,
+    required this.count,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final int count;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final attention = count > 0;
+
+    final foreground =
+        attention ? scheme.onErrorContainer : scheme.onSurfaceVariant;
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: attention ? scheme.errorContainer : scheme.surfaceContainerLow,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: foreground),
+              const SizedBox(height: 8),
+              Text(
+                '$count',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: attention ? foreground : null,
+                ),
+              ),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(color: foreground),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Counter shortcuts
+// ---------------------------------------------------------------------------
 
 class _CurrentOrderStrip extends StatelessWidget {
   const _CurrentOrderStrip({required this.onTap});
@@ -169,8 +466,8 @@ class _CurrentOrderStrip extends StatelessWidget {
                   children: [
                     Text(
                       count == 0
-                          ? 'Current order is empty'
-                          : 'Current order · ${count == 1 ? '1 item' : '$count items'}',
+                          ? 'Cart is empty'
+                          : 'Cart · ${count == 1 ? '1 item' : '$count items'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall,
@@ -224,18 +521,9 @@ class _QuickAction extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: const Color(0xFF1680F5),
-                size: 22,
-              ),
+              Icon(icon, color: const Color(0xFF1680F5), size: 22),
               const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodyLarge,
-                ),
-              ),
+              Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
               Icon(
                 Icons.chevron_right,
                 size: 20,

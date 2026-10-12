@@ -30,14 +30,19 @@ abstract final class AppRoutes {
   static const String adminLogin = '/admin-login';
   static const String staffLogin = '/staff-login';
   static const String home = '/home';
-  static const String inventory = '/inventory';
   static const String medicines = '/medicines';
   static const String orders = '/orders';
   static const String finder = '/finder';
 
+  /// Legacy top-level paths. Kept only so old links and notifications
+  /// redirect to the admin workspace instead of failing.
+  static const String inventory = '/inventory';
+  static const String reports = '/reports';
+
   /// The admin workspace, outside the shell. An admin never leaves it.
   static const String admin = '/admin';
   static const String adminUsers = '/admin/users';
+  static const String adminInventory = '/admin/inventory';
   static const String adminReports = '/admin/reports';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
@@ -45,8 +50,7 @@ abstract final class AppRoutes {
   ///
   /// Documentation only. A `GoRoute` nested under `home` is declared with a
   /// *relative* path, so the route that actually resolves is `home` plus the
-  /// child's own literal -- not the string below. These are here so the pushed
-  /// pages can be read off without tracing the router.
+  /// child's own literal, not the string below.
   static const String homeExpiring = '/home/expiring';
   static const String homeScan = '/home/scan';
   static const String homeProfile = '/home/profile';
@@ -60,9 +64,8 @@ abstract final class AppRoutes {
 /// The role split is the one piece of state that matters here: an admin is
 /// held in the `/admin` subtree and never reaches the staff shell, and a staff
 /// member (or guest) is held out of it. The redirect runs on every navigation,
-/// so a role that changes mid-session -- a demotion that arrives on a refresh,
-/// say -- is enforced on the next tap without any screen having to know the
-/// rules.
+/// so a role that changes mid-session is enforced on the next tap without any
+/// screen having to know the rules.
 GoRouter createAppRouter({required Listenable refreshListenable}) {
   return GoRouter(
     // The shell owns the bottom bar, and its first branch is Home. Starting
@@ -73,10 +76,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
     redirect: (context, state) async {
       final auth = context.read<AuthProvider>();
 
-      // Hold routing until the persisted session has been resolved. The
-      // router is created as soon as the provider graph is built, so on a
-      // cold start the status really is still unknown here. Without this
-      // await, the login screen paints for one frame before bouncing a
+      // Hold routing until the persisted session has been resolved. Without
+      // this await, the login screen paints for one frame before bouncing a
       // signed-in user onward.
       if (auth.status == AuthStatus.unknown) {
         await auth.ready;
@@ -96,9 +97,7 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         case AuthStatus.authenticated:
           if (auth.isAdmin) {
             // Admins live in the admin workspace. The staff shell is
-            // unreachable on purpose: the two experiences are separate, and
-            // an admin who lands on Home goes straight to the workspace
-            // instead.
+            // unreachable on purpose.
             return atAdmin ? null : AppRoutes.admin;
           }
           // Staff may not enter the admin workspace.
@@ -142,15 +141,27 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           onNavigate: (entry) => context.go(entry.routePath),
         ),
       ),
-      // The admin workspace, outside the shell. Not a bottom-nav tab: an
-      // admin working through user management is not tapping between Home
-      // and Inventory, and the two experiences are separated by role rather
-      // than by a tab.
-      //
-      // Reports lives under this branch, not in the staff shell, because it
-      // is admin-only: `UserRole.canViewReports` is true for admins alone,
-      // and a screen a staff member cannot open has no business being one of
-      // their tabs.
+
+      // Legacy paths. Admins are sent to the admin workspace copy of the
+      // screen; everyone else is sent Home. No builder, so nothing renders
+      // for a moment.
+      GoRoute(
+        path: AppRoutes.inventory,
+        name: 'legacy-inventory',
+        redirect: (context, state) => context.read<AuthProvider>().isAdmin
+            ? AppRoutes.adminInventory
+            : AppRoutes.home,
+      ),
+      GoRoute(
+        path: AppRoutes.reports,
+        name: 'legacy-reports',
+        redirect: (context, state) => context.read<AuthProvider>().isAdmin
+            ? AppRoutes.adminReports
+            : AppRoutes.home,
+      ),
+
+      // The admin workspace, outside the shell. Inventory and Reports are
+      // admin-only, so they live here rather than in the staff shell.
       GoRoute(
         path: AppRoutes.admin,
         name: 'admin',
@@ -162,15 +173,23 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
             builder: (context, state) => const UsersScreen(),
           ),
           GoRoute(
+            path: 'inventory',
+            name: 'admin-inventory',
+            builder: (context, state) => const InventoryScreen(),
+          ),
+          GoRoute(
             path: 'reports',
             name: 'admin-reports',
             builder: (context, state) => const ReportsScreen(),
           ),
         ],
       ),
+
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
+        // Branch order must match AppShell.destinations exactly:
+        // 0 Home, 1 Medicine, 2 Orders.
         branches: [
           StatefulShellBranch(
             routes: [
@@ -179,9 +198,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 name: 'home',
                 builder: (context, state) => const DashboardScreen(),
                 // Nested under Home so each tile pushes a page onto the Home
-                // branch: the bottom bar keeps Home selected and the back arrow
-                // has somewhere to go. Inventory and Medicine are tabs in their
-                // own right, so they are top-level branches below instead.
+                // branch: the bottom bar keeps Home selected and the back
+                // arrow has somewhere to go.
                 routes: [
                   GoRoute(
                     path: 'expiring',
@@ -212,12 +230,9 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                   ),
                 ],
               ),
-              // New Sale sits beside Home in the same branch rather than beside
-              // Orders. A sale starts from the Dashboard, and putting it here
-              // keeps the Home tab selected for the duration of the sale and
-              // gives the sale screen a back arrow that returns to the tile the
-              // user actually tapped. Its cart is nested inside it for the same
-              // reason: the cart is part of the sale, not a place of its own.
+              // New Sale sits beside Home in the same branch so the Home tab
+              // stays selected during a sale. Its cart is nested inside it
+              // because the cart is part of the sale.
               GoRoute(
                 path: AppRoutes.newSale,
                 name: 'new-sale',
@@ -239,15 +254,6 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.inventory,
-                name: 'inventory',
-                builder: (context, state) => const InventoryScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
                 path: AppRoutes.medicines,
                 name: 'medicines',
                 builder: (context, state) => const MedicineScreen(),
@@ -261,10 +267,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                 name: 'orders',
                 builder: (context, state) => const OrdersScreen(),
                 routes: [
-                  // Nested so the history lives on the same branch as the
-                  // list it belongs to: the bottom bar keeps Orders selected
-                  // and the back arrow returns to the pending list rather
-                  // than to another tab.
+                  // History lives on the same branch as the list it belongs
+                  // to, so the back arrow returns to the pending list.
                   GoRoute(
                     path: 'history',
                     name: 'orders-history',
@@ -278,7 +282,7 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
       ),
     ],
     // Reachable from either side of the auth redirect, so it cannot assume the
-    // shell -- and therefore the artwork -- is mounted behind it.
+    // shell is mounted behind it.
     errorBuilder: (context, state) => Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(

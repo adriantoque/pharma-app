@@ -7,16 +7,14 @@ import '../../features/search/presentation/providers/medicine_provider.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/offline_mode_banner.dart';
 
-/// Hosts the persistent bottom navigation bar for the signed-in area.
+/// Hosts the persistent bottom navigation bar for the signed-in staff area.
 ///
 /// Wrapping [StatefulShellRoute.indexedStack] in a Scaffold is what puts the
 /// [NavigationBar] below every tab: each branch keeps its own navigator, so a
 /// tab's stack and scroll position survive switching to another tab and back.
 ///
-/// Five destinations, always. The Admin workspace is a full-screen route
-/// outside the shell rather than a tab -- it has a different job from the
-/// tabs around it, and an admin who enters it is not switching between work
-/// and the rest of the app.
+/// Three destinations: Home, Medicine and Orders. Inventory and Reports are
+/// admin-only and live in the admin workspace, outside the shell.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -33,11 +31,6 @@ class AppShell extends StatelessWidget {
       label: 'Home',
     ),
     NavigationDestination(
-      icon: Icon(Icons.inventory_2_outlined),
-      selectedIcon: Icon(Icons.inventory_2),
-      label: 'Inventory',
-    ),
-    NavigationDestination(
       icon: Icon(Icons.medication_outlined),
       selectedIcon: Icon(Icons.medication),
       label: 'Medicine',
@@ -46,11 +39,6 @@ class AppShell extends StatelessWidget {
       icon: Icon(Icons.receipt_long_outlined),
       selectedIcon: Icon(Icons.receipt_long),
       label: 'Orders',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.bar_chart_outlined),
-      selectedIcon: Icon(Icons.bar_chart),
-      label: 'Reports',
     ),
   ];
 
@@ -64,12 +52,12 @@ class AppShell extends StatelessWidget {
         child: navigationShell,
       ),
       // The banner goes above the bar rather than below it: a connection notice
-      // belongs with the content, and the bar is the one thing on screen that
-      // must stay exactly where it is while the user is typing a count.
+      // belongs with the content, and the bar must stay where it is while the
+      // user is typing.
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          OfflineModeBanner(),
+          const OfflineModeBanner(),
           OfflineBanner(
             status: context.select<MedicineProvider, SyncStatus>(
               (provider) => provider.syncStatus,

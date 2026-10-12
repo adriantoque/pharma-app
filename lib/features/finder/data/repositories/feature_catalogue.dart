@@ -100,8 +100,8 @@ const List<FeatureEntry> featureCatalogue = [
     iconKey: 'orders',
   ),
   FeatureEntry(
-    id: 'new_sale',
-    title: 'New Sale',
+    id: 'new_order',
+    title: 'New Order',
     subtitle: 'Ring up a transaction',
     routePath: FeatureRoutes.newSale,
     aliases: ['sell', 'checkout', 'transaction', 'counter', 'pos'],

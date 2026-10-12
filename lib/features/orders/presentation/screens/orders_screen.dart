@@ -11,33 +11,35 @@ import '../providers/orders_provider.dart';
 /// The Orders tab: new orders waiting for a decision.
 ///
 /// Only [OrderStatus.new_] orders appear here. Approving or rejecting one
-/// moves it to [OrderHistoryScreen] -- the decision is recorded in the same
-/// stream this screen reads, so the order disappears from the list the moment
-/// the write lands, without a manual refresh.
-///
-/// Reached from the bottom nav. The AppBar's history icon opens the record of
-/// what has already been decided.
-class OrdersScreen extends StatelessWidget {
-  final OrderHistoryRepository Function()? historyFactory;
+/// moves it out of this list, because the decision is written to the same
+/// stream this screen reads. The history icon opens what has already been
+/// decided.
+class OrdersScreen extends StatefulWidget {
+  const OrdersScreen({super.key});
 
-  const OrdersScreen({
-    super.key,
-    this.historyFactory,
-  });
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  /// Created once per visit. Building the stream inside [build] would open a
+  /// new listener on every rebuild and reset the list to a spinner each time.
+  late final Stream<List<OrderHistory>> _orders;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = context.read<AuthProvider>().user?.id ?? '';
+    _orders = context
+        .read<OrderHistoryRepositoryFactory>()(uid)
+        .watchAll();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final factory = historyFactory ??
-        () => context.read<OrderHistoryRepositoryFactory>()(
-              context.read<AuthProvider>().user?.id ?? '',
-            );
-    final historyRepo = factory();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order List'),
+        title: const Text('Orders'),
         centerTitle: true,
         actions: [
           IconButton(
@@ -48,39 +50,20 @@ class OrdersScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<List<OrderHistory>>(
-        stream: historyRepo.watchAll(),
+        stream: _orders,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: theme.colorScheme.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Failed to load orders',
-                      style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    snapshot.error.toString(),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            );
+            // The raw error stays out of the UI: Firestore messages are for
+            // developers. Log it so it can still be traced.
+            debugPrint('Orders stream failed: ${snapshot.error}');
+            return const _LoadError();
           }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final orders = snapshot.data ?? const <OrderHistory>[];
-          final pending = orders
+          final pending = snapshot.data!
               .where((o) => o.status == OrderStatus.new_)
               .toList()
             ..sort((a, b) => b.time.compareTo(a.time));
@@ -103,6 +86,40 @@ class OrdersScreen extends StatelessWidget {
   }
 }
 
+class _LoadError extends StatelessWidget {
+  const _LoadError();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+            const SizedBox(height: 16),
+            Text(
+              'Orders could not be loaded',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Check the connection and try again later.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyOrderList extends StatelessWidget {
   const _EmptyOrderList();
 
@@ -114,14 +131,10 @@ class _EmptyOrderList extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 64,
-            color: theme.colorScheme.outline,
-          ),
+          Icon(Icons.inbox_outlined, size: 64, color: theme.colorScheme.outline),
           const SizedBox(height: 16),
           Text(
-            'No pending orders',
+            'No orders waiting',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -146,8 +159,38 @@ class _PendingOrderCard extends StatelessWidget {
 
   final OrderHistory order;
 
-  void _updateStatus(BuildContext context, OrderStatus newStatus) {
-    context.read<OrdersProvider>().updateOrderStatus(order.id, newStatus);
+  /// Units across every line, which is what the counter means by "items".
+  int get _units => order.items.fold(0, (sum, line) => sum + line.quantity);
+
+  Future<void> _approve(BuildContext context) async {
+    await context
+        .read<OrdersProvider>()
+        .updateOrderStatus(order.id, OrderStatus.approved);
+  }
+
+  Future<void> _reject(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reject this order?'),
+        content: Text('Order #${order.id} will be removed from the list.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await context
+        .read<OrdersProvider>()
+        .updateOrderStatus(order.id, OrderStatus.rejected);
   }
 
   @override
@@ -165,10 +208,7 @@ class _PendingOrderCard extends StatelessWidget {
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: order.statusBackgroundColor,
-          child: Icon(
-            Icons.pending_actions,
-            color: order.statusColor,
-          ),
+          child: Icon(Icons.pending_actions, color: order.statusColor),
         ),
         title: Text(
           'Order #${order.id}',
@@ -177,9 +217,10 @@ class _PendingOrderCard extends StatelessWidget {
           ),
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
+          padding: const EdgeInsets.only(top: 4),
           child: Text(
-            '${order.items.length} item(s) · ${order.formattedDate(context: context)}',
+            '$_units ${_units == 1 ? 'item' : 'items'} · '
+            '${order.formattedDate(context: context)}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -195,22 +236,21 @@ class _PendingOrderCard extends StatelessWidget {
         children: [
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Order Line Items',
+                  'Order lines',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 8),
-                for (final line in order.items) ...[
+                for (final line in order.items)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
@@ -227,14 +267,12 @@ class _PendingOrderCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () =>
-                            _updateStatus(context, OrderStatus.rejected),
+                        onPressed: () => _reject(context),
                         icon: const Icon(Icons.close, size: 18),
                         label: const Text('Reject'),
                         style: OutlinedButton.styleFrom(
@@ -246,8 +284,7 @@ class _PendingOrderCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () =>
-                            _updateStatus(context, OrderStatus.approved),
+                        onPressed: () => _approve(context),
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Approve'),
                       ),
