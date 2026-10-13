@@ -22,6 +22,8 @@ import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
 import '../features/sales/presentation/screens/new_sale_screen.dart';
+import '../features/symptom_guide/presentation/screens/symptom_search_screen.dart';
+import '../features/symptom_guide/presentation/screens/symptom_detail_screen.dart';
 import '../features/sales/domain/payment_method.dart';
 import '../features/sales/presentation/screens/cart_screen.dart';
 import '../features/admin/presentation/screens/admin_home_screen.dart';
@@ -245,7 +247,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
 ),
                 ],
 
-                GoRoute(
+                // ignore: extra_positional_arguments_could_be_named
+GoRoute(
                   path: AppRoutes.homeSymptomGuide,
                   name: 'home-symptom-guide',
                   builder: (context, state) => const SymptomSearchScreen(),

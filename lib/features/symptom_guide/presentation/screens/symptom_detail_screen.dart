@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import 'package:pharmaguide/core/utils/search_text.dart';
 import 'package:pharmaguide/features/symptom_guide/data/repositories/symptom_catalogue.dart';
 import 'package:pharmaguide/features/symptom_guide/presentation/widgets/safety_banner.dart';
 import 'package:pharmaguide/features/symptom_guide/presentation/widgets/medicine_guidance_card.dart';
@@ -18,9 +16,11 @@ class SymptomDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Read the static catalogue directly; no provider needed.
-final catalogue = symptomCatalogue;
+    final catalogue = symptomCatalogue;
     // Simple lookup since List doesn't have byId.
-    SymptomEntry? symptomEntry;
+    // Simple lookup since List doesn't have byId.
+    // Simple lookup since List doesn't have byId.
+    dynamic symptomEntry;
     for (final entry in catalogue) {
       if (entry.id == symptomId) {
         symptomEntry = entry;

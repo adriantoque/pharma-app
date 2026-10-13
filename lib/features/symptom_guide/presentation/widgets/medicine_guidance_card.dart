@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'safety_banner.dart';
 
 /// A card showing one medicine's guidance.
 ///
@@ -39,7 +38,6 @@ class MedicineGuidanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
 
     return Card(
       margin: const EdgeInsets.only(top: 8),
