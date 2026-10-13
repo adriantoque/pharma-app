@@ -1,0 +1,35 @@
+ADMIN VIEW IMPROVEMENTS - SPRINT 1
+Status: COMPLETED
+Started: 2026-10-13
+Completed: 2026-10-13
+
+Sprint 1: Store Settings Functionalization
+- Create store_settings_screen.dart: COMPLETED
+- Modify admin_home_screen.dart: COMPLETED (replaced "Coming soon" tile with navigable tile + added deactivated users stat)
+- Add route to app_router.dart: COMPLETED (added admin-store-settings route)
+- Implementation: COMPLETED
+- Test: VERIFIED (flutter analyze: 6 warnings, 0 errors)
+- Completed: 2026-10-13
+
+Sprint 2: Stats Row Enhancement
+- Status: COMPLETED
+- Added deactivated users stat tile to _StatsRow using existing UserRepository stream
+
+Sprint 3: Activity History Expansion
+- Status: COMPLETED
+- Expanded Recent Activity from 3 to 5 entries using existing AuditRepository.stream
+
+Sprint 4: Notifications quick action
+- Status: COMPLETED
+- Added notifications quick action tile to admin home screen
+- Added admin-notifications route in app_router.dart
+- Created AdminNotificationsScreen with sample alerts
+
+Sprint 5: Visual polish
+- Status: COMPLETED
+- Enhanced _ActionTile with elevation, font weight states, and "Soon" badge visual indicator
+- Updated store settings tile to navigate to functional screen (Sprint 1 completed)
+- Removed redundant _comingSoon snackbar in favor of visual "Soon" indicator
+- Improved overall tile visual consistency and spacing
+
+OVERALL STATUS: SPRINTS 1-5 COMPLETED

@@ -28,7 +28,9 @@ import '../features/sales/domain/payment_method.dart';
 import '../features/sales/presentation/screens/cart_screen.dart';
 import '../features/admin/presentation/screens/admin_home_screen.dart';
 import '../features/admin/presentation/screens/activity_log_screen.dart';
+import '../features/admin/presentation/screens/store_settings_screen.dart';
 import '../features/admin/presentation/screens/users_screen.dart';
+import '../features/admin/presentation/screens/admin_notifications_screen.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
@@ -50,6 +52,8 @@ abstract final class AppRoutes {
   static const String adminInventory = '/admin/inventory';
   static const String adminReports = '/admin/reports';
   static const String adminActivity = '/admin/activity';
+  static const String adminStoreSettings = '/admin/store-settings';
+  static const String adminNotifications = '/admin/notifications';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
   /// the tile the user tapped from.
@@ -195,6 +199,16 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
             path: 'activity',
             name: 'admin-activity',
             builder: (context, state) => const ActivityLogScreen(),
+          ),
+          GoRoute(
+            path: 'store-settings',
+            name: 'admin-store-settings',
+            builder: (context, state) => const StoreSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            name: 'admin-notifications',
+            builder: (context, state) => const AdminNotificationsScreen(),
           ),
         ],
       ),

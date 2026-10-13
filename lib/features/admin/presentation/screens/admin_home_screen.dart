@@ -284,12 +284,6 @@ class _StatTile extends StatelessWidget {
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
-  void _comingSoon(BuildContext context, String label) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('$label — coming soon')));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -313,7 +307,14 @@ class _QuickActions extends StatelessWidget {
           title: 'Store settings',
           subtitle: 'Name, hours, low-stock threshold',
           comingSoon: true,
-          onTap: () => _comingSoon(context, 'Store settings'),
+          onTap: () => context.go('/admin/store-settings'),
+        ),
+        const SizedBox(height: 12),
+        _ActionTile(
+          icon: Icons.notifications_outlined,
+          title: 'Notifications',
+          subtitle: 'View system alerts and updates',
+          onTap: () => context.pushNamed('admin-notifications'),
         ),
         const SizedBox(height: 12),
         _ActionTile(
@@ -329,8 +330,8 @@ class _QuickActions extends StatelessWidget {
 
 /// One destination row.
 ///
-/// This has a "coming soon" state the staff dashboard's cards do not: the whole
-/// row goes grey for it while the tap still surfaces a snackbar.
+/// This has a "coming soon" state: the tile visuals indicate completion status
+/// while the tap still surfaces appropriate feedback.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
@@ -345,23 +346,23 @@ class _ActionTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
-  /// Draws the row muted and drops the chevron. The tap still runs, which is
-  /// what surfaces the "coming soon" snackbar -- the tile is not disabled,
-  /// it just does not claim to be finished.
+  /// Draws the tile with muted appearance when coming soon, full colors when
+  /// the destination is available. The tap always runs.
   final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final muted = comingSoon;
+    final isMuted = comingSoon;
 
     return Card(
-      elevation: 0,
+      elevation: isMuted ? 0 : 2,
       margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -371,14 +372,14 @@ class _ActionTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: muted
+                  color: isMuted
                       ? scheme.surfaceContainerHighest
                       : scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: muted
+                  color: isMuted
                       ? scheme.onSurfaceVariant
                       : scheme.onSecondaryContainer,
                 ),
@@ -395,11 +396,16 @@ class _ActionTile extends StatelessWidget {
                           child: Text(
                             title,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              color: muted ? scheme.onSurfaceVariant : null,
+                              color: isMuted
+                                  ? scheme.onSurfaceVariant
+                                  : null,
+                              fontWeight: isMuted
+                                  ? FontWeight.normal
+                                  : FontWeight.w600,
                             ),
                           ),
                         ),
-                        if (comingSoon) ...[
+                        if (isMuted) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -431,7 +437,7 @@ class _ActionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (!comingSoon)
+              if (!isMuted)
                 Icon(
                   Icons.chevron_right,
                   color: scheme.outline,
