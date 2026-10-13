@@ -21,6 +21,7 @@ const Map<String, IconData> _icons = {
   'scan': Icons.document_scanner_outlined,
   'notifications': Icons.notifications_outlined,
   'profile': Icons.person_outline,
+  'symptom': Icons.healing_outlined,
 };
 
 /// The keys [iconFor] recognises.

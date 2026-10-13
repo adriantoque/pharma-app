@@ -24,4 +24,6 @@ abstract final class FeatureRoutes {
   static const String orders = '/orders';
   static const String newSale = '/new-sale';
   static const String reports = '/reports';
+  static const String homeSymptomGuide = '/home/symptom-guide';
+  static const String homeSymptomDetail = '/home/symptom-guide/:symptomId';
 }

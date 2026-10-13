@@ -57,6 +57,8 @@ abstract final class AppRoutes {
   /// child's own literal, not the string below.
   static const String homeExpiring = '/home/expiring';
   static const String homeScan = '/home/scan';
+  static const String homeSymptomGuide = '/home/symptom-guide';
+  static const String homeSymptomDetail = '/home/symptom-guide/:symptomId';
   static const String homeProfile = '/home/profile';
   static const String homeProfileAppearance = '/home/profile/appearance';
   static const String homeNotifications = '/home/notifications';
@@ -240,8 +242,22 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                         path: 'permissions',
                         name: 'home-profile-permissions',
                         builder: (context, state) => const PermissionsScreen(),
-                      ),
-                    ],
+),
+                ],
+
+                GoRoute(
+                  path: AppRoutes.homeSymptomGuide,
+                  name: 'home-symptom-guide',
+                  builder: (context, state) => const SymptomSearchScreen(),
+                ),
+                GoRoute(
+                  path: AppRoutes.homeSymptomDetail,
+                  name: 'home-symptom-detail',
+                  builder: (context, state) {
+                    final symptomId = state.pathParameters['symptomId'];
+                    return SymptomDetailScreen(symptomId: symptomId!);
+                  },
+                ),
                   ),
                   GoRoute(
                     path: 'notifications',

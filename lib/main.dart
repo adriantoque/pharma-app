@@ -37,6 +37,7 @@ import 'features/reports/presentation/providers/reports_provider.dart';
 import 'features/dashboard/presentation/providers/notification_provider.dart';
 import 'features/dashboard/presentation/providers/notification_repository.dart';
 import 'features/finder/presentation/providers/feature_search_provider.dart';
+import 'features/symptom_guide/presentation/providers/symptom_search_provider.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -244,6 +245,9 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
           ),
         ),
         ChangeNotifierProvider(create: (_) => FeatureSearchProvider()),
+        // The symptom guide's content is in the binary too, so it needs no
+        // account and no server -- one instance for the whole app.
+        ChangeNotifierProvider(create: (_) => SymptomSearchProvider()),
         Provider<GoRouter>(
           create: (ctx) =>
               createAppRouter(refreshListenable: ctx.read<AuthProvider>()),

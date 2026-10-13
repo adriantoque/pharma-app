@@ -68,6 +68,15 @@ const List<FeatureEntry> featureCatalogue = [
     parent: 'Home',
     iconKey: 'profile',
   ),
+  FeatureEntry(
+    id: 'symptom-guide',
+    title: 'Symptom Guide',
+    subtitle: 'Match a symptom to a medicine and how to use it',
+    routePath: FeatureRoutes.homeSymptomGuide,
+    aliases: ['sakit', 'gamot', 'guide', 'illness', 'cold', 'cough', 'fever', 'headache'],
+    parent: 'Home',
+    iconKey: 'symptom',
+  ),
 
   // --- Inventory ---------------------------------------------------------
   FeatureEntry(

@@ -132,6 +132,12 @@ class DashboardScreen extends StatelessWidget {
             label: 'Scan',
             onTap: () => context.pushNamed('home-scan'),
           ),
+          const SizedBox(width: 12),
+          _QuickAction(
+            icon: Icons.healing_outlined,
+            label: 'Symptom guide',
+            onTap: () => context.pushNamed('home-symptom-guide'),
+          ),
         ],
       ),
     );
