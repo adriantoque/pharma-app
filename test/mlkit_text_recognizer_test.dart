@@ -38,6 +38,11 @@ Map<String, Object?> _block(List<String> lines) => {
 /// What still needs hardware is whether ML Kit reads a real prescription
 /// correctly -- see the deferred integration test.
 void main() {
+  // The mocked plugin channel is reached through the test binary messenger,
+  // which only exists once the binding is initialized. Without this, every
+  // setUp throws "Binding has not yet been initialized" before a test runs.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   /// Every method the recognizer sent to the plugin, in order.
   final calls = <MethodCall>[];
 

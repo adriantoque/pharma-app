@@ -22,7 +22,15 @@ class ReportsRepositoryImpl implements ReportsRepository {
   final MedicineProvider medicineProvider;
   final OrderHistoryRepository Function() historyFactory;
 
-  static const double _defaultProfitMargin = 0.22; // 22% from HTML mockup
+  /// Margin assumed when reporting profit.
+  ///
+  /// The price list carries a selling price and no cost price, so there is no
+  /// figure to compute real profit from. Rather than leave the metric out or
+  /// invent a cost per line, profit is shown as revenue times this fixed
+  /// assumption, and the screen says so beside the number. If a cost price is
+  /// ever added to [MedicineModel], this constant goes away and profit is
+  /// summed from the lines instead.
+  static const double assumedProfitMargin = 0.22;
 
   @override
   Future<SalesReport> getSalesReport(ReportRange range) async {
@@ -62,7 +70,7 @@ class ReportsRepositoryImpl implements ReportsRepository {
       totalRevenue: totalRevenue,
       totalOrders: totalOrders,
       totalItems: totalItems,
-      profitMargin: _defaultProfitMargin,
+      profitMargin: assumedProfitMargin,
     );
   }
 

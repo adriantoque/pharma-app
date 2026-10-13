@@ -3,11 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
-import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
-import 'package:pharmaguide/features/orders/presentation/screens/orders_screen.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_card.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_tabs.dart';
+import 'package:pharmaguide/features/sales/domain/payment_method.dart';
+import 'package:pharmaguide/features/sales/presentation/screens/cart_screen.dart';
 import 'package:pharmaguide/features/sales/presentation/screens/new_sale_screen.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
@@ -16,6 +14,7 @@ import 'package:provider/provider.dart';
 
 import 'helpers/fake_auth_repository.dart';
 import 'helpers/fake_medicine_store.dart';
+import 'helpers/fake_order_history_repository.dart';
 
 void main() {
   const phoneSize = Size(360, 720);
@@ -25,436 +24,352 @@ void main() {
     stock: 200,
   );
 
-  late FakeAuthRepository repository;
-  late AuthProvider auth;
-  late FakeMedicineStore store;
-  late LocalOrderHistoryRepository history;
-  late OrderProvider order;
-
-  setUpAll(() async {
-    repository = FakeAuthRepository();
-    auth = AuthProvider(repository);
-    await auth.ready;
-    await auth.login(email: 'a@b.com', password: 'secret');
-    store = FakeMedicineStore(initial: const StaticMedicineRepository().all());
-    history = LocalOrderHistoryRepository();
-
-    order = OrderProvider(auth: auth, historyFor: (_) => history);
-  });
-
-  tearDownAll(() {
-    order.dispose();
-    history.dispose();
-    store.dispose();
-    auth.dispose();
-    repository.dispose();
-  });
-
-  Future<void> pumpNewSaleDirect(WidgetTester tester) async {
+  /// Everything a sale screen needs, built fresh per test and torn down with it.
+  ///
+  /// A signed-in [AuthProvider] is required because both [OrderProvider] and
+  /// [MedicineProvider] resolve their per-user store from it.
+  Future<({OrderProvider order, FakeOrderHistoryRepository history})> pumpSale(
+    WidgetTester tester, {
+    List<MedicineModel>? initial,
+    bool withRouter = false,
+    FakeOrderHistoryRepository? history,
+  }) async {
     tester.view.physicalSize = phoneSize;
     tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
+    final authRepository = FakeAuthRepository();
+    final auth = AuthProvider(authRepository);
+    await auth.ready;
+    await auth.login(email: 'a@b.com', password: 'secret');
+
+    final store = FakeMedicineStore(
+      initial: initial ?? StaticMedicineRepository().all(),
+    );
     final catalogue = MedicineProvider(auth: auth, storeFor: (_) => store);
-    await tester.pumpWidget(
-      ChangeNotifierProvider<OrderProvider>.value(
-        value: order,
-        child: ChangeNotifierProvider<MedicineProvider>.value(
-          value: catalogue,
+    final resolvedHistory = history ?? FakeOrderHistoryRepository();
+    final order = OrderProvider(
+      auth: auth,
+      catalogue: catalogue,
+      historyFor: (_) => resolvedHistory,
+    );
+
+    addTearDown(() {
+      order.dispose();
+      resolvedHistory.dispose();
+      store.dispose();
+      catalogue.dispose();
+      auth.dispose();
+      authRepository.dispose();
+    });
+
+    final providers = [
+      ChangeNotifierProvider<AuthProvider>.value(value: auth),
+      ChangeNotifierProvider<OrderProvider>.value(value: order),
+      ChangeNotifierProvider<MedicineProvider>.value(value: catalogue),
+    ];
+
+    if (withRouter) {
+      final router = GoRouter(
+        initialLocation: '/new-sale',
+        routes: [
+          GoRoute(
+            path: '/new-sale',
+            name: 'new-sale',
+            builder: (_, _) => const NewSaleScreen(),
+            routes: [
+              GoRoute(
+                path: 'cart',
+                name: 'new-sale-cart',
+                builder: (_, state) => CartScreen(
+                  initialPayment:
+                      state.extra as PaymentMethod? ?? PaymentMethod.cashOnHand,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/home-scan',
+            name: 'home-scan',
+            builder: (_, _) => const Scaffold(body: Text('Scan Screen')),
+          ),
+          GoRoute(
+            path: '/home',
+            name: 'home',
+            builder: (_, _) => const Scaffold(body: Text('Home Screen')),
+          ),
+          GoRoute(
+            path: '/orders',
+            name: 'orders',
+            builder: (_, _) => const Scaffold(body: Text('Orders Screen')),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: providers,
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: buildAppTheme(Brightness.light),
+          ),
+        ),
+      );
+    } else {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: providers,
           child: MaterialApp(
             theme: buildAppTheme(Brightness.light),
             home: const NewSaleScreen(),
           ),
         ),
-      ),
-    );
-    await pumpEventQueue();
-  }
-
-  Future<void> pumpNewSaleWithRouter(WidgetTester tester) async {
-    tester.view.physicalSize = phoneSize;
-    tester.view.devicePixelRatio = 1.0;
-
-    final catalogue = MedicineProvider(auth: auth, storeFor: (_) => store);
-
-    final router = GoRouter(
-      initialLocation: '/new-sale',
-      routes: [
-        GoRoute(path: '/new-sale', builder: (_, _) => const NewSaleScreen()),
-        GoRoute(
-          path: '/orders',
-          builder: (_, _) => OrdersScreen(historyFactory: () => history),
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: auth,
-        child: ChangeNotifierProvider<OrderProvider>.value(
-          value: order,
-          child: ChangeNotifierProvider<MedicineProvider>.value(
-            value: catalogue,
-            child: MaterialApp.router(
-              routerConfig: router,
-              theme: buildAppTheme(Brightness.light),
-            ),
-          ),
-        ),
-      ),
-    );
-    await pumpEventQueue();
-
-    await tester.tap(find.text('New Sale'));
-    await pumpEventQueue();
-  }
-
-  Future<void> pumpSaleToOrders(WidgetTester tester) async {
-    await pumpNewSaleWithRouter(tester);
-  }
-
-  Future<void> tapProceed(WidgetTester tester) async {
-    final proceedButton = find.byKey(const Key('proceedButton'));
-    await tester.ensureVisible(proceedButton);
-    await pumpEventQueue();
-    await tester.tap(proceedButton);
-    await pumpEventQueue();
-    await tester.tap(proceedButton);
-    await pumpEventQueue();
-  }
-
-  testWidgets('shows search field and scan button', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    expect(find.byType(TextField), findsOneWidget);
-    expect(find.byTooltip('Scan'), findsOneWidget);
-    expect(find.text('Products'), findsOneWidget);
-  });
-
-  testWidgets('shows all products when query is empty', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    expect(find.text('Alcohol'), findsOneWidget);
-    expect(find.text('₱65.00'), findsWidgets);
-  });
-
-  testWidgets('search filters the product list', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.enterText(find.byType(TextField), 'cefa');
-    await pumpEventQueue();
-
-    expect(find.text('cefalexin'), findsOneWidget);
-    expect(find.text('Alcohol'), findsNothing);
-  });
-
-  testWidgets('clear button restores full product list', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.enterText(find.byType(TextField), 'cefa');
-    await pumpEventQueue();
-    expect(find.text('cefalexin'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Clear'));
-    await pumpEventQueue();
-
-    await tester.enterText(find.byType(TextField), 'cefa');
-    await pumpEventQueue();
-    expect(find.text('cefalexin'), findsOneWidget);
-  });
-
-  testWidgets('tapping add button adds item to cart', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-
-    expect(order.itemCount, 1);
-    expect(order.lines.single.medicine.name, 'Alcohol');
-    expect(find.byTooltip('Remove 1 × Alcohol'), findsOneWidget);
-  });
-
-  testWidgets('cart section appears when items are added', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    expect(find.text('Cart'), findsNothing);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-
-    expect(find.text('Cart'), findsOneWidget);
-    expect(find.text('1 items'), findsOneWidget);
-    expect(find.text('Total'), findsOneWidget);
-    expect(find.text('₱65.00'), findsWidgets);
-    expect(find.text('Proceed'), findsOneWidget);
-  });
-
-  testWidgets('cart shows itemized list with quantity controls', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-
-    final cartList = find.descendant(
-      of: find.byType(SingleChildScrollView),
-      matching: find.text('Alcohol'),
-    );
-    expect(cartList, findsOneWidget);
-    expect(find.byTooltip('One fewer Alcohol'), findsOneWidget);
-    expect(find.byTooltip('One more Alcohol'), findsOneWidget);
-    expect(find.byTooltip('Remove Alcohol'), findsOneWidget);
-    expect(find.text('₱65.00'), findsWidgets);
-  });
-
-  testWidgets('quantity adjustment in cart updates line total', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-
-    await tester.tap(find.byTooltip('One more Alcohol'));
-    await pumpEventQueue();
-
-    expect(order.quantityOf(alcohol), 2);
-    expect(find.text('₱130.00'), findsWidgets);
-  });
-
-  testWidgets('remove from cart removes item and hides cart section', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-    expect(find.text('Cart'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Remove Alcohol'));
-    await pumpEventQueue();
-
-    expect(order.isEmpty, isTrue);
-    expect(find.text('Cart'), findsNothing);
-  });
-
-  testWidgets('payment selector starts on cash on hand', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('cartScrollView')),
-        matching: find.text('Cash on Hand'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('cartScrollView')),
-        matching: find.text('GCash'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('cartScrollView')),
-        matching: find.text('Coming soon'),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('payment selector changes selection', (tester) async {
-    await pumpNewSaleDirect(tester);
-
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
-
-    double borderWidthOf(String key) {
-      final tile = find.descendant(
-        of: find.byKey(Key(key)),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Container &&
-              widget.decoration is BoxDecoration &&
-              (widget.decoration! as BoxDecoration).border != null,
-        ),
       );
-      final container = tester.widget<Container>(tile.first);
-      return (container.decoration! as BoxDecoration).border!.top.width;
     }
 
-    expect(borderWidthOf('paymentCashOnHand'), 2.0);
-    expect(borderWidthOf('paymentGCash'), 1.0);
+    await tester.pumpAndSettle();
+    return (order: order, history: resolvedHistory);
+  }
 
-    await tester.tap(find.byKey(const Key('paymentGCash')));
-    await pumpEventQueue();
+  group('NewSaleScreen', () {
+    testWidgets('shows the search field, scan button and product list', (
+      tester,
+    ) async {
+      await pumpSale(tester);
 
-    expect(borderWidthOf('paymentGCash'), 2.0);
-    expect(borderWidthOf('paymentCashOnHand'), 1.0);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byTooltip('Scan'), findsOneWidget);
+      expect(find.text('Products'), findsOneWidget);
+      expect(find.text('Alcohol'), findsOneWidget);
+    });
 
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('cartScrollView')),
-        matching: find.text('GCash'),
-      ),
-      findsOneWidget,
+    testWidgets('hides products whose stock has not been counted', (
+      tester,
+    ) async {
+      await pumpSale(
+        tester,
+        initial: [
+          ...StaticMedicineRepository().all(),
+          const MedicineModel(
+            name: 'Uncounted',
+            priceCentavos: 100,
+            stock: null,
+          ),
+        ],
+      );
+
+      expect(find.text('Uncounted'), findsNothing);
+    });
+
+    testWidgets('search filters the product list', (tester) async {
+      await pumpSale(tester);
+
+      await tester.enterText(find.byType(TextField), 'cefa');
+      await tester.pumpAndSettle();
+
+      expect(find.text('cefalexin'), findsOneWidget);
+      expect(find.text('Alcohol'), findsNothing);
+    });
+
+    testWidgets('clear restores the full product list', (tester) async {
+      await pumpSale(tester);
+
+      await tester.enterText(find.byType(TextField), 'cefa');
+      await tester.pumpAndSettle();
+      expect(find.text('Alcohol'), findsNothing);
+
+      await tester.tap(find.byTooltip('Clear'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alcohol'), findsOneWidget);
+    });
+
+    testWidgets('add puts a line in the order', (tester) async {
+      final sale = await pumpSale(tester);
+
+      await tester.tap(find.byTooltip('Add Alcohol'));
+      await tester.pumpAndSettle();
+
+      expect(sale.order.itemCount, 1);
+      expect(sale.order.lines.single.medicine.name, 'Alcohol');
+      expect(find.byTooltip('Remove 1 × Alcohol'), findsOneWidget);
+    });
+
+    testWidgets('an out-of-stock item cannot be added', (tester) async {
+      // 'Alcohol small' is in the static list at stock 0.
+      final sale = await pumpSale(tester);
+
+      await tester.tap(find.byTooltip('Add Alcohol small'));
+      await tester.pumpAndSettle();
+
+      expect(sale.order.isEmpty, isTrue);
+    });
+
+    testWidgets('the cart icon opens the cart once an item is added', (
+      tester,
+    ) async {
+      await pumpSale(tester, withRouter: true);
+
+      await tester.tap(find.byTooltip('Add Alcohol'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('View cart'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cart · 1 item'), findsOneWidget);
+      expect(find.text('Proceed'), findsOneWidget);
+    });
+
+    testWidgets('the scan button opens the scan screen', (tester) async {
+      await pumpSale(tester, withRouter: true);
+
+      await tester.tap(find.byTooltip('Scan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Scan Screen'), findsOneWidget);
+    });
+  });
+
+  /// Builds a cart directly, with [order] already holding [lines] worth of
+  /// [alcohol]. Cart-only behaviour is tested without routing through a sale.
+  Future<OrderProvider> pumpCart(
+    WidgetTester tester, {
+    required int quantity,
+  }) async {
+    final sale = await pumpSale(tester, withRouter: true);
+    sale.order.add(alcohol, quantity);
+    await tester.pumpAndSettle();
+
+    // Push the cart onto the sale screen so pops have somewhere to return to.
+    final context = tester.element(find.byType(NewSaleScreen));
+    context.pushNamed(
+      'new-sale-cart',
+      extra: PaymentMethod.cashOnHand,
     );
-  });
+    await tester.pumpAndSettle();
+    return sale.order;
+  }
 
-  testWidgets('proceed button shows confirm dialog with Continue option', (tester) async {
-    await pumpNewSaleDirect(tester);
+  group('CartScreen', () {
+    testWidgets('shows the lines, item count, total and Proceed', (
+      tester,
+    ) async {
+      await pumpCart(tester, quantity: 2);
 
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
+      expect(find.text('Cart · 2 items'), findsOneWidget);
+      expect(find.text('Alcohol'), findsOneWidget);
+      // 6500 * 2 = 13000 centavos.
+      expect(find.text('₱130.00'), findsWidgets);
+      expect(find.text('Total'), findsOneWidget);
+      expect(find.text('Proceed'), findsOneWidget);
+    });
 
-    await tapProceed(tester);
+    testWidgets('increasing the quantity updates the total', (tester) async {
+      final order = await pumpCart(tester, quantity: 1);
 
-    expect(find.text('Confirm Sale'), findsOneWidget);
-    expect(find.text('Complete this sale with Cash on Hand?'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Go to Orders'), findsNothing);
-  });
+      await tester.tap(find.byTooltip('One more Alcohol'));
+      await tester.pumpAndSettle();
 
-  testWidgets('cancel on dialog keeps cart intact', (tester) async {
-    await pumpNewSaleDirect(tester);
+      expect(order.quantityOf(alcohol), 2);
+      expect(find.text('₱130.00'), findsWidgets);
+    });
 
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
+    testWidgets('removing the only line shows the empty cart', (tester) async {
+      final order = await pumpCart(tester, quantity: 1);
 
-    await tapProceed(tester);
+      await tester.tap(find.byTooltip('Remove Alcohol'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Cancel'));
-    await pumpEventQueue();
+      expect(order.isEmpty, isTrue);
+      expect(find.text('Your cart is empty.'), findsOneWidget);
+    });
 
-    expect(order.itemCount, 1);
-    expect(find.text('Cart'), findsOneWidget);
-  });
+    testWidgets('selecting GCash moves the selection', (tester) async {
+      await pumpCart(tester, quantity: 1);
 
-  testWidgets('scan button navigates to scan screen', (tester) async {
-    await pumpNewSaleWithRouter(tester);
+      double borderWidthOf(String key) {
+        final tile = find.descendant(
+          of: find.byKey(Key(key)),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container &&
+                widget.decoration is BoxDecoration &&
+                (widget.decoration! as BoxDecoration).border != null,
+          ),
+        );
+        final container = tester.widget<Container>(tile.first);
+        return (container.decoration! as BoxDecoration).border!.top.width;
+      }
 
-    await tester.tap(find.byTooltip('Scan'));
-    await pumpEventQueue();
+      expect(borderWidthOf('paymentCashOnHand'), 2.0);
+      expect(borderWidthOf('paymentGCash'), 1.0);
 
-    expect(find.text('Scan'), findsOneWidget);
-  });
+      await tester.tap(find.byKey(const Key('paymentGCash')));
+      await tester.pumpAndSettle();
 
-  testWidgets('multiple items show correct total in cart', (tester) async {
-    await pumpNewSaleDirect(tester);
+      expect(borderWidthOf('paymentGCash'), 2.0);
+      expect(borderWidthOf('paymentCashOnHand'), 1.0);
+    });
 
-    await tester.tap(find.byTooltip('Add Alcohol'));
-    await pumpEventQueue();
+    testWidgets('clearing the cart asks first, then empties it', (tester) async {
+      final order = await pumpCart(tester, quantity: 2);
 
-    await tester.enterText(find.byType(TextField), 'cefa');
-    await pumpEventQueue();
-    await tester.tap(find.byTooltip('Add cefalexin'));
-    await pumpEventQueue();
+      await tester.tap(find.byTooltip('Clear cart'));
+      await tester.pumpAndSettle();
+      expect(find.text('Clear cart?'), findsOneWidget);
 
-    expect(order.itemCount, 2);
-    expect(order.formattedTotal, '₱110.00');
+      await tester.tap(find.widgetWithText(FilledButton, 'Clear'));
+      await tester.pumpAndSettle();
+
+      expect(order.isEmpty, isTrue);
+      expect(find.text('Your cart is empty.'), findsOneWidget);
+    });
   });
 
   group('completing a sale', () {
-    testWidgets('lands the order on the Orders tab as New', (tester) async {
-      await pumpSaleToOrders(tester);
+    testWidgets('proceeding on the cart confirms, then lands on Orders', (
+      tester,
+    ) async {
+      final sale = await pumpSale(tester, withRouter: true);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
-      await pumpEventQueue();
-      await tester.enterText(find.byType(TextField), 'cefa');
-      await pumpEventQueue();
-      await tester.tap(find.byTooltip('Add cefalexin'));
-      await pumpEventQueue();
-      expect(order.itemCount, 2);
+      await tester.pumpAndSettle();
 
-      await tapProceed(tester);
+      await tester.tap(find.byTooltip('View cart'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('proceedButton')));
+      await tester.pumpAndSettle();
+
+      // Proceed pops the cart, and the sale screen asks to confirm.
+      expect(find.text('Confirm Sale'), findsOneWidget);
+      expect(find.text('Complete this sale with Cash on Hand?'), findsOneWidget);
+
       await tester.tap(find.text('Continue'));
-      await pumpEventQueue();
+      await tester.pumpAndSettle();
 
-      expect(order.isEmpty, isTrue);
-      expect(find.text('Orders'), findsOneWidget);
-      expect(find.text('Order #'), findsOneWidget);
-      expect(find.text('Alcohol'), findsOneWidget);
-      expect(find.text('cefalexin'), findsOneWidget);
-      expect(find.text('× 1'), findsNWidgets(2));
-      expect(find.text('₱110.00'), findsOneWidget);
-
-      expect(
-        find.descendant(of: find.byType(OrderCard), matching: find.text('New')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(OrderCard),
-          matching: find.text('Approve'),
-        ),
-        findsOneWidget,
-      );
+      expect(sale.order.isEmpty, isTrue);
+      expect(sale.history.orders.single.items.single.medicine.name, 'Alcohol');
+      expect(find.text('Orders Screen'), findsOneWidget);
     });
 
-    testWidgets('the new order shows under the New tab', (tester) async {
-      await pumpSaleToOrders(tester);
+    testWidgets('cancelling the confirm keeps the cart intact', (tester) async {
+      final sale = await pumpSale(tester, withRouter: true);
 
       await tester.tap(find.byTooltip('Add Alcohol'));
-      await pumpEventQueue();
-      await tapProceed(tester);
-      await tester.tap(find.text('Continue'));
-      await pumpEventQueue();
+      await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.descendant(of: find.byType(OrderTabs), matching: find.text('New')),
-      );
-      await pumpEventQueue();
+      await tester.tap(find.byTooltip('View cart'));
+      await tester.pumpAndSettle();
 
-      expect(
-        find.descendant(of: find.byType(OrderCard), matching: find.text('New')),
-        findsOneWidget,
-      );
+      await tester.tap(find.byKey(const Key('proceedButton')));
+      await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.descendant(
-          of: find.byType(OrderTabs),
-          matching: find.text('Approved'),
-        ),
-      );
-      await pumpEventQueue();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
 
-      expect(find.byType(OrderCard), findsNothing);
-      expect(find.text('No approved orders right now.'), findsOneWidget);
-    });
-
-    testWidgets('approving moves it out of New and into Approved', (tester) async {
-      await pumpSaleToOrders(tester);
-
-      await tester.tap(find.byTooltip('Add Alcohol'));
-      await pumpEventQueue();
-      await tapProceed(tester);
-      await tester.tap(find.text('Continue'));
-      await pumpEventQueue();
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(OrderCard),
-          matching: find.text('Approve'),
-        ),
-      );
-      await pumpEventQueue();
-
-      expect(
-        find.descendant(
-          of: find.byType(OrderCard),
-          matching: find.text('Approved'),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(OrderTabs),
-          matching: find.text('New'),
-        ),
-      );
-      await pumpEventQueue();
-
-      expect(find.text('No new orders right now.'), findsOneWidget);
+      expect(sale.order.itemCount, 1);
+      expect(sale.history.orders, isEmpty);
     });
   });
 }

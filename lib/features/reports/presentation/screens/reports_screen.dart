@@ -296,6 +296,18 @@ class _SalesReportView extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 8),
+        // The profit figure is revenue times a fixed assumed margin, because
+        // the price list has no cost price. Saying so here stops the number
+        // being read as real accounting. See ReportsRepositoryImpl.
+        Text(
+          'Est. Profit assumes a fixed '
+          '${(r.profitMargin * 100).round()}% margin — the price list has no '
+          'cost price.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 16),
 
         Text('Sales Breakdown', style: theme.textTheme.titleMedium),

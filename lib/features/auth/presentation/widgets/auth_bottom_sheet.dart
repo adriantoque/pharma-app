@@ -52,7 +52,6 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
 
     final auth = context.read<AuthProvider>();
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
 
     setState(() => _submitting = true);
 
@@ -72,15 +71,11 @@ class _AuthBottomSheetState extends State<AuthBottomSheet> {
 
     if (success) {
       // The auth state change has already fired the router's redirect, which
-      // is navigating away from the landing screen in this same frame.
-      // Popping the sheet immediately would arrive while that transition has
-      // the Navigator locked, which trips the framework's `_debugLocked`
-      // assertion. Deferring the pop to the next frame lets the redirect
-      // finish first, then the sheet is dismissed cleanly on top of the
-      // destination it revealed.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) navigator.pop();
-      });
+      // navigates away from the landing screen. That replaces the landing page
+      // in the Navigator's page list, and the sheet -- a pageless route sitting
+      // above it -- is removed with it. Popping here as well would pop the
+      // destination the redirect just revealed, tripping go_router's
+      // "popped the last page off of the stack" assertion.
       return;
     }
 

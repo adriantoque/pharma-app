@@ -3,14 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pharmaguide/features/dashboard/presentation/providers/notification_provider.dart';
+import 'package:pharmaguide/features/dashboard/presentation/providers/notification_repository.dart';
 import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
 import 'package:pharmaguide/features/orders/data/repositories/order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
-import 'package:pharmaguide/features/reports/data/repositories/reports_repository.dart';
-import 'package:pharmaguide/features/reports/data/repositories/reports_repository_impl.dart';
-import 'package:pharmaguide/features/reports/presentation/providers/reports_provider.dart';
 import 'package:pharmaguide/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
@@ -50,30 +49,24 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
-        // Search, Orders, Inventory and Expiring all read one of these, so
-        // tapping those destinations without them throws instead of failing a
-        // useful assertion.
+        // Home, Medicine and Orders all read one of these, so tapping those
+        // destinations without them throws instead of failing a useful
+        // assertion.
         child: MultiProvider(
           providers: [
             ChangeNotifierProvider<OrderProvider>(create: (_) => OrderProvider()),
             ChangeNotifierProvider<MedicineProvider>(
               create: (_) => MedicineProvider(auth: auth, storeFor: (_) => store),
             ),
-            // Reports repository and provider for the Reports tab.
-            Provider<ReportsRepository>(
-              create: (ctx) => ReportsRepositoryImpl(
-                medicineProvider: ctx.read<MedicineProvider>(),
-                historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
-                  ctx.read<AuthProvider>().user?.id ?? '',
-                ),
+            // The Home dashboard badges its notification icon with the unread
+            // count, so the provider has to exist above the shell.
+            ChangeNotifierProvider<NotificationsProvider>(
+              create: (_) => NotificationsProvider(
+                repository: InMemoryNotificationRepository(),
               ),
             ),
-            ChangeNotifierProvider<ReportsProvider>(
-              create: (ctx) => ReportsProvider(
-                repository: ctx.read<ReportsRepository>(),
-              ),
-            ),
-            // The Home dashboard reads the history factory for "Today's sales".
+            // The Home dashboard reads the history factory for "Today's sales"
+            // and the pending-orders card.
             Provider<OrderHistoryRepositoryFactory>.value(
               value: (_) => LocalOrderHistoryRepository(),
             ),
@@ -96,10 +89,9 @@ void main() {
     // would be circular: a tab relabelled or moved to the wrong branch would
     // still pass, because the expectation would have moved with it.
     final expected = <({String label, Finder marker})>[
-      (label: 'Home', marker: find.text("Today's sales")),
-      (label: 'Inventory', marker: find.widgetWithText(AppBar, 'Inventory')),
-      (label: 'Orders', marker: find.text('No all orders right now.')),
-      (label: 'Reports', marker: find.widgetWithText(AppBar, 'Reports & Analytics')),
+      (label: 'Home', marker: find.widgetWithText(AppBar, "Wilma Pharmacy's")),
+      (label: 'Medicine', marker: find.widgetWithText(AppBar, 'Medicine')),
+      (label: 'Orders', marker: find.text('No orders waiting')),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.
@@ -143,9 +135,10 @@ void main() {
     await pumpApp(tester);
 
     // Material 3 caps NavigationBar at five destinations, so this test is also
-    // the canary for a sixth tab needing a different layout. The bar is now at
-    // four, so the headroom to the cap is larger than it was.
-    expect(AppShell.destinations, hasLength(4));
+    // the canary for a sixth tab needing a different layout. The staff bar is
+    // at three: Home, Medicine and Orders. Inventory and Reports are admin-only
+    // and live outside the shell.
+    expect(AppShell.destinations, hasLength(3));
     expect(tester.takeException(), isNull);
   });
 }

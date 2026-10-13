@@ -1,59 +1,18 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
+import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/orders/data/models/order_history_model.dart';
 import 'package:pharmaguide/features/orders/data/models/order_line_model.dart';
 import 'package:pharmaguide/features/orders/data/repositories/order_history_repository.dart';
+import 'package:pharmaguide/features/orders/presentation/providers/orders_provider.dart';
+import 'package:pharmaguide/features/orders/presentation/screens/order_history_screen.dart';
 import 'package:pharmaguide/features/orders/presentation/screens/orders_screen.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_card.dart';
-import 'package:pharmaguide/features/orders/presentation/widgets/order_tabs.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:provider/provider.dart';
 
-/// A fake [OrderHistoryRepository] for widget tests.
-///
-/// Holds a mutable list of orders and re-emits on every change, so the screen
-/// reacts to [updateStatus] the way it would to a real backend.
-class FakeOrderHistoryRepository implements OrderHistoryRepository {
-  FakeOrderHistoryRepository(List<OrderHistory> orders) : _orders = orders;
-
-  List<OrderHistory> _orders;
-  final StreamController<List<OrderHistory>> _controller =
-      StreamController<List<OrderHistory>>.broadcast();
-
-  @override
-  Stream<List<OrderHistory>> watchAll() async* {
-    yield List<OrderHistory>.unmodifiable(_orders);
-    yield* _controller.stream;
-  }
-
-  @override
-  Future<void> save(OrderHistory order) async {
-    _orders = [..._orders, order];
-    _emit();
-  }
-
-  @override
-  Future<void> updateStatus(String id, OrderStatus status) async {
-    _orders = [
-      for (final order in _orders)
-        if (order.id == id) order.copyWith(status: status) else order,
-    ];
-    _emit();
-  }
-
-  @override
-  Future<void> delete(String id) async {
-    _orders = _orders.where((order) => order.id != id).toList();
-    _emit();
-  }
-
-  void _emit() {
-    if (_controller.isClosed) return;
-    _controller.add(List<OrderHistory>.unmodifiable(_orders));
-  }
-}
+import 'helpers/fake_auth_repository.dart';
+import 'helpers/fake_order_history_repository.dart';
 
 void main() {
   const phoneSize = Size(360, 720);
@@ -101,20 +60,16 @@ void main() {
     items: [OrderLineModel(medicine: cefalexin, quantity: 3)],
   );
 
-  /// Finds a tab label scoped to the tab bar, so it never collides with the
-  /// status badge text on an order card.
-  Finder tab(String label) => find.descendant(
-    of: find.byType(OrderTabs),
-    matching: find.text(label),
+  final rejectedOrder = order(
+    id: '3',
+    time: DateTime(2025, 8, 1, 8, 0),
+    status: OrderStatus.rejected,
+    items: [OrderLineModel(medicine: alcohol, quantity: 1)],
   );
 
-  /// Finds text scoped to an order card, so it never collides with the tab
-  /// bar labels.
-  Finder card(String text) => find.descendant(
-    of: find.byType(OrderCard),
-    matching: find.text(text),
-  );
-
+  /// Wires the providers [OrdersScreen] reads: the auth user (for the uid), the
+  /// per-user repository factory, and the provider the approve/reject buttons
+  /// write through.
   Future<void> pumpOrders(
     WidgetTester tester,
     FakeOrderHistoryRepository repository,
@@ -123,174 +78,219 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
+    final authRepository = FakeAuthRepository();
+    final auth = AuthProvider(authRepository);
+    await auth.ready;
+    await auth.login(email: 'a@b.com', password: 'secret');
+
+    final ordersProvider = OrdersProvider(historyFactory: () => repository);
+
+    addTearDown(auth.dispose);
+    addTearDown(authRepository.dispose);
+    addTearDown(repository.dispose);
+    addTearDown(ordersProvider.dispose);
+
     await tester.pumpWidget(
-      MaterialApp(
-        theme: buildAppTheme(Brightness.light),
-        home: OrdersScreen(historyFactory: () => repository),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthProvider>.value(value: auth),
+          Provider<OrderHistoryRepositoryFactory>.value(
+            value: (_) => repository,
+          ),
+          ChangeNotifierProvider<OrdersProvider>.value(value: ordersProvider),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const OrdersScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  group('tab filtering', () {
-    testWidgets('shows all orders on the All tab', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      expect(find.text('Order #1'), findsOneWidget);
-      expect(find.text('Order #2'), findsOneWidget);
-      expect(tab('All'), findsOneWidget);
-      expect(tab('New'), findsOneWidget);
-      expect(tab('Approved'), findsOneWidget);
-    });
-
-    testWidgets('the New tab shows only new orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      await tester.tap(tab('New'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Order #1'), findsOneWidget);
-      expect(find.text('Order #2'), findsNothing);
-    });
-
-    testWidgets('the Approved tab shows only approved orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      await tester.tap(tab('Approved'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Order #1'), findsNothing);
-      expect(find.text('Order #2'), findsOneWidget);
-    });
-
-    testWidgets('tab counts reflect the number of orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder, approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      // Counts live in the tab bar, so they are read from there rather than from
-      // the whole tree, where an order line could show the same digit.
-      final counts = find.descendant(
-        of: find.byType(OrderTabs),
-        matching: find.text('1'),
-      );
-      expect(counts, findsNWidgets(2));
-      expect(
-        find.descendant(
-          of: find.byType(OrderTabs),
-          matching: find.text('2'),
-        ),
-        findsOneWidget,
-      );
-    });
-  });
-
-  group('order card rendering', () {
-    testWidgets('shows the order id, time, items and total', (tester) async {
+  group('OrdersScreen (pending orders)', () {
+    testWidgets('shows the id, lines and total of a new order', (tester) async {
       final repo = FakeOrderHistoryRepository([newOrder]);
 
       await pumpOrders(tester, repo);
 
       expect(find.text('Order #1'), findsOneWidget);
-      expect(find.text('Alcohol'), findsOneWidget);
-      expect(find.text('× 2'), findsOneWidget);
-      expect(find.text('cefalexin'), findsOneWidget);
-      expect(find.text('× 1'), findsOneWidget);
+      // The expansion is collapsed, so only the summary is on screen.
+      expect(find.textContaining('3 items'), findsOneWidget);
       // 6500 * 2 + 4500 * 1 = 17500 centavos.
       expect(find.text('₱175.00'), findsOneWidget);
     });
 
-    testWidgets('shows the status label', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder]);
+    testWidgets('hides orders that are no longer pending', (tester) async {
+      final repo = FakeOrderHistoryRepository([approvedOrder, rejectedOrder]);
 
       await pumpOrders(tester, repo);
 
-      expect(card('New'), findsOneWidget);
+      expect(find.text('Order #2'), findsNothing);
+      expect(find.text('Order #3'), findsNothing);
+      expect(find.text('No orders waiting'), findsOneWidget);
     });
 
-    testWidgets('shows the Approve button for new orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([newOrder]);
+    testWidgets('shows the empty state when there is nothing pending', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository();
 
       await pumpOrders(tester, repo);
 
-      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('No orders waiting'), findsOneWidget);
     });
 
-    testWidgets('hides the Approve button for approved orders', (tester) async {
-      final repo = FakeOrderHistoryRepository([approvedOrder]);
-
-      await pumpOrders(tester, repo);
-
-      expect(find.text('Approve'), findsNothing);
-      expect(card('Approved'), findsOneWidget);
-    });
-  });
-
-  group('approveOrder', () {
-    testWidgets('tapping Approve moves the order to the Approved tab', (
+    testWidgets('approving removes the order from the pending list', (
       tester,
     ) async {
       final repo = FakeOrderHistoryRepository([newOrder]);
 
       await pumpOrders(tester, repo);
+
+      // The card must be expanded before its action buttons are built.
+      await tester.tap(find.text('Order #1'));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Approve'));
       await tester.pumpAndSettle();
 
-      // Still on All tab, so the order is still visible but now approved.
-      expect(find.text('Order #1'), findsOneWidget);
-      expect(card('Approved'), findsOneWidget);
-      expect(find.text('Approve'), findsNothing);
-
-      // The New tab should now be empty.
-      await tester.tap(tab('New'));
-      await tester.pumpAndSettle();
       expect(find.text('Order #1'), findsNothing);
+      expect(find.text('No orders waiting'), findsOneWidget);
+
+      // The decision reached the repository.
+      expect(
+        repo.orders.firstWhere((o) => o.id == '1').status,
+        OrderStatus.approved,
+      );
+    });
+
+    testWidgets('rejecting asks for confirmation, then removes the order', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      await pumpOrders(tester, repo);
+
+      // The card must be expanded before its action buttons are on screen.
+      await tester.tap(find.text('Order #1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Reject'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reject this order?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Reject'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Order #1'), findsNothing);
+      expect(
+        repo.orders.firstWhere((o) => o.id == '1').status,
+        OrderStatus.rejected,
+      );
+    });
+
+    testWidgets('shows an error body when the stream fails', (tester) async {
+      final repo = FakeOrderHistoryRepository([newOrder])
+        ..readError = Exception('offline');
+
+      await pumpOrders(tester, repo);
+
+      expect(find.text('Orders could not be loaded'), findsOneWidget);
     });
   });
 
-  group('empty states', () {
-    testWidgets('shows an empty message when there are no orders', (
-      tester,
+  group('OrderHistoryScreen', () {
+    Future<void> pumpHistory(
+      WidgetTester tester,
+      FakeOrderHistoryRepository repository,
     ) async {
-      final repo = FakeOrderHistoryRepository([]);
+      tester.view.physicalSize = phoneSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-      await pumpOrders(tester, repo);
+      final authRepository = FakeAuthRepository();
+      final auth = AuthProvider(authRepository);
+      await auth.ready;
+      await auth.login(email: 'a@b.com', password: 'secret');
 
-      expect(find.text('No all orders right now.'), findsOneWidget);
+      addTearDown(auth.dispose);
+      addTearDown(authRepository.dispose);
+      addTearDown(repository.dispose);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AuthProvider>.value(value: auth),
+            Provider<OrderHistoryRepositoryFactory>.value(
+              value: (_) => repository,
+            ),
+          ],
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.light),
+            home: const OrderHistoryScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('lists decided orders with their status', (tester) async {
+      final repo = FakeOrderHistoryRepository([approvedOrder, rejectedOrder]);
+
+      await pumpHistory(tester, repo);
+
+      expect(find.text('Order #2'), findsOneWidget);
+      expect(find.text('Order #3'), findsOneWidget);
     });
 
-    testWidgets('shows an empty message on the New tab when none are new', (
-      tester,
-    ) async {
-      final repo = FakeOrderHistoryRepository([approvedOrder]);
+    testWidgets('the Approved filter hides rejected orders', (tester) async {
+      final repo = FakeOrderHistoryRepository([approvedOrder, rejectedOrder]);
 
-      await pumpOrders(tester, repo);
+      await pumpHistory(tester, repo);
 
-      await tester.tap(tab('New'));
+      await tester.tap(find.textContaining('Approved'));
       await tester.pumpAndSettle();
 
-      expect(find.text('No new orders right now.'), findsOneWidget);
+      expect(find.text('Order #2'), findsOneWidget);
+      expect(find.text('Order #3'), findsNothing);
     });
 
-    testWidgets(
-      'shows an empty message on the Approved tab when none are approved',
-      (tester) async {
-        final repo = FakeOrderHistoryRepository([newOrder]);
+    testWidgets('search matches the medicine name on an order', (tester) async {
+      // Both are approved so the default "All" filter keeps them visible;
+      // ordering keeps the two distinguishable.
+      final cefOnly = order(
+        id: '10',
+        time: DateTime(2025, 8, 4),
+        status: OrderStatus.approved,
+        items: [OrderLineModel(medicine: cefalexin, quantity: 1)],
+      );
+      final alcoholOnly = order(
+        id: '11',
+        time: DateTime(2025, 8, 5),
+        status: OrderStatus.approved,
+        items: [OrderLineModel(medicine: alcohol, quantity: 1)],
+      );
+      final repo = FakeOrderHistoryRepository([cefOnly, alcoholOnly]);
 
-        await pumpOrders(tester, repo);
+      await pumpHistory(tester, repo);
 
-await tester.tap(tab('Approved'));
+      await tester.enterText(find.byType(TextField), 'cefa');
       await tester.pumpAndSettle();
 
-      expect(find.text('No approved orders right now.'), findsOneWidget);
-      },
-    );
+      expect(find.text('Order #10'), findsOneWidget);
+      expect(find.text('Order #11'), findsNothing);
+    });
+
+    testWidgets('shows the empty state when there is no history', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository();
+
+      await pumpHistory(tester, repo);
+
+      expect(find.text('No orders in history yet'), findsOneWidget);
+    });
   });
 }

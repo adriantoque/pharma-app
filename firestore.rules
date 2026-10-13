@@ -104,8 +104,11 @@ service cloud.firestore {
       && data.totalCentavos >= 0;
   }
 
+  // 'rejected' must be allowed: OrdersProvider.rejectOrder writes it, and a
+  // status the rules do not list makes rejecting an order fail at the rules
+  // rather than reach the database.
   function validStatus(status) {
-    return status in ['new', 'approved'];
+    return status in ['new', 'approved', 'rejected'];
   }
 
   // A basket as stored: the medicine's identity and how many, never its stock.

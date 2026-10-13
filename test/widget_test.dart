@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:pharmaguide/app.dart';
 import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
+import 'package:pharmaguide/core/theme/theme_mode_provider.dart';
 import 'package:pharmaguide/features/auth/data/models/user_model.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
+import 'package:pharmaguide/features/dashboard/presentation/providers/notification_provider.dart';
+import 'package:pharmaguide/features/dashboard/presentation/providers/notification_repository.dart';
 import 'package:pharmaguide/features/orders/data/repositories/local_order_history_repository.dart';
 import 'package:pharmaguide/features/orders/data/repositories/order_history_repository.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
@@ -185,6 +188,18 @@ void main() {
         child: child,
       );
 
+  /// Puts a [NotificationsProvider] over the tree, as main.dart does.
+  ///
+  /// The Home dashboard badges its notification icon with the unread count, so
+  /// any test that reaches Home needs one. Backed by the in-memory repository
+  /// because the notifications are seeded locally, not fetched remotely.
+  Widget notificationsProvider({required Widget child}) =>
+      ChangeNotifierProvider<NotificationsProvider>(
+        create: (_) =>
+            NotificationsProvider(repository: InMemoryNotificationRepository()),
+        child: child,
+      );
+
   Future<void> pumpApp(WidgetTester tester, AuthProvider auth) async {
     final router = createAppRouter(refreshListenable: auth);
     addTearDown(router.dispose);
@@ -199,9 +214,11 @@ void main() {
           create: (_) => OrderProvider(),
           child: medicineProvider(
             child: historyFactory(
-              child: MaterialApp.router(
-                routerConfig: router,
-                theme: buildAppTheme(Brightness.light),
+              child: notificationsProvider(
+                child: MaterialApp.router(
+                  routerConfig: router,
+                  theme: buildAppTheme(Brightness.light),
+                ),
               ),
             ),
           ),
@@ -223,25 +240,38 @@ void main() {
     await tester.pumpWidget(
       // The router redirects to the auth landing screen, which watches
       // AuthProvider, so it has to sit above the router as it does in
-      // main.dart's MultiProvider.
+      // main.dart's MultiProvider. [App] reads ThemeModeProvider and the Home
+      // dashboard reads NotificationsProvider, so both have to be present too.
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
         child: ChangeNotifierProvider<OrderProvider>(
           create: (_) => OrderProvider(),
           child: medicineProvider(
             child: historyFactory(
-              child: Provider<ReportsRepository>(
-                create: (ctx) => ReportsRepositoryImpl(
-                  medicineProvider: ctx.read<MedicineProvider>(),
-                  historyFactory: () => ctx.read<OrderHistoryRepositoryFactory>()(
-                    ctx.read<AuthProvider>().user?.id ?? '',
+              child: notificationsProvider(
+                child: ChangeNotifierProvider<ThemeModeProvider>(
+                  // Constructed without load(): the App only needs the mode to
+                  // read as light, and load() would reach the SharedPreferences
+                  // plugin, which is not available in a widget test.
+                  create: (_) => ThemeModeProvider(),
+                  child: Provider<ReportsRepository>(
+                    create: (ctx) => ReportsRepositoryImpl(
+                      medicineProvider: ctx.read<MedicineProvider>(),
+                      historyFactory: () =>
+                          ctx.read<OrderHistoryRepositoryFactory>()(
+                            ctx.read<AuthProvider>().user?.id ?? '',
+                          ),
+                    ),
+                    child: ChangeNotifierProvider<ReportsProvider>(
+                      create: (ctx) => ReportsProvider(
+                        repository: ctx.read<ReportsRepository>(),
+                      ),
+                      child: Provider<GoRouter>.value(
+                        value: router,
+                        child: const App(),
+                      ),
+                    ),
                   ),
-                ),
-                child: ChangeNotifierProvider<ReportsProvider>(
-                  create: (ctx) => ReportsProvider(
-                    repository: ctx.read<ReportsRepository>(),
-                  ),
-                  child: Provider<GoRouter>.value(value: router, child: const App()),
                 ),
               ),
             ),
@@ -276,7 +306,7 @@ void main() {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      expect(find.text("Today's sales"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
       expect(find.text('Welcome to'), findsNothing);
     });
 
@@ -292,7 +322,7 @@ void main() {
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      expect(find.text("Today's sales"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
 
       // Profile is now an icon button in the AppBar
       await tester.tap(find.byTooltip('Profile'));
@@ -333,28 +363,23 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       int selectedIndex() =>
           tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 
-      await tester.tap(tab('Inventory'));
+      await tester.tap(tab('Medicine'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 1);
-      expect(find.widgetWithText(AppBar, 'Inventory'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Medicine'), findsOneWidget);
 
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 2);
-      expect(find.text('No all orders right now.'), findsOneWidget);
-
-      await tester.tap(tab('Reports'));
-      await tester.pumpAndSettle();
-      expect(selectedIndex(), 3);
-      expect(find.widgetWithText(AppBar, 'Sales & Analytics Report'), findsOneWidget);
+      expect(find.text('No orders waiting'), findsOneWidget);
 
       await tester.tap(tab('Home'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 0);
-      expect(find.text("Today's sales"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
     });
 
-    testWidgets('orders sits at index 2 and reports at 3', (
+    testWidgets('medicine sits at index 1 and orders at 2', (
       tester,
     ) async {
       final auth = createProvider();
@@ -373,18 +398,18 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
 
       await tester.tap(tab('Orders'));
       await tester.pumpAndSettle();
-      expect(find.text('No all orders right now.'), findsOneWidget);
+      expect(find.text('No orders waiting'), findsOneWidget);
       expect(selectedIndex(), 2);
 
       // The regression this guards: inserting or removing a branch shifts every
       // later one, so the bar would highlight one tab while showing another.
-      await tester.tap(tab('Reports'));
+      await tester.tap(tab('Medicine'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, 'Sales & Analytics Report'), findsOneWidget);
-      expect(selectedIndex(), 3);
+      expect(find.widgetWithText(AppBar, 'Medicine'), findsOneWidget);
+      expect(selectedIndex(), 1);
     });
 
-    testWidgets('the bar shows four destinations in order on a 360dp phone', (
+    testWidgets('the bar shows three destinations in order on a 360dp phone', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(360, 720);
@@ -398,13 +423,13 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // Four slots across 360dp is 90dp each, and "Inventory" is the longest
+      // Three slots across 360dp is 120dp each, and "Medicine" is the longest
       // label, so this proves the bar does not clip on the narrowest screen the
       // app is expected to run on.
-      expect(AppShell.destinations, hasLength(4));
+      expect(AppShell.destinations, hasLength(3));
       expect(
         AppShell.destinations.map((d) => d.label),
-        ['Home', 'Inventory', 'Orders', 'Reports'],
+        ['Home', 'Medicine', 'Orders'],
       );
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -420,9 +445,10 @@ testWidgets('a home action opens a child page and back returns home', (
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // The expiring chip is a child of the Home branch, so it pushes rather than
-      // switch tabs: Home stays selected and a back arrow appears.
-      await tester.tap(find.text('Expiring soon'));
+      // The expiring tile is a child of the Home branch, so it pushes rather
+      // than switch tabs: Home stays selected and a back arrow appears. Found
+      // by its icon because the count in its label varies with the catalogue.
+      await tester.tap(find.byIcon(Icons.event_busy_outlined));
       await tester.pumpAndSettle();
       expect(find.text('Expiring Meds'), findsOneWidget);
       expect(
@@ -433,20 +459,21 @@ testWidgets('a home action opens a child page and back returns home', (
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text("Today's sales"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
 
-      // The scan button beside the search field also pushes a child page.
-      await tester.tap(find.byTooltip('Scan product name'));
+      // The scan quick action also pushes a child page. Scrolled into view
+      // first because it sits below the fold on the test viewport.
+      await tester.scrollUntilVisible(find.text('Scan'), 200);
+      await tester.tap(find.text('Scan'));
       await tester.pumpAndSettle();
-      expect(find.text('Scan'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Scan'), findsOneWidget);
     });
   });
 
   group('app bar titles', () {
-    // Only the five tab roots centre their titles. The three pages pushed from
-    // a Home tile stay leading-aligned, so both halves are asserted: a
-    // change to AppBarTheme.centerTitle would centre all eight and neither
-    // mistake throws.
+    // Only the three tab roots centre their titles. The pages pushed from a
+    // Home tile stay leading-aligned, so both halves are asserted: a change to
+    // AppBarTheme.centerTitle would centre both and neither mistake throws.
 
     /// The title inside the AppBar, excluding the bottom bar's identically
     /// labelled destination.
@@ -455,7 +482,7 @@ testWidgets('a home action opens a child page and back returns home', (
       matching: find.text(label),
     );
 
-    testWidgets('the four tab titles sit on the centreline', (tester) async {
+    testWidgets('the three tab titles sit on the centreline', (tester) async {
       final auth = createProvider();
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
@@ -464,13 +491,11 @@ testWidgets('a home action opens a child page and back returns home', (
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
       final centreline = width / 2;
 
-      // Home tab has a custom title "Wilma Pharmacy's"; the Reports screen
-      // names its own rather than reusing the tab label.
+      // Home names its own title rather than reusing the tab label.
       final expectedTitles = {
         'Home': "Wilma Pharmacy's",
-        'Inventory': 'Inventory',
+        'Medicine': 'Medicine',
         'Orders': 'Orders',
-        'Reports': 'Reports & Analytics',
       };
 
       for (final label in AppShell.destinations.map((d) => d.label)) {
@@ -496,26 +521,26 @@ testWidgets('a home action opens a child page and back returns home', (
       }
     });
 
-    testWidgets('pushed child pages keep a leading-aligned title', (
-      tester,
-    ) async {
+    testWidgets('pushed child pages centre their title too', (tester) async {
       final auth = createProvider();
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
 
-      await tester.tap(find.text('Expiring soon'));
+      await tester.tap(find.byIcon(Icons.event_busy_outlined));
       await tester.pumpAndSettle();
 
       final width =
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      final centreline = width / 2;
       final centre = tester.getCenter(appBarTitle('Expiring Meds')).dx;
 
-      // Not a pixel-exact bound on purpose: the point is that it sits well
-      // left of the middle, which is what a leading-aligned title does.
+      // The AppBarTheme sets centerTitle: true for the whole app, so a page
+      // pushed from a Home tile centres its title exactly as a tab root does.
+      // One logical pixel of slack for sub-pixel layout rounding.
       expect(
-        centre,
-        lessThan(width / 2 - 50),
-        reason: 'child pages are scoped out of the centring on purpose',
+        (centre - centreline).abs(),
+        lessThan(1.0),
+        reason: 'the pushed page title should be centred like every other',
       );
     });
   });
@@ -532,17 +557,30 @@ testWidgets('a home action opens a child page and back returns home', (
 
       expect(find.text('Welcome to'), findsOneWidget);
       expect(find.text("Wilma\nPharmacy's"), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Signup'), findsOneWidget);
-      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Sign in as Admin'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(OutlinedButton, 'Sign in as Staff'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(OutlinedButton, 'Continue Offline'),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
+      // The role doors push their own pages; the legacy sheet is reached from
+      // the fallback link.
+      await tester.tap(find.widgetWithText(TextButton, 'Other sign-in options'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Email'), findsOneWidget);
+      // Login mode signs in with a username, not an email.
+      expect(find.text('Username'), findsOneWidget);
       expect(find.text('Password'), findsOneWidget);
     });
 
-    testWidgets('an invalid email is rejected by the form, not the repository', (
+    testWidgets('empty credentials are rejected by the form, not the repository', (
       tester,
     ) async {
       final auth = createProvider();
@@ -550,15 +588,14 @@ testWidgets('a home action opens a child page and back returns home', (
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
+      await tester.tap(find.widgetWithText(TextButton, 'Other sign-in options'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(0), 'not-an-email');
-      await tester.enterText(find.byType(TextFormField).at(1), 'secret');
       await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Enter a valid email address'), findsOneWidget);
+      expect(find.text('Username is required'), findsOneWidget);
+      expect(find.text('Password is required'), findsOneWidget);
       expect(repository.loginAttempts, 0);
     });
 
@@ -570,7 +607,7 @@ testWidgets('a home action opens a child page and back returns home', (
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
+      await tester.tap(find.widgetWithText(TextButton, 'Other sign-in options'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
@@ -578,8 +615,8 @@ testWidgets('a home action opens a child page and back returns home', (
       await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Email'), findsNothing);
-      expect(find.text("Today's sales"), findsOneWidget);
+      expect(find.text('Username'), findsNothing);
+      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
       expect(repository.loginAttempts, 1);
     });
   });
