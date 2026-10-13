@@ -3,12 +3,15 @@ THE CURRENT WORK STATE
 
 Project:  PharmaGuide (Flutter)
 Root:     D:\DEVELOPMENT_FILES_FOLDER\PharmaGuide
-Branch:   master
-Tracker:  WORKTODO  (supersedes UNFINISHED_TASKS.txt, which has been deleted)
+Branch:   main
+Tracker:  none on disk. `WORKTODO` and `UNFINISHED_TASKS.txt` have both been
+          deleted; `docs/architecture.md` §10 is the canonical gap registry.
 
-Where things stand: Phases 1-5 are DONE. `flutter analyze` reports **0 issues**.
-`flutter test` reports **293 pass, 6 fail**, and the 6 are pre-existing
-framework-level failures unrelated to this project (see section 10).
+Where things stand: Phases 1-6 are DONE. `flutter analyze` reports **No issues
+found**. `flutter test` reports **334 pass, 0 fail** (see section 10).
+
+HEAD: commit `72dbe81` on `main`, not pushed. Phase 6 (dead-code deletion and
+doc corrections) is recorded at the end of this file.
 
 READ SECTION 1a BEFORE BELIEVING ANY CHECKBOX IN EITHER TRACKER.
 
@@ -205,12 +208,14 @@ New/changed tests:
 
 7. TEST FINDER GOTCHA WORTH REMEMBERING
 ---------------------------------------
-The tab bar labels and the order card status badges share the same words: "New"
-and "Approved". find.text('New') matches both and tap() then fails with
-"ambiguously found multiple matching widgets". The test now scopes:
-  tab('New')  -> find.descendant(of: find.byType(OrderTabs), matching: ...)
-  card('New') -> find.descendant(of: find.byType(OrderCard), matching: ...)
-Anything that asserts on bare find.text('New') in these tests is a latent bug.
+The old order card and tab-bar widgets shared the words "New" and "Approved",
+so `find.text('New')` was ambiguous. Those two widgets (`OrderTabs`,
+`OrderCard`) have since been deleted; the Orders screen now renders a stream of
+history rows and its test scopes finders by ancestor rather than by those types.
+
+The general lesson still holds: when two UI regions legitimately show the same
+word, scope the finder (by ancestor/descendant) instead of asserting on bare
+`find.text`, and never leave a bare `find.text('New')` in the orders tests.
 
 
 8. PHASE 5 -- CLEANUP  [DONE]
@@ -222,7 +227,7 @@ Anything that asserts on bare find.text('New') in these tests is a latent bug.
   [x] 5.3 Deleted UNFINISHED_TASKS.txt (superseded by WORKTODO)
   [x] 5.4 Cleared all 13 warnings and 10 infos
   [x] 5.5 `flutter analyze` -> 0 issues
-  [x] 5.6 `flutter test` -> 293 pass / 6 fail (the 6 are pre-existing, see §10)
+  [x] 5.6 `flutter test` -> 334 pass / 0 fail (see §10)
 
   Two of the 14 needed judgement, not a mechanical edit:
 
@@ -302,17 +307,20 @@ D1: Rewrite the Scan integration test for camera + OCR.
 
 10. KNOWN-UNRELATED TEST FAILURES
 ---------------------------------
-A full `flutter test` run shows ~24 pre-existing failures that are NOT ours:
-  widget_test.dart, nav_alignment_test.dart, dashboard_search_test.dart,
-  medicine_catalog_test.dart, and others. Many are Flutter-framework tooltip
-  errors ("RawTooltipState is a SingleTickerProviderStateMixin but multiple
-  tickers were created") from the installed Flutter version, not from this work.
+There are none. A full `flutter test` run is **334 pass, 0 fail**, and
+`flutter analyze` reports **No issues found**.
 
-Verified green:
-  test/prescription_matcher_test.dart   23 pass
-  test/reports_test.dart                22 pass
-  test/orders_screen_test.dart          12 pass
-  dart analyze lib/                     0 errors
+The old "293 pass / 6 fail" figure was misdiagnosed. The failures in
+widget_test.dart, nav_alignment_test.dart, dashboard_search_test.dart and
+medicine_catalog_test.dart were stale TEST code, not a framework bug: they
+asserted against a Home tab marker ("Today's sales") that no longer exists and
+a two-tab nav that had become three. They were rewritten against the current UI
+and now pass. mlkit_text_recognizer_test.dart needed
+`TestWidgetsFlutterBinding.ensureInitialized()`.
+
+Verified (whole suite):
+  flutter analyze   0 issues
+  flutter test      334 pass / 0 fail
 
 
 11. ENVIRONMENT NOTES (PowerShell 5.1)
@@ -328,11 +336,44 @@ Verified green:
 
 12. IMMEDIATE NEXT STEPS
 ------------------------
-  1. Phase 5.4 -- clear the 13 warnings / 10 infos listed above.
-  2. Phase 5.2 -- decide whether to keep or delete the root HTML/MD design
-     references.
-  3. Phase 5.5/5.6 -- drive flutter analyze to 0 issues, then confirm the three
-     green test files still pass.
-  4. Phase 4.10 -- end-to-end: New Sale -> add items -> Proceed -> the order
-     appears on the Orders tab as "New".
-  5. D1 when a device is available.
+  1. G9 -- add a `firestore` section to `firebase.json` so `firestore.rules`
+     actually deploy. Until then the rules (including the 'rejected' status
+     allowed in §13) are not in force.
+  2. End-to-end: New Sale -> add items -> Proceed -> the order appears on the
+     Orders tab as "New".
+  3. G10 -- implement or remove the inert "coming soon" controls (inventory
+     bulk count, expiring-meds notifications/batch/export, admin store
+     settings + activity log, profile rows).
+  4. G8 -- delete `assets/data/medicines_seed.json.bak`.
+  5. G6 -- revisit the offline-banner test skip.
+  6. D1 when a device is available (camera + OCR integration test).
+
+
+13. PHASE 6 -- DEAD CODE AND DOC CORRECTIONS  [DONE]
+----------------------------------------------------
+  Deleted (3 files, no call sites):
+    lib/features/dashboard/presentation/widgets/dashboard_tile.dart
+    lib/core/widgets/feature_placeholder.dart
+    lib/features/profile/presentation/screens/settings_screen.dart
+
+  Trimmed OrdersProvider to its one live method, updateOrderStatus. Removed the
+  tab state it carried (currentTab/setTab/tabs), the initialize/_loadOrders pair
+  (the Orders screen reads the repository through a StreamBuilder, so the
+  one-shot sample was dead), the unused error field, approveOrder/rejectOrder
+  (both collapsed into updateOrderStatus) and the OrderTab enum. main.dart's
+  provider wiring is unchanged.
+
+  Comments corrected where they named deleted code:
+    admin_home_screen.dart  _ActionTile no longer cites DashboardTile
+    firestore.rules         validStatus cites updateOrderStatus, not rejectOrder
+    main.dart               OrdersProvider comment no longer claims a reload
+
+  Docs corrected to match the code:
+    README.md            real workspaces and feature layout
+    docs/architecture.md §10 gaps G2/G3/G4/G5/G7/G10 marked fixed/accurate
+    ai_tracking_map.md   rewritten; points at §10 as the source of truth
+    structure.md         SettingsScreen removed from the profile tree
+    this file            branch main, 334/0, WORKTODO no longer exists
+
+  firestore.rules: validStatus already allowed 'rejected'; that is the status
+  OrdersProvider.updateOrderStatus writes, so the rules and the client agree.

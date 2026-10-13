@@ -3,17 +3,28 @@
 ## Purpose
 Structured tracking system for AI-assisted development of PharmaGuide Flutter app. Maps gaps, phases, tests, and feature status for consistent AI context and task tracking.
 
+> The canonical gap registry is `docs/architecture.md` §10. This file tracks the
+> same work and must agree with it; when the two disagree, fix this file.
+
 ---
 
 ## 1. GAP REGISTRY
 
-| Gap ID | Description | Related Code | Priority | Status | Last Updated |
-|--------|-------------|--------------|----------|--------|--------------|
-| **G1** | Reports tab sales data fabricated (`math.Random`) | `lib/features/reports/reports_repository_impl.dart` | High | Open | - |
-| **G2** | Order history not live (single sample vs stream subscription) | `lib/features/orders/orders_provider.dart`, `lib/features/orders/orders_screen.dart` | Medium | Open | - |
-| **G3** | Export buttons (CSV/PDF) are placeholders | `lib/features/reports/reports_screen.dart`, export widgets | Medium | Open | - |
-| **G4** | Scan integration test D1 - needs physical device | `lib/features/scan/scan_screen.dart`, camera/OCR code | High | Deferred | - |
-| **G5** | End-to-end New Sale → Orders tab flow verification | `lib/features/sales/new_sale_screen.dart`, `lib/features/orders/orders_provider.dart` | Medium | Pending | - |
+Statuses mirror `docs/architecture.md` §10.
+
+| Gap ID | Description | Related Code | Priority | Status |
+|--------|-------------|--------------|----------|--------|
+| **G1** | `firestore.rules` coverage | `firestore.rules` | High | Fixed, **not deployed** (see G9) |
+| **G2** | Reports tab sales figures fabricated (`math.Random`) | `reports_repository_impl.dart` | High | **Fixed** |
+| **G3** | Three widgets with zero call sites | `settings_screen.dart`, `dashboard_tile.dart`, `feature_placeholder.dart` | Medium | **Fixed** (deleted) |
+| **G4** | Order history not live | `orders_provider.dart`, `orders_screen.dart` | Medium | **Fixed** |
+| **G5** | `ReportsProvider` error without notify | `reports_provider.dart` | Medium | **Fixed** |
+| **G6** | Offline banner tests skip when `Connectivity()` throws `MissingPluginException` | `offline_banner_test.dart` | Low | Open |
+| **G7** | `README.md` described an app that no longer exists | `README.md` | Medium | **Fixed** |
+| **G8** | Stray `assets/data/medicines_seed.json.bak` | `assets/data/` | Low | Open |
+| **G9** | `firebase.json` has no `firestore` section (rules won't deploy) | `firebase.json` | High | Open |
+| **G10** | Inert "coming soon" controls | inventory, expiring meds, admin home, profile | Low | Open |
+| **D1** | Scan integration test needs a physical device | `scan_screen.dart`, camera/OCR code | High | Deferred |
 
 ---
 
@@ -26,7 +37,8 @@ Structured tracking system for AI-assisted development of PharmaGuide Flutter ap
 | **Phase 3** | DONE | Wire and ship Reports feature | - | - |
 | **Phase 4** | DONE | Remove `who`, wire up completion | - | - |
 | **Phase 5** | DONE | Cleanup: warnings, root files, analyze/test | - | - |
-| **Phase 5.4-5.6** | Verified | 0 analyze issues, 293 pass/6 fail (pre-existing) | - | - |
+| **Phase 5.4-5.6** | DONE | Test suite green: 334 pass, 0 fail (`flutter analyze` clean) | - | - |
+| **Phase 6** | DONE | Dead-code deletion (`OrdersProvider` trim, 3 files) + doc corrections | - | - |
 | **Phase D1** | Deferred | Scan integration test (needs physical device) | Rewrite camera + OCR flow | Await device |
 
 ---
@@ -35,60 +47,59 @@ Structured tracking system for AI-assisted development of PharmaGuide Flutter ap
 
 | Feature | Stack | Status | AI Tracking Items |
 |---------|-------|--------|-------------------|
-| **Auth** | Firebase Auth | Done | - |
-| **Search/Dashboard** | Firestore medicine store | Done | - |
-| **Orders** | OrderProvider + OrderHistory Repository | Done | Order tab overflow fix (B1 from §12) |
-| **Sales** | NewSaleScreen + OrderProvider | Done | G2 (fabricated data), B2 (Proceed button scroll issue) |
-| **Reports** | ReportsProvider + sales_seed.json parsing | Done | G3 (export buttons), G4 (live history) |
+| **Auth** | Firebase Auth (email/password, Google, offline guest) + roles | Done | - |
+| **Dashboard** | Firestore medicine store, notifications, expiring meds | Done | - |
+| **Search** | Medicine catalogue + `MedicineProvider` | Done | No finder-style widget gap |
+| **Orders** | `OrdersScreen` (stream) + `OrdersProvider.updateOrderStatus` | Done | G4 fixed; dead provider state deleted |
+| **Sales** | `NewSaleScreen` + `OrderProvider` (cart) | Done | - |
+| **Reports** | `ReportsProvider` reading real order history | Done | G2/G5 fixed; profit is an assumed 22% margin |
+| **Inventory** | stock + expiry management (admin) | Done | G10 (bulk count inert) |
+| **Admin** | admin workspace + users | Done | G10 (store settings, activity log inert) |
 | **Scan** | ML Kit OCR + camera | In Progress | D1 (integration test, needs device) |
+| **Finder** | `FeatureEntry` + `FeatureRepository` + static catalogue | Done | No widget tests (see §4) |
 | **Core** | Navigation (go_router), theme, connectivity | Done | - |
-| **Finder** | FeatureEntry + FeatureRepository + StaticCatalogue | Done | Structure complete; no widget tests |
 
 ---
 
 ## 4. TEST COVERAGE MAP
 
 ### ✅ Passing Tests (Green)
+`flutter test` → **334 passing, 0 failing**. `flutter analyze` → **No issues found**.
+
 | Test File | Pass Count | Notes |
 |-----------|------------|-------|
-| `prescription_matcher_test.dart` | 23 pass | Core fuzzy-matching logic |
-| `reports_test.dart` | 22 pass | Unit tests: daily rate, bulk orders, top sellers |
-| `orders_screen_test.dart` | 12 pass | Tab filtering, card rendering, approveOrder (verified green per §11) |
-| `medicine_provider_test.dart` | Included in 293 | - |
-| `dart analyze lib/` | 0 errors | Full clean analysis |
-
-### ❌ Known Failures (6 pre-existing, framework-level)
-| Test File | Failure Type | Notes |
-|-----------|-------------|-------|
-| `widget_test.dart` | Flutter tooltip/ticker errors | Framework version issue |
-| `nav_alignment_test.dart` | Framework alignment issues | - |
-| `dashboard_search_test.dart` | Search framework issues | - |
-| `medicine_catalog_test.dart` | Catalog framework issues | - |
-| + 2 others | Tooltip/ticker conflicts | Not project-specific |
+| `medicine_catalog_test.dart` | 25 | Catalogue grouping, search, paging |
+| `scan_screen_test.dart` | 15 | Scan flow with a fake recogniser |
+| `orders_screen_test.dart` | - | Approve/reject + history, stream-based |
+| `reports_provider_test.dart` | 10 | Sales/low-stock/expiry, error notification |
+| `splash_test.dart` | 6 | Splash + bootstrap failure screen |
+| `widget_test.dart` | - | Landing, login sheet, 3-tab shell, nav |
+| `nav_alignment_test.dart` | - | Bottom-nav destinations match the shell |
 
 ### 📋 Test Gaps
-- Scan integration test (D1) - needs physical device
-- End-to-end New Sale → Orders tab flow ( §12 item 4)
-- Reports widget tests - commented out with TODOs
-- Medicine catalog widget tests
-- Feature finder widget tests - no widget tests exist for finder screen
+- Scan integration test (D1) - needs a physical device
+- End-to-end New Sale → Orders tab flow
+- Reports widget tests - commented out with TODOs (`reports_test.dart:311`)
+- `FirestoreMedicineStore` - no tests (only the fake store is exercised)
+- Finder / feature-finder widget tests
 
 ---
 
-## 5. IMMEDIATE AI TRACKING PRIORITIES (from §12)
+## 5. NEXT PRIORITIES
 
-1. **Phase 5.2** - Decide whether to keep or delete root HTML/MD design references (`Orders.html`, `Shop reports.html`, `Shop reports.md`)
-2. **Drive flutter analyze → 0 issues** (currently verified at 0 errors, 0 warnings, 0 infos)
-3. **Confirm 3 green test files pass**: `prescription_matcher_test.dart`, `reports_test.dart`, `orders_screen_test.dart`
-4. **End-to-end: New Sale → add items → Proceed → order appears on Orders tab as "New"** (verified flow from §12 item 4)
-5. **D1** - Scan integration test when physical device available (camera + ML Kit OCR flow)
+1. **G9** - Add a `firestore` section to `firebase.json` so `firestore.rules` actually deploy.
+2. **D1** - Scan integration test when a physical device is available (camera + ML Kit OCR flow).
+3. **End-to-end** - New Sale → add items → Proceed → order appears on the Orders tab as "New".
+4. **G10** - Implement or remove the inert "coming soon" controls (no PDF/CSV path exists).
+5. **G8** - Delete `assets/data/medicines_seed.json.bak`.
+6. **G6** - Revisit the offline-banner test skip.
 
 ---
 
 ## 6. TRACKING CONVENTIONS
 
-- **Gap IDs** follow PharmaProgram.md §6 naming (G1-G10+)
-- **Phase numbers** match the project's phase numbering (1-5, 5.4-5.6, D1)
+- **Gap IDs** follow `docs/architecture.md` §10 (G1-G10), plus D1 for the deferred device test
+- **Phase numbers** match the project's phase numbering (1-6, 5.4-5.6, D1)
 - **Status**: DONE, Open, Deferred, Pending
 - **Priority**: High (blocks user value), Medium (should fix), Low (nice to have)
 - **Test colors**: ✅ Passing, ❌ Known failures, 📋 Gaps
@@ -101,9 +112,11 @@ Structured tracking system for AI-assisted development of PharmaGuide Flutter ap
 |----------|----------|--------|
 | Technical Spec | `PharmaProgram.md` | Reference baseline |
 | Work State | `thecurrentworkstate` | Phase tracker + notes |
+| Canonical gaps | `docs/architecture.md` §10 | Source of truth |
 | This MAP | `ai_tracking_map.md` | **This file** - active tracking |
-| Analyze Result | `flutter analyze` | 0 errors, 0 warnings |
-| Test Result | `flutter test` | 293 pass, 6 pre-existing fail |
+| Analyze Result | `flutter analyze` | No issues found |
+| Test Result | `flutter test` | 334 pass, 0 fail |
+| Branch / HEAD | `main` | commit `72dbe81` (not pushed) |
 
 ---
 

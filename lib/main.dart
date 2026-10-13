@@ -249,9 +249,9 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
           dispose: (_, router) => router.dispose(),
         ),
         // The Orders tab's writes. Reading the orders themselves is the screen's
-        // own business, but approving or rejecting goes through a provider so the
-        // status change and the reload after it are one unit rather than two
-        // things a button has to remember to do.
+        // own business -- it subscribes to the repository's stream and stays
+        // live -- but approving or rejecting goes through a provider so both
+        // buttons write through one path.
         //
         // Built against the same per-user factory as the cart, so Orders approves
         // into the history the rest of the app reads rather than into a second

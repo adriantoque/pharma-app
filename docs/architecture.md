@@ -631,25 +631,31 @@ Two decisions in that fix worth knowing about:
 
 Still not deployed — see G9.
 
-**G2 — Reports tab sales figures are fabricated.** `getSalesReport()` builds
-orders from `math.Random(42)` rather than reading `sales_seed.json`, while
-`getLowStockAlerts()` and `getExpiryAlerts()` read the real catalogue. The real
-parser (`SalesRepository`) exists and is tested, but is only used by
-`test/reports_test.dart`. The tab therefore mixes real inventory data with
-invented sales data.
+**G2 — FIXED: the Reports tab reads real sales data.** `getSalesReport()` now
+builds its figures from the accepted orders in the order-history repository
+(`historyFactory().watchAll()`), filtered to approved orders within the range,
+instead of `math.Random`. `getLowStockAlerts()` and `getExpiryAlerts()` read the
+live catalogue. `math.Random` no longer appears anywhere in `lib/`. The one
+number that is still an assumption is profit: the price list has no cost price,
+so profit is reported as revenue times `assumedProfitMargin` (22%) and the
+screen states that beside the metric.
 
-**G3 — Three widgets have zero call sites.** `SettingsScreen` (no route, no test),
-`DashboardTile`, and `FeaturePlaceholder`.
+**G3 — FIXED: the three zero-call-site widgets are deleted.** `SettingsScreen`
+(no route, no test), `DashboardTile` and `FeaturePlaceholder` were removed.
+`OrdersProvider` was also reduced to its one live method, `updateOrderStatus`;
+the tab state, `initialize`/`_loadOrders` and `OrderTab` enum it carried were
+read by nothing (the Orders screen subscribes to the repository directly).
 
-**G4 — Order history is not live.** `OrdersProvider._loadOrders` uses
-`await _history.watchAll().first`, a single sample rather than a subscription, so
-the screen does not react to a change made on another device until something calls
-`initialize()` or `approveOrder()` again.
+**G4 — FIXED: order history is live.** The Orders screen reads the repository
+through a `StreamBuilder`, so it reacts to changes as they land. The old
+`OrdersProvider._loadOrders` that took a single `watchAll().first` sample was
+dead code and has been deleted along with the rest of that provider's unused
+state.
 
-**G5 — `ReportsProvider` can set an error without notifying.** The three leaf
-loaders assign `_error` with no `notifyListeners()`; only `_loadAll`'s `finally`
-notifies. A failure inside an already-loaded tab can therefore leave the previous
-content on screen with no message.
+**G5 — FIXED: `ReportsProvider` notifies on every error.** The leaf loaders set
+their error through `_handleError`, which calls `notifyListeners()`, and
+`_setLoading` notifies on the loading transitions. Covered by
+`test/reports_provider_test.dart` (10 tests).
 
 **G6 — PARTLY FIXED: the sync layer had no tests.** `PendingWriteQueue` (both
 implementations) and `ConnectionSource` are now covered, in
@@ -677,10 +683,10 @@ subtle things in the codebase. Covering it needs a Firestore emulator or a
 `fake_cloud_firestore` dependency; neither is set up here. That is the remaining
 half of this gap and worth doing next.
 
-**G7 — `README.md` describes an app that no longer exists.** It says signing in
-lands on a placeholder screen and that the medicine directory has not been built;
-it then documents a `lib/` layout containing only `features/auth`. The codebase
-has 8 features, 10 screens and a 985-line importer.
+**G7 — FIXED: `README.md` now describes the app that exists.** It previously
+said signing in landed on a placeholder and documented a `lib/` layout
+containing only `features/auth`. It now lists the real workspaces (staff shell
+and admin), the feature directory layout and the reports profit caveat.
 
 **G8 — Stray `assets/data/medicines_seed.json.bak`.** Byte-identical to the live
 asset and not registered in `pubspec.yaml`.
@@ -689,9 +695,13 @@ asset and not registered in `pubspec.yaml`.
 deploy `firestore.rules` without one being added. This appears deliberate, and
 matches the rules file's own header.
 
-**G10 — Six inert "coming soon" export buttons.** `ReportsScreen:61`,
-`InventoryScreen:98`, `ExpiringMedsScreen:81` all show an
-`'Export CSV — coming soon'` snackbar. There is no PDF, printing, sharing or CSV
-code anywhere in the app: no `pdf`, `printing`, `share_plus` or `path_provider`
+**G10 — Inert "coming soon" controls.** Several rows and buttons are affordances
+with no implementation behind them; each shows a snackbar. They span
+`InventoryScreen` (bulk count entry), `ExpiringMedsScreen` (expiry
+notifications, batch expiry entry, export list), `AdminHomeScreen` (store
+settings, activity log) and `ProfileScreen` (store details, permissions, help
+and support, about). There is still no PDF, printing, sharing or CSV code
+anywhere in the app: no `pdf`, `printing`, `share_plus` or `path_provider`
 dependency, and the only file writes in `lib/` are two temp JPEGs in the scan
-feature, because the ML Kit plugin takes a path rather than bytes.
+feature, because the ML Kit plugin takes a path rather than bytes. The Reports
+screen no longer carries an export button.

@@ -37,8 +37,11 @@ The project follows a layered architecture within each feature:
 - `presentation/`: `AuthProvider` and the `AuthLandingScreen`.
 
 #### 📊 `dashboard/` (Main Hub)
-- `presentation/`: `DashboardScreen` (Command Center), `InventoryScreen`, and `ExpiringMedsScreen`.
-- `widgets/`: UI components for stock management and expiry tracking.
+- `presentation/`: `DashboardScreen` (Home tab), `ExpiringMedsScreen`, `NotificationsScreen` and their providers.
+- `widgets/`: expiry-entry and stock sheets used by the Home tiles.
+
+#### 🗃️ `inventory/` (Stock Management)
+- `presentation/`: `InventoryScreen` for stock and expiry editing (admin).
 
 #### 📦 `search/` (Medicine Catalogue)
 - `data/`: `MedicineRepository`, `MedicineStore` (Firestore/Local), and `SyncStatus` logic.
@@ -58,10 +61,18 @@ The project follows a layered architecture within each feature:
 - `presentation/`: `ScanScreen` for live product matching.
 
 #### 👤 `profile/` (User Settings)
-- `presentation/`: `ProfileScreen` and `SettingsScreen`.
+- `presentation/`: `ProfileScreen` and appearance settings.
 
 #### 💸 `sales/` (Checkout)
 - `presentation/`: `NewSaleScreen` for processing transactions.
+
+#### 🛡️ `admin/` (Admin Workspace)
+- `data/`: `AuditRepository`, `UserRepository`.
+- `presentation/`: `AdminHomeScreen`, `UsersScreen`, `UsersProvider`.
+
+#### 🔎 `finder/` (Feature Finder)
+- `data/`: `FeatureEntry`, `FeatureRepository`, static catalogue and route table.
+- `presentation/`: `FinderScreen`, `FeatureSearchProvider`.
 
 ### `lib/routing/` (Navigation Graph)
 - `app_router.dart`: Central GoRouter configuration, handling auth redirects and shell routing.

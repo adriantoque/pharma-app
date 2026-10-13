@@ -1,19 +1,19 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_history_repository.dart';
 
-/// Provider for the Orders screen state.
+/// The Orders screen's write path.
+///
+/// Reading the orders is the screen's own business -- it subscribes to the
+/// repository's stream directly, so it stays live without a load step. What
+/// lives here is only the decision: approving or rejecting an order goes
+/// through one method so the two buttons cannot drift apart in how they report
+/// a failure.
 class OrdersProvider extends ChangeNotifier {
-  OrdersProvider({required this.historyFactory})
-    : _currentTab = OrderTab.all,
-      _orders = const [],
-      _isLoading = false,
-      _error = null;
+  OrdersProvider({required this.historyFactory});
 
-  /// How the screen builds the repository it reads orders from.
+  /// How the screen builds the repository it writes orders to.
   ///
   /// Public so the parameter and the field can be the same name: a private
   /// field behind a public parameter cannot be an initializing formal, and
@@ -23,79 +23,17 @@ class OrdersProvider extends ChangeNotifier {
 
   OrderHistoryRepository get _history => historyFactory();
 
-  OrderTab _currentTab = OrderTab.all;
-  List<OrderHistory> _orders = const [];
-  bool _isLoading = false;
-  String? _error;
-
-  OrderTab get currentTab => _currentTab;
-  List<OrderHistory> get orders => List.unmodifiable(_orders);
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-
-  /// The tab enumeration for the three report views.
-  static const List<OrderTab> tabs = [
-    OrderTab.all,
-    OrderTab.new_,
-    OrderTab.approved,
-  ];
-
-  /// Initializes the provider by loading all orders.
-  Future<void> initialize() async {
-    await _loadOrders();
-  }
-
-  /// Changes the active tab.
-  void setTab(OrderTab tab) {
-    if (_currentTab == tab) return;
-    _currentTab = tab;
-    notifyListeners();
-  }
-
-  /// Approves an order (changes status from new to approved).
-  Future<void> approveOrder(String id) => updateOrderStatus(id, OrderStatus.approved);
-
-  /// Rejects an order (changes status from new to rejected).
-  Future<void> rejectOrder(String id) => updateOrderStatus(id, OrderStatus.rejected);
-
-  /// Moves an order to [status] and reloads.
+  /// Moves an order to [status].
   ///
-  /// The single write path for the screen's two buttons, so approve and reject
-  /// cannot drift apart in how they report a failure.
+  /// The repository emits the change on the stream the screen already listens
+  /// to, so the list updates itself and no reload is needed here. A failure is
+  /// logged rather than surfaced: the screen has no place to show it, and the
+  /// order simply stays pending for the next attempt.
   Future<void> updateOrderStatus(String id, OrderStatus status) async {
     try {
       await _history.updateStatus(id, status);
-      await _loadOrders();
     } catch (e) {
-      _error = 'Failed to update order: $e';
-      notifyListeners();
+      debugPrint('Failed to update order $id: $e');
     }
   }
-
-  Future<void> _loadOrders() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      final snapshot = await _history.watchAll().first;
-      _orders = snapshot;
-    } catch (e) {
-      _error = 'Failed to load orders: $e';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-}
-
-/// Tab enumeration for the three order views.
-enum OrderTab {
-  all('All'),
-  new_('New'),
-  approved('Approved');
-
-  const OrderTab(this.label);
-
-  final String label;
 }

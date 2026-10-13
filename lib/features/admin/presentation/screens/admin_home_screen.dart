@@ -329,9 +329,8 @@ class _QuickActions extends StatelessWidget {
 
 /// One destination row.
 ///
-/// Own copy rather than a share of `DashboardTile`, which was built for a
-/// different set of cards: this one has a "coming soon" state that tile does
-/// not, and the whole row goes grey for it.
+/// This has a "coming soon" state the staff dashboard's cards do not: the whole
+/// row goes grey for it while the tap still surfaces a snackbar.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,

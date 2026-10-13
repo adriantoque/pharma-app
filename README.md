@@ -1,12 +1,25 @@
 # PharmaGuide
 
-A pharmacy companion app with a medicine directory and first-aid guidance.
+A pharmacy counter app: a medicine directory, point-of-sale, order approval and
+reporting, with Firebase auth and offline support.
 
 ## Current state
 
-Email/password sign-up and sign-in plus Google sign-in are working. Signing in
-lands on a placeholder screen; the medicine directory and first-aid guidance
-features have not been built yet.
+Sign-in is email/password plus Google, with an offline guest mode and a
+three-role split (admin, staff, guest). The app is two workspaces:
+
+- **Staff shell** (three tabs): **Home** dashboard (sync status, pending
+  orders, expiring/out-of-stock tiles, new order), **Medicine** search, and
+  **Orders** (approve or reject pending orders, plus order history). Staff also
+  get New Sale + cart, ML Kit OCR scanning, notifications and profile/appearance.
+- **Admin workspace** (no bottom bar): inventory, reports and user management.
+
+Reports read real order history and the live catalogue. Profit is an estimate
+because the price list has no cost price: it is shown as revenue times a fixed
+22% margin, and the screen says so beside the number.
+
+Reading and writing are separated. The Orders and Reports screens subscribe to
+repository streams, so they stay live without a manual refresh.
 
 ## Running
 
@@ -45,17 +58,29 @@ lib/
   app.dart                 MaterialApp.router host
   main.dart                provider graph, owned router
   bootstrap/               Firebase init + failure screen
-  core/theme/              shared ThemeData
-  routing/app_router.dart  createAppRouter() + redirect guard
+  core/
+    navigation/            AppShell (bottom bar) and destination list
+    theme/                 shared ThemeData, theme-mode provider
+    widgets/               shared widgets (offline banners, pagination)
+  routing/app_router.dart  createAppRouter() + role redirect guard
   features/
-    auth/                  presentation / data
+    auth/                  sign-in doors, session, roles
+    dashboard/             Home tab, notifications, expiring meds
+    search/                medicine catalogue + provider
+    sales/                 New Sale and cart
+    orders/                Orders tab, history, repository
+    reports/               sales, low stock and expiry reports
+    inventory/             stock and expiry management (admin)
+    admin/                 admin workspace, users
+    scan/                  ML Kit OCR + camera
+    finder/                feature finder
+    profile/               profile and appearance
 ```
 
-`features/auth` holds everything that exists so far. When you add a feature,
-mirror the shape already used there: a `data/models` + `data/repositories`
-pair behind an abstract repository, a single `ChangeNotifier` in
-`presentation/providers`, and screens in `presentation/screens`. Register new
-providers in `main.dart` and add routes in `app_router.dart`.
+Each feature follows the same shape: a `data/models` + `data/repositories` pair
+behind an abstract repository, a `ChangeNotifier` in `presentation/providers`,
+and screens in `presentation/screens`. Register new providers in `main.dart`
+and add routes in `app_router.dart`.
 
 Auth state lives in a single `AuthProvider`. The router reads it through
 `context.read` and listens to it directly, so there is no separate bridge
