@@ -142,7 +142,8 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
           create: (ctx) => UserRepository(firestore: ctx.read<FirebaseFirestore>()),
         ),
         Provider<AuditRepository>(
-          create: (ctx) => AuditRepository(firestore: ctx.read<FirebaseFirestore>()),
+          create: (ctx) =>
+              FirestoreAuditRepository(firestore: ctx.read<FirebaseFirestore>()),
         ),
         Provider<OfflineSession>(
           create: (_) => StoredOfflineSession(

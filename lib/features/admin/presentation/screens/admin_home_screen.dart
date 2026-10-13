@@ -8,6 +8,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/audit_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../domain/audit_event.dart';
+import '../widgets/activity_row.dart';
 
 /// The Admin workspace: the only screen an administrator sees.
 ///
@@ -319,8 +320,7 @@ class _QuickActions extends StatelessWidget {
           icon: Icons.article_outlined,
           title: 'Activity log',
           subtitle: 'Who did what, when',
-          comingSoon: true,
-          onTap: () => _comingSoon(context, 'Activity log'),
+          onTap: () => context.pushNamed('admin-activity'),
         ),
       ],
     );
@@ -451,18 +451,10 @@ class _ActionTile extends StatelessWidget {
 /// The last three audit entries, with a "See all" link.
 ///
 /// Shows three and not five so the section reads as a preview rather than a
-/// list -- the full log is a screen of its own once Phase 3 lands, and this
+/// list -- the full log is a screen of its own (the Activity log), and this
 /// section is a pointer to it.
 class _RecentActivitySection extends StatelessWidget {
   const _RecentActivitySection();
-
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Activity log — coming soon')),
-      );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +467,7 @@ class _RecentActivitySection extends StatelessWidget {
         _SectionHeader(
           title: 'Recent activity',
           trailing: TextButton(
-            onPressed: () => _comingSoon(context),
+            onPressed: () => context.pushNamed('admin-activity'),
             child: const Text('See all'),
           ),
         ),
@@ -531,7 +523,7 @@ class _RecentActivitySection extends StatelessWidget {
                   for (var i = 0; i < preview.length; i++) ...[
                     if (i > 0)
                       const Divider(height: 1, indent: 60, endIndent: 16),
-                    _ActivityRow(event: preview[i]),
+                    ActivityRow(event: preview[i]),
                   ],
                 ],
               );
@@ -540,76 +532,6 @@ class _RecentActivitySection extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.event});
-
-  final AuditEvent event;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: scheme.secondaryContainer,
-            child: Icon(
-              _iconFor(event.action),
-              size: 16,
-              color: scheme.onSecondaryContainer,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  event.summary,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${event.actorName} · ${_relativeTime(event.at)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static IconData _iconFor(AuditAction action) => switch (action.category) {
-        AuditCategory.users => Icons.people_outline,
-        AuditCategory.settings => Icons.settings_outlined,
-        AuditCategory.all => Icons.history_outlined,
-      };
-
-  /// Reads the same way as the notification timestamps do, in the local
-  /// 8-line form. Shared formatting would be a nice-to-have; cross-feature
-  /// imports for a single function are not, so this stays here.
-  static String _relativeTime(DateTime timestamp) {
-    final diff = DateTime.now().difference(timestamp);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours} h ago';
-    if (diff.inDays < 7) return '${diff.inDays} d ago';
-    return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
   }
 }
 

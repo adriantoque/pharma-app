@@ -40,7 +40,7 @@ lib/
     widgets/
       offline_banner.dart     Connection loss, driven by SyncStatus
       offline_mode_banner.dart Deliberate offline mode, driven by AuthProvider
-      feature_placeholder.dart  UNUSED
+      show_csv_export_dialog.dart  Shared CSV dialog (Inventory + Expiring meds)
 
   routing/
     app_router.dart           GoRouter, auth redirect, four shell branches
@@ -53,7 +53,7 @@ lib/
     sales/      the new-sale screen
     reports/    sales / low stock / expiry reporting
     scan/       camera -> ML Kit OCR -> catalogue matching
-    profile/    profile screen; settings screen (UNUSED)
+    profile/    profile screen, appearance, about, permissions
 
 assets/
   data/medicines_seed.json    490 price-list lines, bundled
@@ -526,12 +526,18 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 
 ## 8. Tests
 
-19 test files under `test/`, plus five shared fakes in `test/helpers/`.
+26 test files under `test/`, plus six shared fakes in `test/helpers/`.
 
 | File | Covers |
 |---|---|
 | `widget_test.dart` | auth provider units, routing, app bar titles, login sheet |
-| `dashboard_search_test.dart` | Home search, quantity sheet, stock-line wording |
+| `features/admin/activity_log_screen_test.dart` | the full activity log: entries, category filter, empty state |
+| `features/profile/about_screen_test.dart` | the About screen's name and licence affordance |
+| `features/profile/permissions_screen_test.dart` | the capability list per role (admin/staff/guest) |
+| `features/dashboard/expiring_meds_screen_test.dart` | the CSV export of the dated list, and its absence when empty |
+| `features/finder/feature_catalogue_test.dart` | feature ids, route paths and icon keys |
+| `features/finder/feature_entry_test.dart` | feature search matching and ordering |
+| `features/finder/feature_repository_test.dart` | feature repository ordering and query behaviour |
 | `medicine_catalog_test.dart` | `StaticMedicineRepository`, search semantics |
 | `medicine_persistence_test.dart` | `documentId` stability, Firestore round trip, `copyWith` |
 | `medicine_provider_test.dart` | account scoping, optimistic writes and rollback |
@@ -552,13 +558,14 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 
 ### Injection seams
 
-Only three screens and one widget take constructor parameters for tests:
+A handful of screens take constructor parameters for tests:
 
 | Seam | Type | Purpose |
 |---|---|---|
 | `PharmaGuideApp.bootstrap` | `Future<FirebaseBootstrapResult>?` | control when the splash gives way |
 | `OrdersScreen.historyFactory` | `OrderHistoryRepository Function()?` | inject order history |
 | `ReportsScreen.repository` | `ReportsRepository?` | inject report data |
+| `ActivityLogScreen.repository` | `AuditRepository?` | inject the activity log |
 | `ScanScreen.{repository, recognizer, camera}` | interface types | inject catalogue, OCR, camera |
 
 `AuthLandingScreen`, `DashboardScreen`, `InventoryScreen`, `ExpiringMedsScreen`,
@@ -570,6 +577,7 @@ graph around them instead.
 | Fake | Interface |
 |---|---|
 | `FakeAuthRepository` | `AuthRepository` — counters, injectable failures, a gateable refresh |
+| `FakeAuditRepository` | `AuditRepository` — a driven stream plus a `recorded` list |
 | `FakeMedicineStore` | `MedicineStore` — `operations` log, injectable read/write errors |
 | `FakeSyncingMedicineStore` | adds `SyncStatusSource`, kept separate so a store that does *not* report reachability stays provable |
 | `FakePrescriptionCamera` | `PrescriptionCamera` — support flags, picture bytes, disposal flag |
@@ -691,17 +699,26 @@ and admin), the feature directory layout and the reports profit caveat.
 **G8 — Stray `assets/data/medicines_seed.json.bak`.** Byte-identical to the live
 asset and not registered in `pubspec.yaml`.
 
-**G9 — `firebase.json` has no `firestore` section**, so `firebase deploy` will not
-deploy `firestore.rules` without one being added. This appears deliberate, and
-matches the rules file's own header.
+**G9 — FIXED (manual deploy): the Firestore rules are deployable.**
+`firebase.json` now carries a `firestore` section pointing at `firestore.rules`
+and `firestore.indexes.json` (created empty), and `.firebaserc` names the project,
+so `firebase deploy --only firestore` works. Deployment stays a deliberate manual
+step — there is no CI job — which is why this is fixed rather than automated.
 
-**G10 — Inert "coming soon" controls.** Several rows and buttons are affordances
-with no implementation behind them; each shows a snackbar. They span
-`InventoryScreen` (bulk count entry), `ExpiringMedsScreen` (expiry
-notifications, batch expiry entry, export list), `AdminHomeScreen` (store
-settings, activity log) and `ProfileScreen` (store details, permissions, help
-and support, about). There is still no PDF, printing, sharing or CSV code
-anywhere in the app: no `pdf`, `printing`, `share_plus` or `path_provider`
-dependency, and the only file writes in `lib/` are two temp JPEGs in the scan
-feature, because the ML Kit plugin takes a path rather than bytes. The Reports
-screen no longer carries an export button.
+**G10 — MOSTLY FIXED: the inert controls are implemented, removed or deferred.**
+The "coming soon" affordances were dealt with one of three ways:
+
+- **Implemented.** Inventory and Expiring Meds export their lists through a shared
+  `showCsvExportDialog` (selectable text plus copy-to-clipboard); the Admin home's
+  "Activity log" opens the full `ActivityLogScreen`; and Profile gains
+  `AboutScreen` and a read-only `PermissionsScreen` (the capability list is read
+  from the `UserRoleCapabilities` extension, so it cannot drift from the router).
+- **Removed.** Inventory's bulk count entry, and Expiring Meds' batch expiry
+  entry and expiry notifications, and Profile's help and support.
+- **Deferred.** Admin's store settings and Profile's store details keep their
+  stubs.
+
+Export is still clipboard-only: there is no `path_provider`, `share_plus`,
+`printing` or `pdf` dependency, and the only file writes in `lib/` remain the two
+temp JPEGs in the scan feature, because the ML Kit plugin takes a path rather than
+bytes. The Reports screen carries no export button.

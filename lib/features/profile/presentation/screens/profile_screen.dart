@@ -251,7 +251,7 @@ class _BusinessSection extends StatelessWidget {
         _NavTile(
           icon: Icons.lock_outline,
           label: 'Permissions',
-          onTap: () => _comingSoon(context, 'Permissions'),
+          onTap: () => context.pushNamed('home-profile-permissions'),
         ),
         _NavTile(
           icon: Icons.palette_outlined,
@@ -271,12 +271,7 @@ class _SupportSection extends StatelessWidget {
     return _Section(
       title: 'Support',
       children: [
-        _NavTile(
-          icon: Icons.help_outline,
-          label: 'Help and support',
-          onTap: () => _comingSoon(context, 'Help and support'),
-        ),
-        _AboutTile(onTap: () => _comingSoon(context, 'About')),
+        _AboutTile(onTap: () => context.pushNamed('home-profile-about')),
       ],
     );
   }

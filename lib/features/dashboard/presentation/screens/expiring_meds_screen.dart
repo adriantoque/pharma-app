@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/widgets/show_csv_export_dialog.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../widgets/expiry_sheet.dart';
@@ -46,11 +47,12 @@ class ExpiringMedsScreen extends StatelessWidget {
     // to move the list.
     final catalogue = context.watch<MedicineProvider>();
 
-    final dated = catalogue
-        .all()
-        .where((medicine) => medicine.expiryDate != null)
-        .toList()
-      ..sort(_byExpiry);
+    final dated =
+        catalogue
+            .all()
+            .where((medicine) => medicine.expiryDate != null)
+            .toList()
+          ..sort(_byExpiry);
 
     final expired = dated.where((medicine) => medicine.isExpired).toList();
 
@@ -73,92 +75,111 @@ class ExpiringMedsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Expiring Meds'),
         actions: [
-          IconButton(
-            tooltip: 'Expiry notifications (coming soon)',
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Expiry notifications — coming soon')),
+          // Only offered once there is something to export: an export button
+          // over an empty list is a dead end.
+          if (dated.isNotEmpty)
+            IconButton(
+              tooltip: 'Export expiring list',
+              icon: const Icon(Icons.download_outlined),
+              onPressed: () => _export(context, dated),
             ),
-          ),
-          IconButton(
-            tooltip: 'Batch expiry entry (coming soon)',
-            icon: const Icon(Icons.add_task_outlined),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Batch expiry entry — coming soon')),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Export expiring list (coming soon)',
-            icon: const Icon(Icons.download_outlined),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Export CSV — coming soon')),
-            ),
-          ),
         ],
       ),
       body: switch ((catalogue.error, catalogue.isLoading)) {
         (final String message, _) => _Body(
-            icon: Icons.cloud_off_outlined,
-            title: 'The price list did not load',
-            detail: message,
-          ),
+          icon: Icons.cloud_off_outlined,
+          title: 'The price list did not load',
+          detail: message,
+        ),
         (_, true) => const Center(child: CircularProgressIndicator()),
         _ when dated.isEmpty => const _Body(
-            icon: Icons.event_busy_outlined,
-            title: 'No expiry dates recorded',
-            detail: 'Expiry dates are entered by hand: open a product from '
-                'Inventory and set the date its lot expires. Nothing has been '
-                'recorded yet.',
-          ),
+          icon: Icons.event_busy_outlined,
+          title: 'No expiry dates recorded',
+          detail:
+              'Expiry dates are entered by hand: open a product from '
+              'Inventory and set the date its lot expires. Nothing has been '
+              'recorded yet.',
+        ),
         _ => ListView(
-            children: [
-              if (expired.isNotEmpty) ...[
-                _SectionHeader(
-                  title: 'Already expired',
-                  count: expired.length,
-                  colour: theme.colorScheme.error,
+          children: [
+            if (expired.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Already expired',
+                count: expired.length,
+                colour: theme.colorScheme.error,
+              ),
+              for (final medicine in expired)
+                _ExpiryRow(
+                  medicine: medicine,
+                  onTap: () => _edit(context, medicine),
                 ),
-                for (final medicine in expired)
-                  _ExpiryRow(
-                    medicine: medicine,
-                    onTap: () => _edit(context, medicine),
-                  ),
-              ],
-              if (soon.isNotEmpty) ...[
-                _SectionHeader(
-                  title: 'Expiring within $soonDays days',
-                  count: soon.length,
-                  colour: theme.colorScheme.error,
-                ),
-                for (final medicine in soon)
-                  _ExpiryRow(
-                    medicine: medicine,
-                    onTap: () => _edit(context, medicine),
-                  ),
-              ],
-              if (later.isNotEmpty) ...[
-                _SectionHeader(
-                  title: 'Later',
-                  count: later.length,
-                  colour: theme.colorScheme.onSurfaceVariant,
-                ),
-                for (final medicine in later)
-                  _ExpiryRow(
-                    medicine: medicine,
-                    onTap: () => _edit(context, medicine),
-                  ),
-              ],
-              // Room for the last row to clear the floating bar in a list that
-              // is scrolled to the bottom.
-              const SizedBox(height: 24),
             ],
-          ),
+            if (soon.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Expiring within $soonDays days',
+                count: soon.length,
+                colour: theme.colorScheme.error,
+              ),
+              for (final medicine in soon)
+                _ExpiryRow(
+                  medicine: medicine,
+                  onTap: () => _edit(context, medicine),
+                ),
+            ],
+            if (later.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Later',
+                count: later.length,
+                colour: theme.colorScheme.onSurfaceVariant,
+              ),
+              for (final medicine in later)
+                _ExpiryRow(
+                  medicine: medicine,
+                  onTap: () => _edit(context, medicine),
+                ),
+            ],
+            // Room for the last row to clear the floating bar in a list that
+            // is scrolled to the bottom.
+            const SizedBox(height: 24),
+          ],
+        ),
       },
     );
   }
 
   Future<void> _edit(BuildContext context, MedicineModel medicine) {
     return showExpirySheet(context, medicine: medicine);
+  }
+
+  /// Exports the dated list as a CSV, in the same order the screen shows it.
+  ///
+  /// The exported sheet is the list the counter is looking at, not a fresh
+  /// query: "export what I see" is the only version of this a user can predict.
+  static Future<void> _export(BuildContext context, List<MedicineModel> dated) {
+    final lines = <String>['Name,Expiry,Status'];
+    for (final medicine in dated) {
+      final date = medicine.expiryDate!;
+      final iso =
+          '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+      final name = medicine.name.replaceAll(',', ';');
+      lines.add('$name,$iso,${_statusLabel(medicine)}');
+    }
+    return showCsvExportDialog(
+      context,
+      title: 'Expiring Meds CSV Export',
+      csv: lines.join('\n'),
+    );
+  }
+
+  /// The row wording, without the colour. Keeps the export and the screen
+  /// describing a line the same way.
+  static String _statusLabel(MedicineModel medicine) {
+    if (medicine.isExpired) return 'Expired';
+    final days = medicine.daysUntilExpiry ?? 999;
+    if (days == 0) return 'Expires today';
+    return 'Expires in $days days';
   }
 }
 
@@ -207,11 +228,11 @@ class _ExpiryRow extends StatelessWidget {
     final (label, colour) = switch (medicine.isExpired) {
       true => ('Expired', theme.colorScheme.error),
       false => switch (days ?? 999) {
-          0 => ('Expires today', theme.colorScheme.error),
-          <= 30 => ('Expires in $days days', theme.colorScheme.error),
-          <= 90 => ('Expires in $days days', theme.colorScheme.tertiary),
-          _ => ('Expires in $days days', theme.colorScheme.onSurfaceVariant),
-        },
+        0 => ('Expires today', theme.colorScheme.error),
+        <= 30 => ('Expires in $days days', theme.colorScheme.error),
+        <= 90 => ('Expires in $days days', theme.colorScheme.tertiary),
+        _ => ('Expires in $days days', theme.colorScheme.onSurfaceVariant),
+      },
     };
 
     return ListTile(
@@ -222,7 +243,8 @@ class _ExpiryRow extends StatelessWidget {
         style: theme.textTheme.bodySmall?.copyWith(color: colour),
       ),
       trailing: Text(
-        MaterialLocalizations.of(context).formatMediumDate(medicine.expiryDate ?? DateTime.now()),
+        MaterialLocalizations.of(context)
+            .formatMediumDate(medicine.expiryDate ?? DateTime.now()),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),
@@ -250,7 +272,11 @@ class _Body extends StatelessWidget {
           children: [
             Icon(icon, size: 48, color: theme.colorScheme.outline),
             const SizedBox(height: 16),
-            Text(title, textAlign: TextAlign.center, style: theme.textTheme.bodyLarge),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge,
+            ),
             const SizedBox(height: 8),
             Text(
               detail,

@@ -1,1 +1,26 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"pharmaguide-school","appId":"1:941784298885:android:a3ece0c6a014562b8000ec","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"pharmaguide-school","configurations":{"android":"1:941784298885:android:a3ece0c6a014562b8000ec","web":"1:941784298885:web:8e29fd8e66c31e068000ec"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "pharmaguide-school",
+          "appId": "1:941784298885:android:a3ece0c6a014562b8000ec",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "pharmaguide-school",
+          "configurations": {
+            "android": "1:941784298885:android:a3ece0c6a014562b8000ec",
+            "web": "1:941784298885:web:8e29fd8e66c31e068000ec"
+          }
+        }
+      }
+    }
+  }
+}

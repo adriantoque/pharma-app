@@ -6,12 +6,14 @@ rules_version = '2';
 // catalogue or sales.
 //
 // Deploy with:
-//   firebase deploy --only firestore:rules
+//   firebase deploy --only firestore
 //
-// This is deliberately not in the repository's build path. The rules are the one
-// thing here that is not reviewable in a pull request and not testable by
-// `flutter test`, so applying them is a deliberate act at the console rather than
-// something a deploy script does behind your back.
+// `firebase.json` points at this file (and at `firestore.indexes.json`), and
+// `.firebaserc` pins the project, so the command above works from the repo root.
+// Nothing runs it automatically: the rules are the one thing here that is not
+// reviewable in a pull request and not testable by `flutter test`, so applying
+// them stays a deliberate act at the console rather than something a build or a
+// CI job does behind your back.
 service cloud.firestore {
   match /databases/{database}/documents {
 

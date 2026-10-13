@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/utils/currency.dart';
+import '../../../../core/widgets/show_csv_export_dialog.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../dashboard/presentation/widgets/stock_sheet.dart';
+
 /// Reached from the bottom-nav Inventory tab.
 ///
 /// Where the shelf counts are actually taken. The price list knows what
@@ -45,14 +46,12 @@ enum _StockFilter {
 
   /// Whether a line in [state] belongs in this filter.
   bool accepts(StockState state) => switch (this) {
-        _StockFilter.uncounted => state == StockState.unknown,
-        _StockFilter.outOfStock => state == StockState.outOfStock,
-        _StockFilter.low => state == StockState.low,
-        _StockFilter.all => true,
-      };
+    _StockFilter.uncounted => state == StockState.unknown,
+    _StockFilter.outOfStock => state == StockState.outOfStock,
+    _StockFilter.low => state == StockState.low,
+    _StockFilter.all => true,
+  };
 }
-
-enum _MenuAction { bulkCount, export }
 
 /// Everything the screen needs from one pass over the catalogue.
 class _Summary {
@@ -203,12 +202,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     await showStockSheet(context, medicine: medicine);
   }
 
-  void _comingSoon(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
   void _clearSearch() {
     setState(() {
       _controller.clear();
@@ -251,42 +244,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
       lines.add('$nameEscaped,$price,$stock,$stateName');
     }
     final csvString = lines.join('\n');
-    _showCsvDialog(csvString);
-  }
-
-  void _showCsvDialog(String csv) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Inventory CSV Export'),
-        content: SingleChildScrollView(
-          child: SizedBox(
-            width: double.maxFinite,
-            child: SelectableText(
-              csv,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Close'),
-          ),
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: csv));
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('CSV copied to clipboard')),
-              );
-            },
-            child: const Text('Copy to clipboard'),
-          ),
-        ],
-      ),
+    await showCsvExportDialog(
+      context,
+      title: 'Inventory CSV Export',
+      csv: csvString,
     );
   }
 
@@ -417,23 +378,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: const Text('Inventory'),
         centerTitle: true,
         actions: [
-          PopupMenuButton<_MenuAction>(
-            tooltip: 'More actions',
-            onSelected: (action) => switch (action) {
-              _MenuAction.bulkCount =>
-                _comingSoon('Bulk count entry — coming soon'),
-              _MenuAction.export => _exportCsv(),
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _MenuAction.bulkCount,
-                child: Text('Bulk count entry'),
-              ),
-              PopupMenuItem(
-                value: _MenuAction.export,
-                child: Text('Export counted list'),
-              ),
-            ],
+          IconButton(
+            tooltip: 'Export counted list',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: _exportCsv,
           ),
         ],
       ),
@@ -456,49 +404,47 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Expanded(
             child: switch ((catalogue.error, catalogue.isLoading)) {
               (final String message, _) => _Message(
-                  icon: Icons.cloud_off_outlined,
-                  title: 'The price list did not load',
-                  detail: message,
-                  colour: theme.colorScheme.error,
-                ),
+                icon: Icons.cloud_off_outlined,
+                title: 'The price list did not load',
+                detail: message,
+                colour: theme.colorScheme.error,
+              ),
               (_, true) => const Center(child: CircularProgressIndicator()),
               _ when all.isEmpty => const _Message(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'No products yet',
-                  detail: 'The price list has to be imported before stock can '
-                      'be counted.',
-                ),
+                icon: Icons.inventory_2_outlined,
+                title: 'No products yet',
+                detail:
+                    'The price list has to be imported before stock can '
+                    'be counted.',
+              ),
               _ when summary.visible.isEmpty => _Message(
-                  icon: Icons.check_circle_outline,
-                  title: needle.isEmpty && _filter == _StockFilter.uncounted
-                      ? 'Everything is counted'
-                      : 'Nothing here',
-                  detail: needle.isEmpty
-                      ? (_filter == _StockFilter.uncounted
+                icon: Icons.check_circle_outline,
+                title: needle.isEmpty && _filter == _StockFilter.uncounted
+                    ? 'Everything is counted'
+                    : 'Nothing here',
+                detail: needle.isEmpty
+                    ? (_filter == _StockFilter.uncounted
                           ? 'Every product has a stock count.'
                           : 'No product is in this state.')
-                      : 'No match for "$needle" in this state.',
-                ),
+                    : 'No match for "$needle" in this state.',
+              ),
               _ => ListView.separated(
-                  // Keyed on the page so the list scroll position resets when
-                  // the page changes. Without this, a page of similar-length
-                  // rows keeps the previous page's offset and lands the user
-                  // halfway down a list they have not seen yet.
-                  key: ValueKey('inventory-page-$page'),
-                  itemCount: pageItems.length,
-                  separatorBuilder: (context, index) => const Divider(
-                    height: 1,
-                    indent: 16,
-                    endIndent: 16,
-                  ),
-                  itemBuilder: (context, index) {
-                    final medicine = pageItems[index];
-                    return _StockRow(
-                      medicine: medicine,
-                      onTap: () => _edit(medicine),
-                    );
-                  },
-                ),
+                // Keyed on the page so the list scroll position resets when
+                // the page changes. Without this, a page of similar-length
+                // rows keeps the previous page's offset and lands the user
+                // halfway down a list they have not seen yet.
+                key: ValueKey('inventory-page-$page'),
+                itemCount: pageItems.length,
+                separatorBuilder: (context, index) =>
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                itemBuilder: (context, index) {
+                  final medicine = pageItems[index];
+                  return _StockRow(
+                    medicine: medicine,
+                    onTap: () => _edit(medicine),
+                  );
+                },
+              ),
             },
           ),
           // The pager is drawn only when there is more than one page. An
@@ -628,10 +574,7 @@ class _Pager extends StatelessWidget {
 /// the caller, so the controller has an owner that disposes it and the field
 /// survives the dialog being rebuilt by the keyboard appearing.
 class _JumpToPageDialog extends StatefulWidget {
-  const _JumpToPageDialog({
-    required this.current,
-    required this.maxPage,
-  });
+  const _JumpToPageDialog({required this.current, required this.maxPage});
 
   final int current;
   final int maxPage;
@@ -696,10 +639,7 @@ class _JumpToPageDialogState extends State<_JumpToPageDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Go'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Go')),
       ],
     );
   }
@@ -814,9 +754,9 @@ class _ProgressCard extends StatelessWidget {
   final _Summary summary;
 
   static String _group(int number) => number.toString().replaceAllMapped(
-        RegExp(r'\B(?=(\d{3})+(?!\d))'),
-        (_) => ',',
-      );
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -905,11 +845,11 @@ class _FilterBar extends StatelessWidget {
                 onSelected: (_) => onSelected(filter),
                 avatar: switch (filter) {
                   _StockFilter.outOfStock => _Dot(
-                      _StockColors.status(context, StockState.outOfStock),
-                    ),
+                    _StockColors.status(context, StockState.outOfStock),
+                  ),
                   _StockFilter.low => _Dot(
-                      _StockColors.status(context, StockState.low),
-                    ),
+                    _StockColors.status(context, StockState.low),
+                  ),
                   _ => null,
                 },
                 label: Text('${filter.label} ${counts[filter] ?? 0}'),
@@ -928,10 +868,10 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: colour, shape: BoxShape.circle),
-      );
+    width: 8,
+    height: 8,
+    decoration: BoxDecoration(color: colour, shape: BoxShape.circle),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -964,13 +904,11 @@ abstract final class _StockColors {
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     return switch (state) {
-      StockState.outOfStock => (
-          scheme.errorContainer,
-          scheme.onErrorContainer,
-        ),
-      StockState.low => dark
-          ? (const Color(0xFF4A3600), const Color(0xFFFFD98A))
-          : (const Color(0xFFFFE8B8), const Color(0xFF6B4A00)),
+      StockState.outOfStock => (scheme.errorContainer, scheme.onErrorContainer),
+      StockState.low =>
+        dark
+            ? (const Color(0xFF4A3600), const Color(0xFFFFD98A))
+            : (const Color(0xFFFFE8B8), const Color(0xFF6B4A00)),
       _ => (scheme.surfaceContainerHighest, scheme.onSurface),
     };
   }
@@ -1066,10 +1004,8 @@ class _StockPill extends StatelessWidget {
       ),
       child: Text(
         '${quantity ?? 0}',
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w600,
-            ),
+        style: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(color: foreground, fontWeight: FontWeight.w600),
       ),
     );
   }

@@ -7,11 +7,12 @@ Branch:   main
 Tracker:  none on disk. `WORKTODO` and `UNFINISHED_TASKS.txt` have both been
           deleted; `docs/architecture.md` §10 is the canonical gap registry.
 
-Where things stand: Phases 1-6 are DONE. `flutter analyze` reports **No issues
-found**. `flutter test` reports **334 pass, 0 fail** (see section 10).
+Where things stand: Phases 1-7 are DONE. `flutter analyze` reports **No issues
+found**. `flutter test` reports **343 pass, 0 fail** (see section 10).
 
-HEAD: commit `72dbe81` on `main`, not pushed. Phase 6 (dead-code deletion and
-doc corrections) is recorded at the end of this file.
+HEAD: commit `121d713` on `main`, not pushed. Phases 6 and 7 (dead-code deletion
+and doc corrections, then the G9/G10 gap work) are recorded at the end of this
+file. The Phase 7 changes are uncommitted at the time of writing.
 
 READ SECTION 1a BEFORE BELIEVING ANY CHECKBOX IN EITHER TRACKER.
 
@@ -307,7 +308,7 @@ D1: Rewrite the Scan integration test for camera + OCR.
 
 10. KNOWN-UNRELATED TEST FAILURES
 ---------------------------------
-There are none. A full `flutter test` run is **334 pass, 0 fail**, and
+There are none. A full `flutter test` run is **343 pass, 0 fail**, and
 `flutter analyze` reports **No issues found**.
 
 The old "293 pass / 6 fail" figure was misdiagnosed. The failures in
@@ -320,7 +321,7 @@ and now pass. mlkit_text_recognizer_test.dart needed
 
 Verified (whole suite):
   flutter analyze   0 issues
-  flutter test      334 pass / 0 fail
+  flutter test      343 pass / 0 fail
 
 
 11. ENVIRONMENT NOTES (PowerShell 5.1)
@@ -336,17 +337,15 @@ Verified (whole suite):
 
 12. IMMEDIATE NEXT STEPS
 ------------------------
-  1. G9 -- add a `firestore` section to `firebase.json` so `firestore.rules`
-     actually deploy. Until then the rules (including the 'rejected' status
-     allowed in §13) are not in force.
-  2. End-to-end: New Sale -> add items -> Proceed -> the order appears on the
-     Orders tab as "New".
-  3. G10 -- implement or remove the inert "coming soon" controls (inventory
-     bulk count, expiring-meds notifications/batch/export, admin store
-     settings + activity log, profile rows).
-  4. G8 -- delete `assets/data/medicines_seed.json.bak`.
-  5. G6 -- revisit the offline-banner test skip.
-  6. D1 when a device is available (camera + OCR integration test).
+  1. G8 -- delete `assets/data/medicines_seed.json.bak` (a stale, unregistered
+     backup of the bundled price list).
+  2. G6 -- the remaining half: cover `FirestoreMedicineStore` itself (the
+     confirmation intersection and the replay-before-`enableNetwork` ordering).
+     Needs a Firestore emulator or a `fake_cloud_firestore` dependency.
+  3. D1 when a device is available (camera + OCR integration test).
+  4. Consider finishing G10's deferred stubs: admin store settings and profile
+     store details.
+  Done in Phase 7: G9 (deployable rules) and G10 (implement 4, remove 3, defer 2).
 
 
 13. PHASE 6 -- DEAD CODE AND DOC CORRECTIONS  [DONE]
@@ -377,3 +376,42 @@ Verified (whole suite):
 
   firestore.rules: validStatus already allowed 'rejected'; that is the status
   OrdersProvider.updateOrderStatus writes, so the rules and the client agree.
+
+
+14. PHASE 7 -- G9 (DEPLOYABLE RULES) AND G10 (INERT CONTROLS)  [DONE]
+--------------------------------------------------------------------
+  G9 -- the Firestore rules are now deployable (still a manual step):
+    firebase.json          gained a `firestore` block (rules + indexes)
+    firestore.indexes.json created, empty
+    .firebaserc            created, default project pharmaguide-school
+    firestore.rules        header notes `firebase deploy --only firestore`
+
+  G10 -- four controls implemented, three removed, two deferred:
+    Implemented:
+      Expiring Meds        "export list" -> CSV via a shared dialog
+      Inventory            "bulk count entry" menu -> a plain export IconButton,
+                           using the same shared dialog (bulk entry removed, not
+                           rewritten)
+      Admin home           "Activity log" -> new ActivityLogScreen
+                           (`/admin/activity`), with an AuditCategory chip filter
+      Profile              AboutScreen (`/home/profile/about`) and a read-only
+                           PermissionsScreen (`/home/profile/permissions`)
+    Removed:
+      Expiring Meds        batch expiry entry, expiry notifications
+      Profile              help and support
+    Deferred (stubs kept):
+      Admin store settings, profile store details
+
+  New shared pieces:
+    lib/core/widgets/show_csv_export_dialog.dart   used by both exporters
+    lib/features/admin/presentation/widgets/activity_row.dart  extracted so the
+                                                  Admin preview and the full log
+                                                  cannot drift
+    AuditRepository split into an abstract interface + FirestoreAuditRepository
+      (matching the other repositories), which is what makes ActivityLogScreen
+      testable with a FakeAuditRepository.
+
+  Tests added (9): activity log (3), about (1), permissions (3), expiring export
+  (2). Suite is now 343 pass / 0 fail. `flutter analyze` remains clean.
+
+  Docs updated for this phase: docs/architecture.md §1, §8 and §10; this file.

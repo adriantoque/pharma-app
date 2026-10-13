@@ -15,7 +15,9 @@ import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
 import '../features/orders/presentation/screens/order_history_screen.dart';
+import '../features/profile/presentation/screens/about_screen.dart';
 import '../features/profile/presentation/screens/appearance_screen.dart';
+import '../features/profile/presentation/screens/permissions_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
@@ -23,6 +25,7 @@ import '../features/sales/presentation/screens/new_sale_screen.dart';
 import '../features/sales/domain/payment_method.dart';
 import '../features/sales/presentation/screens/cart_screen.dart';
 import '../features/admin/presentation/screens/admin_home_screen.dart';
+import '../features/admin/presentation/screens/activity_log_screen.dart';
 import '../features/admin/presentation/screens/users_screen.dart';
 
 abstract final class AppRoutes {
@@ -44,6 +47,7 @@ abstract final class AppRoutes {
   static const String adminUsers = '/admin/users';
   static const String adminInventory = '/admin/inventory';
   static const String adminReports = '/admin/reports';
+  static const String adminActivity = '/admin/activity';
 
   /// Children of Home, pushed on the Home branch so the back arrow returns to
   /// the tile the user tapped from.
@@ -84,10 +88,12 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
       }
 
       final location = state.matchedLocation;
-      final atAuthScreen = location == AppRoutes.login ||
+      final atAuthScreen =
+          location == AppRoutes.login ||
           location == AppRoutes.adminLogin ||
           location == AppRoutes.staffLogin;
-      final atAdmin = location == AppRoutes.admin ||
+      final atAdmin =
+          location == AppRoutes.admin ||
           location.startsWith('${AppRoutes.admin}/');
 
       switch (auth.status) {
@@ -137,9 +143,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
       GoRoute(
         path: AppRoutes.finder,
         name: 'finder',
-        builder: (context, state) => FinderScreen(
-          onNavigate: (entry) => context.go(entry.routePath),
-        ),
+        builder: (context, state) =>
+            FinderScreen(onNavigate: (entry) => context.go(entry.routePath)),
       ),
 
       // Legacy paths. Admins are sent to the admin workspace copy of the
@@ -182,6 +187,11 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
             name: 'admin-reports',
             builder: (context, state) => const ReportsScreen(),
           ),
+          GoRoute(
+            path: 'activity',
+            name: 'admin-activity',
+            builder: (context, state) => const ActivityLogScreen(),
+          ),
         ],
       ),
 
@@ -221,6 +231,16 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                         name: 'home-profile-appearance',
                         builder: (context, state) => const AppearanceScreen(),
                       ),
+                      GoRoute(
+                        path: 'about',
+                        name: 'home-profile-about',
+                        builder: (context, state) => const AboutScreen(),
+                      ),
+                      GoRoute(
+                        path: 'permissions',
+                        name: 'home-profile-permissions',
+                        builder: (context, state) => const PermissionsScreen(),
+                      ),
                     ],
                   ),
                   GoRoute(
@@ -242,7 +262,8 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                     path: 'cart',
                     name: 'new-sale-cart',
                     builder: (context, state) {
-                      final payment = state.extra as PaymentMethod? ??
+                      final payment =
+                          state.extra as PaymentMethod? ??
                           PaymentMethod.cashOnHand;
                       return CartScreen(initialPayment: payment);
                     },
