@@ -19,9 +19,9 @@ Statuses mirror `docs/architecture.md` §10.
 | **G3** | Three widgets with zero call sites | `settings_screen.dart`, `dashboard_tile.dart`, `feature_placeholder.dart` | Medium | **Fixed** (deleted) |
 | **G4** | Order history not live | `orders_provider.dart`, `orders_screen.dart` | Medium | **Fixed** |
 | **G5** | `ReportsProvider` error without notify | `reports_provider.dart` | Medium | **Fixed** |
-| **G6** | Offline banner tests skip when `Connectivity()` throws `MissingPluginException` | `offline_banner_test.dart` | Low | Open |
+| **G6** | Sync layer untested (queue, connection source, `FirestoreMedicineStore`) | `pending_write_queue_test.dart`, `connection_source_test.dart`, `firestore_medicine_store_test.dart` | Low | **Fixed** |
 | **G7** | `README.md` described an app that no longer exists | `README.md` | Medium | **Fixed** |
-| **G8** | Stray `assets/data/medicines_seed.json.bak` | `assets/data/` | Low | Open |
+| **G8** | Stray `assets/data/medicines_seed.json.bak` | `assets/data/` | Low | **Fixed** (deleted) |
 | **G9** | `firebase.json` has no `firestore` section (rules won't deploy) | `firebase.json`, `.firebaserc` | High | **Fixed** (config added; manual deploy) |
 | **G10** | Inert "coming soon" controls | inventory, expiring meds, admin home, profile | Low | **Mostly fixed** (4 implemented, 3 removed, 2 deferred) |
 | **D1** | Scan integration test needs a physical device | `scan_screen.dart`, camera/OCR code | High | Deferred |
@@ -37,9 +37,10 @@ Statuses mirror `docs/architecture.md` §10.
 | **Phase 3** | DONE | Wire and ship Reports feature | - | - |
 | **Phase 4** | DONE | Remove `who`, wire up completion | - | - |
 | **Phase 5** | DONE | Cleanup: warnings, root files, analyze/test | - | - |
-| **Phase 5.4-5.6** | DONE | Test suite green: 343 pass, 0 fail (`flutter analyze` clean) | - | - |
+| **Phase 5.4-5.6** | DONE | Test suite green: 351 pass, 0 fail (`flutter analyze` clean) | - | - |
 | **Phase 6** | DONE | Dead-code deletion (`OrdersProvider` trim, 3 files) + doc corrections | - | - |
 | **Phase 7** | DONE | G9 deployable rules (`firebase.json`/`.firebaserc`) + G10 (export, activity log, about, permissions) | - | - |
+| **Phase 8** | DONE | G8 (deleted stray backup) + G6 (covered `FirestoreMedicineStore` against `fake_cloud_firestore`) | - | - |
 | **Phase D1** | Deferred | Scan integration test (needs physical device) | Rewrite camera + OCR flow | Await device |
 
 ---
@@ -65,7 +66,7 @@ Statuses mirror `docs/architecture.md` §10.
 ## 4. TEST COVERAGE MAP
 
 ### ✅ Passing Tests (Green)
-`flutter test` → **343 passing, 0 failing**. `flutter analyze` → **No issues found**.
+`flutter test` → **351 passing, 0 failing**. `flutter analyze` → **No issues found**.
 
 | Test File | Pass Count | Notes |
 |-----------|------------|-------|
@@ -80,31 +81,31 @@ Statuses mirror `docs/architecture.md` §10.
 | `features/dashboard/expiring_meds_screen_test.dart` | 2 | CSV export, and its absence when empty (G10) |
 | `features/profile/about_screen_test.dart` | 1 | App name and licence affordance (G10) |
 | `features/profile/permissions_screen_test.dart` | 3 | Capability list per role (G10) |
+| `firestore_medicine_store_test.dart` | 8 | Confirmation intersection, replay ordering, refusal/transport, `isTransportFailure` (G6) |
 
 ### 📋 Test Gaps
 - Scan integration test (D1) - needs a physical device
 - End-to-end New Sale → Orders tab flow
 - Reports widget tests - commented out with TODOs (`reports_test.dart:311`)
-- `FirestoreMedicineStore` - no tests (only the fake store is exercised)
+- `FirestoreMedicineStore`'s `hasPendingWrites`/`isFromCache` early returns and its `watchAll` error path - `fake_cloud_firestore` cannot reach them (needs the emulator)
 - Finder / feature-finder widget tests
 
 ---
 
 ## 5. NEXT PRIORITIES
 
-1. **G8** - Delete `assets/data/medicines_seed.json.bak`.
-2. **G6** - Cover `FirestoreMedicineStore` itself (needs an emulator or `fake_cloud_firestore`); the offline-banner test skip is resolved.
-3. **D1** - Scan integration test when a physical device is available (camera + ML Kit OCR flow).
-4. **End-to-end** - New Sale → add items → Proceed → order appears on the Orders tab as "New".
-5. **G10 leftovers** - the deferred admin store settings and profile store details stubs.
-6. **Deploy** - run `firebase deploy --only firestore` when the rules are to go live (G9 is config-only, by request).
+1. **D1** - Scan integration test when a physical device is available (camera + ML Kit OCR flow).
+2. **End-to-end** - New Sale → add items → Proceed → order appears on the Orders tab as "New".
+3. **G10 leftovers** - the deferred admin store settings and profile store details stubs.
+4. **Deploy** - run `firebase deploy --only firestore` when the rules are to go live (G9 is config-only, by request).
+5. **Optional** - a Firestore emulator, to cover the store's remaining metadata-dependent branches.
 
 ---
 
 ## 6. TRACKING CONVENTIONS
 
 - **Gap IDs** follow `docs/architecture.md` §10 (G1-G10), plus D1 for the deferred device test
-- **Phase numbers** match the project's phase numbering (1-6, 5.4-5.6, D1)
+- **Phase numbers** match the project's phase numbering (1-8, 5.4-5.6, D1)
 - **Status**: DONE, Open, Deferred, Pending
 - **Priority**: High (blocks user value), Medium (should fix), Low (nice to have)
 - **Test colors**: ✅ Passing, ❌ Known failures, 📋 Gaps
@@ -120,8 +121,8 @@ Statuses mirror `docs/architecture.md` §10.
 | Canonical gaps | `docs/architecture.md` §10 | Source of truth |
 | This MAP | `ai_tracking_map.md` | **This file** - active tracking |
 | Analyze Result | `flutter analyze` | No issues found |
-| Test Result | `flutter test` | 343 pass, 0 fail |
-| Branch / HEAD | `main` | commit `121d713` (not pushed; Phase 7 uncommitted) |
+| Test Result | `flutter test` | 351 pass, 0 fail |
+| Branch / HEAD | `main` | commit `aca76b3` (not pushed; Phase 8 uncommitted) |
 
 ---
 

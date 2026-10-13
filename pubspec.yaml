@@ -75,6 +75,15 @@ dev_dependencies:
   # both come from here, so the fake follows the real contract rather than a
   # guess at it.
   connectivity_plus_platform_interface: ^2.1.0
+  # Not used by the app, only by `test/firestore_medicine_store_test.dart`. An
+  # in-memory `FirebaseFirestore`, so the store's confirmation logic and its
+  # replay-before-`enableNetwork` ordering can be driven without an emulator.
+  # Pinned to a release whose `cloud_firestore` constraint matches pubspec.lock.
+  fake_cloud_firestore: ^4.3.0
+  # Used only by `test/firestore_medicine_store_test.dart`, to make the fake
+  # Firestore refuse one write so the store's refusal-versus-transport-failure
+  # split can be tested. A direct dependency because the test imports it.
+  mock_exceptions: ^0.8.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

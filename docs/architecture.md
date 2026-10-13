@@ -58,7 +58,6 @@ lib/
 assets/
   data/medicines_seed.json    490 price-list lines, bundled
   data/sales_seed.json        2043 historical sale lines, bundled
-  data/medicines_seed.json.bak   stale backup of the above, unregistered
   fonts/PlayfairDisplay-Variable.ttf
   images/baseIcon.png, bgtheme.jpg
 
@@ -67,7 +66,7 @@ tool/
   seed_firestore.dart         optional manual upload of the seed
   out/                        generated review artefacts (checked in)
 
-test/                         19 test files + 5 shared fakes in helpers/
+test/                         27 test files + 6 shared fakes in helpers/
 integration_test/             EMPTY (package still declared as a dev dep)
 
 firestore.rules               deployed by hand, deliberately not in build path
@@ -526,7 +525,7 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 
 ## 8. Tests
 
-26 test files under `test/`, plus six shared fakes in `test/helpers/`.
+27 test files under `test/`, plus six shared fakes in `test/helpers/`.
 
 | File | Covers |
 |---|---|
@@ -542,6 +541,7 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 | `medicine_persistence_test.dart` | `documentId` stability, Firestore round trip, `copyWith` |
 | `medicine_provider_test.dart` | account scoping, optimistic writes and rollback |
 | `seeded_medicine_store_test.dart` | bundle/server merge, auto-seed, disposal |
+| `firestore_medicine_store_test.dart` | confirmation intersection, replay-before-`enableNetwork`, refusal vs transport |
 | `order_provider_test.dart` | basket arithmetic, stock caps, sign-out behaviour |
 | `orders_screen_test.dart` | order tabs, approve action, empty states |
 | `new_sale_screen_test.dart` | cart, payment selection, completing a sale |
@@ -584,8 +584,8 @@ graph around them instead.
 | `FakePrescriptionRecognizer` | `PrescriptionRecognizer` — readings, gateable `recognize`, disposal flag |
 
 `integration_test/` is empty but the package is still a dev dependency. The Scan
-integration test was deleted and is tracked as deferred item **D1** in `WORKTODO`
-— camera and OCR need a physical device.
+integration test was deleted and is tracked as deferred item **D1** in §10 — camera
+and OCR need a physical device.
 
 ---
 
@@ -665,14 +665,14 @@ their error through `_handleError`, which calls `notifyListeners()`, and
 `_setLoading` notifies on the loading transitions. Covered by
 `test/reports_provider_test.dart` (10 tests).
 
-**G6 — PARTLY FIXED: the sync layer had no tests.** `PendingWriteQueue` (both
-implementations) and `ConnectionSource` are now covered, in
+**G6 — FIXED: the sync layer is covered, the store included.** `PendingWriteQueue`
+(both implementations) and `ConnectionSource` are covered, in
 `test/pending_write_queue_test.dart` (28 tests) and
 `test/connection_source_test.dart` (11 tests): the queue's version-mismatch
 handling, 500-entry cap, id-reuse protection and unreadable-storage paths; and
 the rule that only `ConnectivityResult.none` may mean "no route".
 
-Two things the new tests found:
+Two things those tests found:
 
 - **A real bug in `PlatformConnectionSource`, now fixed.** `onCancel` cancels the
   platform subscription, so while nothing is listening the source goes deaf. A
@@ -685,19 +685,33 @@ Two things the new tests found:
   saved here`. That test had been failing. Corrected, and it now covers the
   singular/plural split and the icon that distinguishes "safe" from "not yet".
 
-**Still untested: `FirestoreMedicineStore` itself**, which owns the confirmation
-intersection and the replay-before-`enableNetwork` ordering — the two most
-subtle things in the codebase. Covering it needs a Firestore emulator or a
-`fake_cloud_firestore` dependency; neither is set up here. That is the remaining
-half of this gap and worth doing next.
+The store itself, which owns the confirmation intersection and the
+replay-before-`enableNetwork` ordering, is now covered in
+`test/firestore_medicine_store_test.dart` (8 tests) against an in-memory
+Firestore (`fake_cloud_firestore`, a dev dependency; a refused write is staged
+with `mock_exceptions`, also a dev dependency). Those tests pin the two
+subtle behaviours: a clean snapshot confirms only the writes that were on the
+wire and leaves a queued-but-never-sent write alone; and on reconnect a queued
+write is sent *before* `enableNetwork()` is called. They also split a refused
+write (rethrown, dropped from the queue) from a transport failure (left queued,
+caller told nothing).
+
+Three branches stay uncovered because the in-memory fake cannot reach them: the
+`hasPendingWrites` and `isFromCache` early returns in `_noteSnapshot` (its
+snapshot metadata hardcodes `hasPendingWrites: false` and cannot report a cache
+read), and the `watchAll` error path that feeds `_noteError` (its query stream
+cannot be made to error). The classification `_noteError` leans on,
+`isTransportFailure`, is pure and is covered directly in the same test file.
+Reaching the rest would need the Firestore emulator.
 
 **G7 — FIXED: `README.md` now describes the app that exists.** It previously
 said signing in landed on a placeholder and documented a `lib/` layout
 containing only `features/auth`. It now lists the real workspaces (staff shell
 and admin), the feature directory layout and the reports profit caveat.
 
-**G8 — Stray `assets/data/medicines_seed.json.bak`.** Byte-identical to the live
-asset and not registered in `pubspec.yaml`.
+**G8 — FIXED: the stray backup is deleted.** `assets/data/medicines_seed.json.bak`
+(byte-identical to the live asset and not registered in `pubspec.yaml`) has been
+removed.
 
 **G9 — FIXED (manual deploy): the Firestore rules are deployable.**
 `firebase.json` now carries a `firestore` section pointing at `firestore.rules`
