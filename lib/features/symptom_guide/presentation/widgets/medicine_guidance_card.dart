@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../search/data/models/medicine_model.dart' show StockState;
+
 /// A card showing one medicine's guidance.
 ///
 /// The caller provides the pre-resolved text so the widget does not need to
-/// import [MedicineModel] or [MedicineGuidance].
+/// import [MedicineModel] or [MedicineGuidance]; only the [StockState] enum is
+/// shared, so the stock line can be coloured the same way the search and scan
+/// rows colour theirs.
 class MedicineGuidanceCard extends StatelessWidget {
   const MedicineGuidanceCard({
     super.key,
@@ -12,6 +16,7 @@ class MedicineGuidanceCard extends StatelessWidget {
     required this.cautions,
     required this.formattedPrice,
     required this.stockText,
+    required this.stockState,
     required this.onAdd,
   });
 
@@ -32,7 +37,12 @@ class MedicineGuidanceCard extends StatelessWidget {
   /// Stock status text, e.g. "5 in stock" or "Out of stock".
   final String stockText;
 
-  /// Called when the user taps "Add to order".
+  /// The state behind [stockText], so the label is coloured to match and an
+  /// out-of-stock line cannot offer an add button.
+  final StockState stockState;
+
+  /// Called when the user taps "Add to order". Not called while the line is out
+  /// of stock.
   final VoidCallback onAdd;
 
   @override
@@ -63,7 +73,15 @@ class MedicineGuidanceCard extends StatelessWidget {
                 Text(
                   stockText,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    // Matched to the search and scan rows: a shortage is called
+                    // out, an uncounted item is merely muted.
+                    color: switch (stockState) {
+                      StockState.outOfStock ||
+                      StockState.low => theme.colorScheme.error,
+                      StockState.unknown => theme.colorScheme.outline,
+                      StockState.available =>
+                        theme.colorScheme.onSurfaceVariant,
+                    },
                   ),
                 ),
               ],
@@ -84,17 +102,14 @@ class MedicineGuidanceCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // Add to order — visible when we have data and not a draft-only
-            // (draft entries are in the placeholder phase).
+            // Add to order. Disabled only when the shelf is empty; the
+            // confirmation snackbar belongs to the screen, not the card, so
+            // there is one place that owns what "added" means.
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () {
-                  onAdd();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Added to order')),
-                  );
-                },
+                key: Key('add$recommendedName'),
+                onPressed: stockState == StockState.outOfStock ? null : onAdd,
                 child: const Text('Add to order'),
               ),
             ),

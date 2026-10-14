@@ -36,6 +36,12 @@ import '../models/symptom_entry.dart';
 /// so in a banner, so scaffolding can never be mistaken for advice. Remove the
 /// flag from an entry once its text has been reviewed.
 ///
+/// The `Medicines:` list is the pharmacist's *picks* and leads the detail
+/// screen, but it is not the whole list: anything in the live price list whose
+/// usage indication names the symptom (or one of its aliases) is offered behind
+/// it. So an entry stays correct as the counter's stock changes without every
+/// new product being added here by hand.
+///
 /// ## Rules the integrity test enforces
 ///
 /// - every [SymptomEntry.id] is unique;

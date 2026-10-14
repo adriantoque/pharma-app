@@ -459,6 +459,32 @@ class MedicineModel {
     return false;
   }
 
+  /// Whether [term] names something this line is *for*, per [usageIndication].
+  ///
+  /// Deliberately separate from [matches]. The symptom guide looks a medicine up
+  /// by what it treats -- selecting `fever` should surface the fever medicines --
+  /// but folding the indication into [searchableNames] would widen the counter's
+  /// ordinary search too, where `fever` returning every fever product would bury
+  /// the name the staff member was typing. So indication matching lives here and
+  /// only the guide calls it.
+  ///
+  /// A [term] that normalises to fewer than [_minIndicationTerm] characters is
+  /// ignored. A stray one- or two-letter fragment would otherwise match some
+  /// indication on the shelf and the guide would suggest medicines for a symptom
+  /// nobody named. Three is the floor because the guide's Filipino aliases
+  /// (`ubo`, `ulo`) are that long; anything shorter is the curated list's job.
+  bool matchesIndication(String term) {
+    final indication = usageIndication;
+    if (indication == null) return false;
+    final needle = _normalise(term);
+    if (needle.length < _minIndicationTerm) return false;
+    return _normalise(indication).contains(needle);
+  }
+
+  /// The shortest indication term worth matching, so a stub of a word cannot
+  /// stand for a symptom. See [matchesIndication].
+  static const int _minIndicationTerm = 3;
+
   /// Everything this line can be found by: its own name, the spellings the
   /// counter has used for it, and the generic a brand is sold under.
   ///
