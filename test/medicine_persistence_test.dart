@@ -48,6 +48,26 @@ void main() {
       );
     });
 
+    test('uses the product ID when one is supplied', () {
+      const firstPackage = MedicineModel(
+        productId: '101',
+        name: 'Paracetamol',
+        packageType: 'Piece',
+        priceCentavos: 200,
+        stock: 20,
+      );
+      const secondPackage = MedicineModel(
+        productId: '102',
+        name: 'Paracetamol',
+        packageType: 'Box',
+        priceCentavos: 15000,
+        stock: 20,
+      );
+
+      expect(firstPackage.documentId, isNot(secondPackage.documentId));
+      expect(firstPackage.documentId, firstPackage.copyWith(stock: 2).documentId);
+    });
+
     test('is unaffected by stock, aliases or expiry', () {
       // Those are state, not identity. A count typed at the counter has to land
       // on the same document the import created.
@@ -80,6 +100,26 @@ void main() {
       expect(restored.stock, 12);
       expect(restored.aliases, ['cetirizine', 'ceterizinne']);
       expect(restored.genericKey, 'Cetirizine');
+    });
+
+    test('keeps product ID and package type', () {
+      const packaged = MedicineModel(
+        productId: '101',
+        name: 'Paracetamol',
+        packageType: 'Box (100s)',
+        usageIndication: 'For fever and mild to moderate pain relief',
+        priceCentavos: 15000,
+        stock: 20,
+      );
+      final restored = MedicineModel.fromFirestore(packaged.toFirestore());
+
+      expect(restored.productId, '101');
+      expect(restored.packageType, 'Box (100s)');
+      expect(
+        restored.usageIndication,
+        'For fever and mild to moderate pain relief',
+      );
+      expect(restored.documentId, packaged.documentId);
     });
 
     test('keeps an uncounted item uncounted', () {

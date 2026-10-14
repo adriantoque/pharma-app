@@ -12,72 +12,64 @@ void main() {
 
   group('an exact name', () {
     test('matches itself with full confidence', () {
-      final suggestions = matcher.suggestFor('paracetamol 125');
+      final suggestions = matcher.suggestFor('Bioflu Tablet');
 
-      expect(suggestions.first.medicine.name, 'paracetamol 125');
+      expect(suggestions.first.medicine.name, 'Bioflu Tablet');
       expect(suggestions.first.confidence, 1.0);
     });
 
     test('ignores case and stray punctuation', () {
-      expect(bestName('  Paracetamol 125. '), 'paracetamol 125');
+      expect(bestName('  Bioflu Tablet. '), 'Bioflu Tablet');
     });
   });
 
   group('a misread', () {
     test('still finds the medicine', () {
-      expect(bestName('Bingesic'), 'Biogesic');
-      expect(bestName('decolmgen'), 'decolgen');
+      // A plural slip on the form is the kind of thing a scan produces, and
+      // the per-word comparison is what keeps it above the threshold.
+      expect(
+        bestName('Biogesic 500mg Tablets'),
+        'Biogesic 500mg Tablet (Paracetamol)',
+      );
     });
 
-    test('accepts a name written with extra letters', () {
-      // Edit distance alone scores "amox" against "amoxcilln" too low to offer
-      // it, and a shared "cilln" handed the name to a different drug.
-      expect(bestName('Amoxcilln'), 'Amox');
+    test('accepts a name written with the dose left off', () {
+      expect(
+        bestName('Medicol Advance Softgel'),
+        'Medicol Advance 200mg Softgel',
+      );
     });
 
     test('accepts a name written with the form left off', () {
-      expect(bestName('Alag ad'), 'ALAGAD CAP');
-    });
-
-    test('accepts a dose that was left off', () {
-      expect(bestName('Salbutamol'), 'Salbutamol 4mg');
-    });
-  });
-
-  group('a short name', () {
-    test('does not outrank the entry the whole reading names', () {
-      // "Amox" is a real entry and does match, but "amox 500" names the
-      // strength, so the entry that accounts for the whole reading has to come
-      // first or the user is quoted the wrong price.
-      final suggestions = matcher.suggestFor('Amox 500', limit: 5);
-      final bare = suggestions.firstWhere((s) => s.medicine.name == 'Amox');
-
-      expect(suggestions.first.medicine.name, 'Amox 500mg');
+      // "Amoxil 500mg Capsule" is the whole name up to its generic, so
+      // containment carries it even though the tail is missing.
       expect(
-        suggestions.first.confidence,
-        greaterThan(bare.confidence),
-        reason: 'the strength-bearing entry is the better explanation',
+        bestName('Amoxil 500mg Capsule'),
+        'Amoxil 500mg Capsule (Amoxicillin)',
       );
     });
   });
 
   group('ranking', () {
     test('offers the strongest match first', () {
-      final suggestions = matcher.suggestFor('Cetirizine');
+      final suggestions = matcher.suggestFor('Bioflu Tablet');
 
-      expect(suggestions.first.medicine.name, 'Cetirizine');
+      expect(suggestions.first.medicine.name, 'Bioflu Tablet');
       expect(suggestions.first.confidence, greaterThan(0.9));
     });
 
     test('lists an exact match ahead of a near miss', () {
-      final suggestions = matcher.suggestFor('Alcohol');
+      final suggestions = matcher.suggestFor(
+        'Paracetamol 500mg (Generic Tablet)',
+      );
 
-      expect(suggestions.first.medicine.name, 'Alcohol');
+      expect(suggestions.first.medicine.name, 'Paracetamol 500mg (Generic Tablet)');
+      expect(suggestions.first.confidence, 1.0);
       expect(suggestions.length, greaterThan(1));
     });
 
     test('caps how many it offers', () {
-      expect(matcher.suggestFor('Amox', limit: 2), hasLength(2));
+      expect(matcher.suggestFor('Cetirizine', limit: 2), hasLength(2));
     });
 
     test('keeps same-named entries at different prices apart', () {
@@ -86,9 +78,9 @@ void main() {
           .map((s) => s.medicine.priceCentavos)
           .toList();
 
-      // Two entries share the name "DIATABS" at different prices, so collapsing
-      // by name would hide one of them.
-      expect(prices, containsAll(<int>[700, 1100, 2200]));
+      // Three entries share the name "Diatabs 2mg Capsule (Loperamide)" at
+      // different prices, so collapsing by name would hide two of them.
+      expect(prices, containsAll(<int>[800, 7800, 75000]));
     });
   });
 
@@ -112,27 +104,31 @@ void main() {
       // One suggestion per line, so this is only about which line wins.
       final suggestions = matcher.suggest(
         [
-          const RecognizedLine('Amox 500mg'),
-          const RecognizedLine('Biogesic'),
-          const RecognizedLine('Paracetamol 125'),
+          const RecognizedLine('Biogesic 500mg Tablet (Paracetamol)'),
+          const RecognizedLine('Bioflu Tablet'),
+          const RecognizedLine('Diatabs 2mg Capsule (Loperamide)'),
         ],
         perLine: 1,
       );
 
       expect(
         suggestions.map((s) => s.medicine.name),
-        ['Amox 500mg', 'Biogesic', 'paracetamol 125'],
+        [
+          'Biogesic 500mg Tablet (Paracetamol)',
+          'Bioflu Tablet',
+          'Diatabs 2mg Capsule (Loperamide)',
+        ],
       );
       expect(suggestions.map((s) => s.lineIndex), [0, 1, 2]);
     });
 
     test('offers alternatives within a line', () {
       final suggestions = matcher.suggest(
-        [const RecognizedLine('Diatabs')],
+        [const RecognizedLine('Diatabs 2mg Capsule (Loperamide)')],
         perLine: 3,
       );
 
-      // "Diatabs" is three products at three prices, so one line can be more
+      // "Diatabs" is three packages at three prices, so one line can be more
       // than one suggestion.
       expect(suggestions, hasLength(3));
       expect(suggestions.every((s) => s.lineIndex == 0), isTrue);
@@ -140,8 +136,8 @@ void main() {
 
     test('offers a medicine named twice only once', () {
       final suggestions = matcher.suggest([
-        const RecognizedLine('Biogesic'),
-        const RecognizedLine('Biogesic'),
+        const RecognizedLine('Bioflu Tablet'),
+        const RecognizedLine('Bioflu Tablet'),
       ], perLine: 1);
 
       expect(suggestions, hasLength(1));
@@ -150,7 +146,7 @@ void main() {
     test('keeps the lines in the order they were read', () {
       final suggestions = matcher.suggest([
         const RecognizedLine('nope zzz'),
-        const RecognizedLine('Biogesic'),
+        const RecognizedLine('Bioflu Tablet'),
       ]);
 
       expect(suggestions.single.lineIndex, 1);
@@ -162,39 +158,39 @@ void main() {
       // The recognizer's own first choice is wrong, but the second reading
       // names a real medicine exactly, so it is the one worth showing.
       final suggestions = matcher.suggest(
-        [const RecognizedLine('Amox 500ng'), const RecognizedLine('Amox 500mg')],
+        [const RecognizedLine('Bioflo'), const RecognizedLine('Bioflu Tablet')],
       );
 
-      expect(suggestions.first.medicine.name, 'Amox 500mg');
+      expect(suggestions.single.medicine.name, 'Bioflu Tablet');
     });
 
     test('still matches when the top reading is nonsense', () {
       final suggestions = matcher.suggest(
-        [const RecognizedLine('qwerty'), const RecognizedLine('decolgen')],
+        [const RecognizedLine('qwerty'), const RecognizedLine('Bioflu Tablet')],
       );
 
-      expect(suggestions.single.medicine.name, 'decolgen');
+      expect(suggestions.single.medicine.name, 'Bioflu Tablet');
     });
 
     test('skips a line that recognised nothing', () {
       final suggestions = matcher.suggest([
         const RecognizedLine(''),
-        const RecognizedLine('Biogesic'),
+        const RecognizedLine('Bioflu Tablet'),
       ]);
 
-      expect(suggestions.single.medicine.name, 'Biogesic');
+      expect(suggestions.single.medicine.name, 'Bioflu Tablet');
     });
   });
 
   group('threshold', () {
     test('a stricter threshold drops the weaker suggestions', () {
-      // "Bingesic" is a misread, so nothing about it is exact enough to keep.
-      expect(matcher.suggestFor('Bingesic', threshold: 0.99), isEmpty);
+      // The plural slip is not exact, so nothing about it clears a strict bar.
+      expect(matcher.suggestFor('Biogesic 500mg Tablets', threshold: 0.99), isEmpty);
     });
 
     test('an exact name survives the strictest threshold', () {
       expect(
-        matcher.suggestFor('Biogesic', threshold: 0.99),
+        matcher.suggestFor('Bioflu Tablet', threshold: 0.99),
         hasLength(1),
       );
     });

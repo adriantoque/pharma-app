@@ -12,88 +12,398 @@ abstract class MedicineRepository {
 ///
 /// Deliberately behind [MedicineRepository] so that moving it to Firestore later
 /// is a new implementation of this interface rather than a change to the UI.
+///
+/// Transcribed from the pharmacy's imported workbook, and kept in step with the
+/// bundled catalogue the Medicine tab reads: the same 40 product names and
+/// package prices, carrying their [MedicineModel.productId] and
+/// [MedicineModel.packageType] so a medicine scanned here names the same product
+/// the catalogue shows. A handful of names keep their blister and box packages
+/// so repeated product names at different prices stay distinct.
+///
+/// The `stock:` values are PLACEHOLDERS, not real counts -- the source data was
+/// a price list with no quantities on it. They are spread on purpose so every
+/// stock state is reviewable on screen: five items are out of stock, five more
+/// are at or below [MedicineModel.lowStockThreshold], and Paracetamol sits above
+/// the order's own 99-per-item ceiling so that ceiling stays the binding limit.
+/// Replace them with the real numbers in one pass; nothing else in the app
+/// hard-codes a level.
 class StaticMedicineRepository implements MedicineRepository {
   const StaticMedicineRepository();
 
-  /// Transcribed from the pharmacy's list. Names are verbatim, including the
-  /// inconsistent capitalisation (`CARDO CAP` next to `Cloxacillin`) and the
-  /// misspellings, because this is what the counter staff type and read.
-  ///
-  /// The `stock:` values are PLACEHOLDERS, not real counts -- the source data
-  /// was a price list with no quantities on it. They are spread on purpose so
-  /// every stock state is reviewable on screen: seven items are out of stock,
-  /// nine are at or below [MedicineModel.lowStockThreshold], and the rest are
-  /// healthy. Replace them with the real numbers in one pass; nothing else in
-  /// the app hard-codes a level.
-  ///
-  /// `Alcohol` is seeded high because three tests assert the order's own
-  /// 99-per-item ceiling is the binding limit, which is only true for an item
-  /// holding more than 99.
   static final List<MedicineModel> _items = [
-    MedicineModel(name: 'Alcohol', priceCentavos: 6500, stock: 240),
-    MedicineModel(name: 'Alcohol med', priceCentavos: 6500, stock: 18),
-    MedicineModel(name: 'Alcohol small', priceCentavos: 2200, stock: 0),
-    MedicineModel(name: 'ALAGAD CAP', priceCentavos: 400, stock: 3),
-    MedicineModel(name: 'Amox', priceCentavos: 400, stock: 96),
-    MedicineModel(name: 'Amox', priceCentavos: 4500, stock: 0),
-    MedicineModel(name: 'Amox 250 CAP', priceCentavos: 400, stock: 140),
-    MedicineModel(name: 'Amox 500mg', priceCentavos: 400, stock: 3, expiryDate: DateTime(2025, 6, 15)),
-    MedicineModel(name: 'amplodiphine', priceCentavos: 300, stock: 55),
-    MedicineModel(name: 'Ascorbic Tablet', priceCentavos: 300, stock: 120),
-    MedicineModel(name: 'Baby Oil', priceCentavos: 3000, stock: 24),
-    MedicineModel(name: 'BIOFLU', priceCentavos: 1100, stock: 7),
-    MedicineModel(name: 'Biogesic', priceCentavos: 600, stock: 41),
-    MedicineModel(name: 'calmosipten', priceCentavos: 5000, stock: 0),
-    MedicineModel(name: 'CARDO CAP', priceCentavos: 400, stock: 5, expiryDate: DateTime(2025, 9, 1)),
-    MedicineModel(name: 'cefalexin', priceCentavos: 4500, stock: 33),
-    MedicineModel(name: 'Cetirizine', priceCentavos: 400, stock: 88),
-    MedicineModel(name: 'Cetirizine syrup', priceCentavos: 6000, stock: 12),
-    MedicineModel(name: 'Cetirizine tab', priceCentavos: 300, stock: 64),
-    MedicineModel(name: 'CINNARIZINE', priceCentavos: 300, stock: 29),
-    MedicineModel(name: 'Cloxacillin', priceCentavos: 700, stock: 5),
-    MedicineModel(name: 'decolgen', priceCentavos: 1000, stock: 47),
-    MedicineModel(name: 'DIATABS', priceCentavos: 1100, stock: 21),
-    MedicineModel(name: 'DIATABS', priceCentavos: 2200, stock: 4),
-    MedicineModel(name: 'Diatabs', priceCentavos: 700, stock: 103),
-    MedicineModel(name: 'efficasent', priceCentavos: 3500, stock: 15),
-    MedicineModel(name: 'ElShadai', priceCentavos: 2000, stock: 38),
-    MedicineModel(name: 'ENERVON', priceCentavos: 1200, stock: 72),
-    MedicineModel(name: 'ERCEFLORA', priceCentavos: 5000, stock: 9),
-    MedicineModel(name: 'EYEMO', priceCentavos: 10500, stock: 6),
-    MedicineModel(name: 'Fern s syrup', priceCentavos: 16500, stock: 0),
-    MedicineModel(name: 'FLANAX', priceCentavos: 2700, stock: 44),
-    MedicineModel(name: 'GETERIZINE', priceCentavos: 250, stock: 130),
-    MedicineModel(name: 'hivent', priceCentavos: 1800, stock: 26),
-    MedicineModel(name: 'KATIALIS', priceCentavos: 3200, stock: 11),
-    MedicineModel(name: 'Katinko', priceCentavos: 3800, stock: 52),
-    MedicineModel(name: 'Katinko roll', priceCentavos: 5500, stock: 19),
-    MedicineModel(name: 'lady pills', priceCentavos: 5500, stock: 0),
-    MedicineModel(name: 'losartan', priceCentavos: 400, stock: 77),
-    MedicineModel(name: 'Manzanil', priceCentavos: 2100, stock: 31),
-    MedicineModel(name: 'Medicol', priceCentavos: 900, stock: 14),
-    MedicineModel(name: 'Meffe', priceCentavos: 300, stock: 1),
-    MedicineModel(name: 'MEFENAMIC', priceCentavos: 300, stock: 67),
-    MedicineModel(name: 'naproxen', priceCentavos: 700, stock: 43),
-    MedicineModel(name: 'nutriflex', priceCentavos: 32500, stock: 8),
-    MedicineModel(name: 'off lotion', priceCentavos: 1300, stock: 35),
-    MedicineModel(name: 'Omegaazole', priceCentavos: 1000, stock: 22),
-    MedicineModel(name: 'Para syrup', priceCentavos: 4800, stock: 27),
-    MedicineModel(name: 'paracetamol 125', priceCentavos: 4500, stock: 4, expiryDate: DateTime(2025, 7, 1)),
-    MedicineModel(name: 'pharex', priceCentavos: 600, stock: 61),
-    MedicineModel(name: 'PT', priceCentavos: 4500, stock: 16),
-    MedicineModel(name: 'PYROFLORA', priceCentavos: 3500, stock: 39),
-    MedicineModel(name: 'Salbutamol 4mg', priceCentavos: 300, stock: 2, expiryDate: DateTime(2025, 8, 1)),
-    MedicineModel(name: 'salompas', priceCentavos: 4700, stock: 48),
-    MedicineModel(name: 'SUPPOSITORY', priceCentavos: 1900, stock: 25),
-    MedicineModel(name: 'symdex', priceCentavos: 8000, stock: 13),
-    MedicineModel(name: 'Tempra 1-5', priceCentavos: 13500, stock: 0),
-    MedicineModel(name: 'Tramadol', priceCentavos: 400, stock: 94),
-    MedicineModel(name: 'Tramadol', priceCentavos: 1000, stock: 1, expiryDate: DateTime(2025, 5, 20)),
-    MedicineModel(name: 'Tramadol', priceCentavos: 1300, stock: 57),
-    MedicineModel(name: 'Trust pills', priceCentavos: 6000, stock: 10),
-    MedicineModel(name: 'tuseran', priceCentavos: 1400, stock: 36),
-    MedicineModel(name: 'Tuseran', priceCentavos: 2200, stock: 0),
-    MedicineModel(name: 'vicks', priceCentavos: 3600, stock: 23),
+    // Paracetamol (generic) keeps all three packages.
+    MedicineModel(
+      productId: '1',
+      name: 'Paracetamol 500mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      usageIndication: 'For fever and mild to moderate pain relief',
+      priceCentavos: 200,
+      stock: 120,
+    ),
+    MedicineModel(
+      productId: '2',
+      name: 'Paracetamol 500mg (Generic Tablet)',
+      packageType: 'Blister Pack (10s)',
+      usageIndication: 'For fever and mild to moderate pain relief',
+      priceCentavos: 1800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '3',
+      name: 'Paracetamol 500mg (Generic Tablet)',
+      packageType: 'Box (100s)',
+      usageIndication: 'For fever and mild to moderate pain relief',
+      priceCentavos: 15000,
+      stock: 20,
+    ),
+    // Biogesic keeps all three packages.
+    MedicineModel(
+      productId: '4',
+      name: 'Biogesic 500mg Tablet (Paracetamol)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 500,
+      stock: 20,
+      genericKey: 'Paracetamol',
+    ),
+    MedicineModel(
+      productId: '5',
+      name: 'Biogesic 500mg Tablet (Paracetamol)',
+      packageType: 'Blister Pack (10s)',
+      priceCentavos: 4800,
+      stock: 20,
+      genericKey: 'Paracetamol',
+    ),
+    MedicineModel(
+      productId: '6',
+      name: 'Biogesic 500mg Tablet (Paracetamol)',
+      packageType: 'Box (500s)',
+      priceCentavos: 235000,
+      stock: 20,
+      genericKey: 'Paracetamol',
+    ),
+    // Amoxicillin (generic) keeps all three packages.
+    MedicineModel(
+      productId: '7',
+      name: 'Amoxicillin 500mg (Generic Capsule)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 400,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '8',
+      name: 'Amoxicillin 500mg (Generic Capsule)',
+      packageType: 'Blister Pack (10s)',
+      priceCentavos: 3800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '9',
+      name: 'Amoxicillin 500mg (Generic Capsule)',
+      packageType: 'Box (100s)',
+      priceCentavos: 35000,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '10',
+      name: 'Amoxil 500mg Capsule (Amoxicillin)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 1800,
+      stock: 20,
+      genericKey: 'Amoxicillin',
+    ),
+    MedicineModel(
+      productId: '13',
+      name: 'Mefenamic Acid 500mg (Generic Capsule)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 300,
+      stock: 0,
+    ),
+    MedicineModel(
+      productId: '16',
+      name: 'Dolfenal 500mg Tablet (Mefenamic Acid)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 2800,
+      stock: 5,
+      genericKey: 'Mefenamic Acid',
+    ),
+    MedicineModel(
+      productId: '19',
+      name: 'Bioflu Tablet',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '22',
+      name: 'Decolgen Forte Tablet',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 700,
+      stock: 3,
+    ),
+    MedicineModel(
+      productId: '25',
+      name: 'Neozep Zapp Caplet',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 700,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '28',
+      name: 'Alaxan FR Capsule',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 900,
+      stock: 2,
+    ),
+    MedicineModel(
+      productId: '31',
+      name: 'Ibuprofen 200mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 200,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '34',
+      name: 'Medicol Advance 200mg Softgel',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 800,
+      stock: 20,
+    ),
+    // Diatabs keeps all three packages.
+    MedicineModel(
+      productId: '37',
+      name: 'Diatabs 2mg Capsule (Loperamide)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 800,
+      stock: 20,
+      genericKey: 'Loperamide',
+    ),
+    MedicineModel(
+      productId: '38',
+      name: 'Diatabs 2mg Capsule (Loperamide)',
+      packageType: 'Blister Pack (10s)',
+      priceCentavos: 7800,
+      stock: 20,
+      genericKey: 'Loperamide',
+    ),
+    MedicineModel(
+      productId: '39',
+      name: 'Diatabs 2mg Capsule (Loperamide)',
+      packageType: 'Box (100s)',
+      priceCentavos: 75000,
+      stock: 20,
+      genericKey: 'Loperamide',
+    ),
+    MedicineModel(
+      productId: '40',
+      name: 'Loperamide 2mg (Generic Capsule)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 300,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '43',
+      name: 'Kremil-S Tablet',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '46',
+      name: 'Omeprazole 20mg (Generic Capsule)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 500,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '49',
+      name: 'Losec 20mg Capsule (Omeprazole)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 7000,
+      stock: 20,
+      genericKey: 'Omeprazole',
+    ),
+    // Cetirizine (generic) keeps all three packages.
+    MedicineModel(
+      productId: '52',
+      name: 'Cetirizine 10mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 300,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '53',
+      name: 'Cetirizine 10mg (Generic Tablet)',
+      packageType: 'Blister Pack (10s)',
+      priceCentavos: 2800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '54',
+      name: 'Cetirizine 10mg (Generic Tablet)',
+      packageType: 'Box (100s)',
+      priceCentavos: 25000,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '55',
+      name: 'Virlix 10mg Tablet (Cetirizine)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 3500,
+      stock: 20,
+      genericKey: 'Cetirizine',
+    ),
+    MedicineModel(
+      productId: '58',
+      name: 'Allerkid 5mg/5mL Syrup 60mL',
+      packageType: 'Bottle (60mL)',
+      priceCentavos: 16500,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '60',
+      name: 'Allerkid 2.5mg/mL Oral Drops 10mL',
+      packageType: 'Bottle (10mL)',
+      priceCentavos: 14000,
+      stock: 0,
+    ),
+    MedicineModel(
+      productId: '62',
+      name: 'Ascorbic Acid 500mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 200,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '65',
+      name: 'Fern-C 500mg Capsule (Sodium Ascorbate)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 700,
+      stock: 20,
+      genericKey: 'Sodium Ascorbate',
+    ),
+    MedicineModel(
+      productId: '68',
+      name: 'Enervon-C Tablet',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 700,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '71',
+      name: 'Revicon Forte Tablet',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 800,
+      stock: 0,
+    ),
+    MedicineModel(
+      productId: '74',
+      name: 'Amlodipine 5mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 200,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '77',
+      name: 'Norvasc 5mg Tablet (Amlodipine)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 2400,
+      stock: 4,
+      genericKey: 'Amlodipine',
+    ),
+    MedicineModel(
+      productId: '80',
+      name: 'Losartan 50mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 300,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '83',
+      name: 'Cozaar 50mg Tablet (Losartan)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 3200,
+      stock: 1,
+      genericKey: 'Losartan',
+    ),
+    MedicineModel(
+      productId: '86',
+      name: 'Metformin 500mg (Generic Tablet)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 200,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '89',
+      name: 'Glucophage 500mg Tablet (Metformin)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 1400,
+      stock: 20,
+      genericKey: 'Metformin',
+    ),
+    MedicineModel(
+      productId: '92',
+      name: 'Green Cross Ethyl Alcohol 70% 250mL',
+      packageType: 'Bottle (250mL)',
+      priceCentavos: 4800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '93',
+      name: 'Green Cross Ethyl Alcohol 70% 500mL',
+      packageType: 'Bottle (500mL)',
+      priceCentavos: 8800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '94',
+      name: 'Casino Isopropyl Alcohol 70% 250mL',
+      packageType: 'Bottle (250mL)',
+      priceCentavos: 4500,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '95',
+      name: 'Casino Isopropyl Alcohol 70% 500mL',
+      packageType: 'Bottle (500mL)',
+      priceCentavos: 8200,
+      stock: 0,
+    ),
+    MedicineModel(
+      productId: '96',
+      name: 'Betadine Antiseptic Solution 10% 15mL',
+      packageType: 'Bottle (15mL)',
+      priceCentavos: 6500,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '97',
+      name: 'Efficascent Oil Regular 100mL',
+      packageType: 'Bottle (100mL)',
+      priceCentavos: 5800,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '98',
+      name: 'White Flower Embrocation 5mL',
+      packageType: 'Bottle (5mL)',
+      priceCentavos: 7500,
+      stock: 20,
+    ),
+    MedicineModel(
+      productId: '99',
+      name: 'Vicks Vaporub Ointment 25g',
+      packageType: 'Jar (25g)',
+      priceCentavos: 11000,
+      stock: 0,
+    ),
+    MedicineModel(
+      productId: '100',
+      name: 'Solmux 500mg Capsule (Carbocisteine)',
+      packageType: 'Piece (Dosage)',
+      priceCentavos: 1200,
+      stock: 20,
+      genericKey: 'Carbocisteine',
+    ),
   ];
 
   @override
@@ -105,17 +415,11 @@ class StaticMedicineRepository implements MedicineRepository {
     return _sorted(_items.where((item) => item.matches(query)));
   }
 
-  /// Alphabetical ignoring case, then cheapest first. The second key is what
-  /// keeps the repeated names in a sensible order, so `Amox` reads 4.00 then
-  /// 45.00 rather than arbitrarily.
+  /// The list screen's order, using the model's shared comparator so the static
+  /// list cannot drift from the sorted order the store and provider produce.
   static List<MedicineModel> _sorted(Iterable<MedicineModel> items) {
     final sorted = items.toList()
-      ..sort((a, b) {
-        final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        return byName != 0
-            ? byName
-            : a.priceCentavos.compareTo(b.priceCentavos);
-      });
+      ..sort(MedicineModel.compareByNameThenPrice);
     return List.unmodifiable(sorted);
   }
 }

@@ -1,857 +1,1102 @@
 [
   {
-    "name": "Alcohol Med",
-    "priceCentavos": 6500,
-    "stock": 5,
+    "productId": "1",
+    "name": "Paracetamol 500mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For fever and mild to moderate pain relief",
+    "priceCentavos": 200,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Alcohol Med"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Alcohol Small",
-    "priceCentavos": 2700,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Alcohol Small"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Alchol",
-    "priceCentavos": 6500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Alchol"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Amox",
-    "priceCentavos": 400,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Amox"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Amox 250 Cap",
-    "priceCentavos": 400,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Amox 250 Cap"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Amox 500mg",
-    "priceCentavos": 400,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Amox 500mg"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Amplodiphine",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Amplodiphine"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Ascorbic Tablet",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Ascorbic Tablet"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Aspirin",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Aspirin"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Baby Oil",
-    "priceCentavos": 3000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Baby Oil"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Biogesic",
-    "priceCentavos": 600,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Biogesic"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Bioflu",
-    "priceCentavos": 1100,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Bioflu"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Calmosipten",
-    "priceCentavos": 5000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Calmosipten"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Carbo Cap",
-    "priceCentavos": 400,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Carbo Cap"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Cefalexin",
-    "priceCentavos": 4500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Cefalexin"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Ceterizine Syrup",
-    "priceCentavos": 6000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Ceterizine Syrup"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Ceterizine Tab",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Ceterizine Tab"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Cinnarizine",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Cinnarizine"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Cloxacillin",
-    "priceCentavos": 700,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Cloxacillin"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Decolgen",
-    "priceCentavos": 1000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Decolgen"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Diatabs",
-    "priceCentavos": 1100,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Diatabs"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Diclofenac",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Diclofenac"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Efficasent",
-    "priceCentavos": 3500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Efficasent"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "ElShadai",
-    "priceCentavos": 2000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "ElShadai"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Enervon",
-    "priceCentavos": 1200,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Enervon"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Erceflora",
-    "priceCentavos": 5000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Erceflora"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Eyemo",
-    "priceCentavos": 10500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Eyemo"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "FernC Syrup",
-    "priceCentavos": 16500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "FernC Syrup"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Flanax",
-    "priceCentavos": 2700,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Flanax"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Hivent",
+    "productId": "2",
+    "name": "Paracetamol 500mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For fever and mild to moderate pain relief",
     "priceCentavos": 1800,
-    "stock": 5,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Hivent"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Katialis",
-    "priceCentavos": 3200,
-    "stock": 5,
+    "productId": "3",
+    "name": "Paracetamol 500mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For fever and mild to moderate pain relief",
+    "priceCentavos": 15000,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Katialis"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Katinko",
-    "priceCentavos": 3800,
-    "stock": 5,
+    "productId": "4",
+    "name": "Biogesic 500mg Tablet (Paracetamol)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For fever, headache, and body aches",
+    "priceCentavos": 500,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Katinko"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Paracetamol"
   },
   {
-    "name": "Katinko Roll",
-    "priceCentavos": 5500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Katinko Roll"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Lady Pills",
-    "priceCentavos": 5500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Lady Pills"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Losartan",
-    "priceCentavos": 400,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Losartan"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Manzanilla",
-    "priceCentavos": 2100,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Manzanilla"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Mefenamic",
-    "priceCentavos": 300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Mefenamic"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Medicol",
-    "priceCentavos": 900,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Medicol"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Naproxen",
-    "priceCentavos": 700,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Naproxen"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Nutriflex",
-    "priceCentavos": 32500,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Nutriflex"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Off Lotion",
-    "priceCentavos": 1300,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Off Lotion"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Omeprazole",
-    "priceCentavos": 1000,
-    "stock": 5,
-    "expiryDate": null,
-    "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Omeprazole"
-      ],
-      "lastSeen": "2026-10-09"
-    }
-  },
-  {
-    "name": "Para Syrup",
+    "productId": "5",
+    "name": "Biogesic 500mg Tablet (Paracetamol)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For fever, headache, and body aches",
     "priceCentavos": 4800,
-    "stock": 5,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Para Syrup"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Paracetamol"
   },
   {
-    "name": "Paracetamol 125",
-    "priceCentavos": 4500,
-    "stock": 5,
+    "productId": "6",
+    "name": "Biogesic 500mg Tablet (Paracetamol)",
+    "packageType": "Box (500s)",
+    "usageIndication": "For fever, headache, and body aches",
+    "priceCentavos": 235000,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Paracetamol 125"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Paracetamol"
   },
   {
-    "name": "Pharex",
-    "priceCentavos": 600,
-    "stock": 5,
+    "productId": "7",
+    "name": "Amoxicillin 500mg (Generic Capsule)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Antibiotic used to treat bacterial infections",
+    "priceCentavos": 400,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Pharex"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "PT",
-    "priceCentavos": 4500,
-    "stock": 5,
+    "productId": "8",
+    "name": "Amoxicillin 500mg (Generic Capsule)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Antibiotic used to treat bacterial infections",
+    "priceCentavos": 3800,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "PT"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Pyroflora",
-    "priceCentavos": 3500,
-    "stock": 5,
+    "productId": "9",
+    "name": "Amoxicillin 500mg (Generic Capsule)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Antibiotic used to treat bacterial infections",
+    "priceCentavos": 35000,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Pyroflora"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Salbutamol 4mg",
+    "productId": "10",
+    "name": "Amoxil 500mg Capsule (Amoxicillin)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Brand name antibiotic for bacterial infections",
+    "priceCentavos": 1800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Amoxicillin"
+  },
+  {
+    "productId": "11",
+    "name": "Amoxil 500mg Capsule (Amoxicillin)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Brand name antibiotic for bacterial infections",
+    "priceCentavos": 17500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Amoxicillin"
+  },
+  {
+    "productId": "12",
+    "name": "Amoxil 500mg Capsule (Amoxicillin)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Brand name antibiotic for bacterial infections",
+    "priceCentavos": 170000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Amoxicillin"
+  },
+  {
+    "productId": "13",
+    "name": "Mefenamic Acid 500mg (Generic Capsule)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For toothache, arthritis, and body pain relief",
     "priceCentavos": 300,
-    "stock": 5,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Salbutamol 4mg"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Salonpas",
-    "priceCentavos": 4700,
-    "stock": 5,
+    "productId": "14",
+    "name": "Mefenamic Acid 500mg (Generic Capsule)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For toothache, arthritis, and body pain relief",
+    "priceCentavos": 2800,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Salonpas"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Suppository",
-    "priceCentavos": 1900,
-    "stock": 5,
+    "productId": "15",
+    "name": "Mefenamic Acid 500mg (Generic Capsule)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For toothache, arthritis, and body pain relief",
+    "priceCentavos": 25000,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Suppository"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Symdex",
-    "priceCentavos": 8000,
-    "stock": 5,
+    "productId": "16",
+    "name": "Dolfenal 500mg Tablet (Mefenamic Acid)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For severe pain, toothache, and dysmenorrhea",
+    "priceCentavos": 2800,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Symdex"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Mefenamic Acid"
   },
   {
-    "name": "Tawas",
-    "priceCentavos": 2200,
-    "stock": 5,
+    "productId": "17",
+    "name": "Dolfenal 500mg Tablet (Mefenamic Acid)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For severe pain, toothache, and dysmenorrhea",
+    "priceCentavos": 27500,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Tawas"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Mefenamic Acid"
   },
   {
-    "name": "Tempra 1-5",
-    "priceCentavos": 13500,
-    "stock": 5,
+    "productId": "18",
+    "name": "Dolfenal 500mg Tablet (Mefenamic Acid)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For severe pain, toothache, and dysmenorrhea",
+    "priceCentavos": 270000,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Tempra 1-5"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Mefenamic Acid"
   },
   {
-    "name": "Tramadol",
-    "priceCentavos": 1000,
-    "stock": 5,
+    "productId": "19",
+    "name": "Bioflu Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For relief of flu, fever, cough, and colds",
+    "priceCentavos": 800,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Tramadol"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Trust Pills",
-    "priceCentavos": 6000,
-    "stock": 5,
+    "productId": "20",
+    "name": "Bioflu Tablet",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For relief of flu, fever, cough, and colds",
+    "priceCentavos": 7800,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Trust Pills"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": null
   },
   {
-    "name": "Tuseran",
+    "productId": "21",
+    "name": "Bioflu Tablet",
+    "packageType": "Box (100s)",
+    "usageIndication": "For relief of flu, fever, cough, and colds",
+    "priceCentavos": 75000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "22",
+    "name": "Decolgen Forte Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For nose congestion, colds, and headache relief",
+    "priceCentavos": 700,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "23",
+    "name": "Decolgen Forte Tablet",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For nose congestion, colds, and headache relief",
+    "priceCentavos": 6800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "24",
+    "name": "Decolgen Forte Tablet",
+    "packageType": "Box (100s)",
+    "usageIndication": "For nose congestion, colds, and headache relief",
+    "priceCentavos": 65000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "25",
+    "name": "Neozep Zapp Caplet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For runny nose, sneezing, and cold symptoms",
+    "priceCentavos": 700,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "26",
+    "name": "Neozep Zapp Caplet",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For runny nose, sneezing, and cold symptoms",
+    "priceCentavos": 6800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "27",
+    "name": "Neozep Zapp Caplet",
+    "packageType": "Box (100s)",
+    "usageIndication": "For runny nose, sneezing, and cold symptoms",
+    "priceCentavos": 65000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "28",
+    "name": "Alaxan FR Capsule",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For body aches, joint, and muscle pain",
+    "priceCentavos": 900,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "29",
+    "name": "Alaxan FR Capsule",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For body aches, joint, and muscle pain",
+    "priceCentavos": 8800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "30",
+    "name": "Alaxan FR Capsule",
+    "packageType": "Box (100s)",
+    "usageIndication": "For body aches, joint, and muscle pain",
+    "priceCentavos": 85000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "31",
+    "name": "Ibuprofen 200mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For pain relief, fever, and anti-inflammation",
+    "priceCentavos": 200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "32",
+    "name": "Ibuprofen 200mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For pain relief, fever, and anti-inflammation",
+    "priceCentavos": 1800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "33",
+    "name": "Ibuprofen 200mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For pain relief, fever, and anti-inflammation",
+    "priceCentavos": 15000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "34",
+    "name": "Medicol Advance 200mg Softgel",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Fast-acting relief for headaches and body pain",
+    "priceCentavos": 800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "35",
+    "name": "Medicol Advance 200mg Softgel",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Fast-acting relief for headaches and body pain",
+    "priceCentavos": 7800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "36",
+    "name": "Medicol Advance 200mg Softgel",
+    "packageType": "Box (100s)",
+    "usageIndication": "Fast-acting relief for headaches and body pain",
+    "priceCentavos": 75000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "37",
+    "name": "Diatabs 2mg Capsule (Loperamide)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For relief of diarrhea",
+    "priceCentavos": 800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Loperamide"
+  },
+  {
+    "productId": "38",
+    "name": "Diatabs 2mg Capsule (Loperamide)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For relief of diarrhea",
+    "priceCentavos": 7800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Loperamide"
+  },
+  {
+    "productId": "39",
+    "name": "Diatabs 2mg Capsule (Loperamide)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For relief of diarrhea",
+    "priceCentavos": 75000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Loperamide"
+  },
+  {
+    "productId": "40",
+    "name": "Loperamide 2mg (Generic Capsule)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Generic medicine to treat diarrhea",
+    "priceCentavos": 300,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "41",
+    "name": "Loperamide 2mg (Generic Capsule)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Generic medicine to treat diarrhea",
+    "priceCentavos": 2800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "42",
+    "name": "Loperamide 2mg (Generic Capsule)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Generic medicine to treat diarrhea",
+    "priceCentavos": 25000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "43",
+    "name": "Kremil-S Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For hyperacidity, stomach gas, and indigestion",
+    "priceCentavos": 800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "44",
+    "name": "Kremil-S Tablet",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For hyperacidity, stomach gas, and indigestion",
+    "priceCentavos": 7800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "45",
+    "name": "Kremil-S Tablet",
+    "packageType": "Box (100s)",
+    "usageIndication": "For hyperacidity, stomach gas, and indigestion",
+    "priceCentavos": 75000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "46",
+    "name": "Omeprazole 20mg (Generic Capsule)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For hyperacidity, acid reflux, and stomach ulcers",
+    "priceCentavos": 500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "47",
+    "name": "Omeprazole 20mg (Generic Capsule)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For hyperacidity, acid reflux, and stomach ulcers",
+    "priceCentavos": 4800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "48",
+    "name": "Omeprazole 20mg (Generic Capsule)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For hyperacidity, acid reflux, and stomach ulcers",
+    "priceCentavos": 45000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "49",
+    "name": "Losec 20mg Capsule (Omeprazole)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Brand name medicine for hyperacidity and reflux",
+    "priceCentavos": 7000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Omeprazole"
+  },
+  {
+    "productId": "50",
+    "name": "Losec 20mg Capsule (Omeprazole)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Brand name medicine for hyperacidity and reflux",
+    "priceCentavos": 68000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Omeprazole"
+  },
+  {
+    "productId": "51",
+    "name": "Losec 20mg Capsule (Omeprazole)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Brand name medicine for hyperacidity and reflux",
+    "priceCentavos": 650000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Omeprazole"
+  },
+  {
+    "productId": "52",
+    "name": "Cetirizine 10mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For allergies, sneezing, and skin itching",
+    "priceCentavos": 300,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "53",
+    "name": "Cetirizine 10mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For allergies, sneezing, and skin itching",
+    "priceCentavos": 2800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "54",
+    "name": "Cetirizine 10mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For allergies, sneezing, and skin itching",
+    "priceCentavos": 25000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "55",
+    "name": "Virlix 10mg Tablet (Cetirizine)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For allergy relief, hives, and allergic rhinitis",
+    "priceCentavos": 3500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Cetirizine"
+  },
+  {
+    "productId": "56",
+    "name": "Virlix 10mg Tablet (Cetirizine)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For allergy relief, hives, and allergic rhinitis",
+    "priceCentavos": 34000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Cetirizine"
+  },
+  {
+    "productId": "57",
+    "name": "Virlix 10mg Tablet (Cetirizine)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For allergy relief, hives, and allergic rhinitis",
+    "priceCentavos": 330000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Cetirizine"
+  },
+  {
+    "productId": "58",
+    "name": "Allerkid 5mg/5mL Syrup 60mL",
+    "packageType": "Bottle (60mL)",
+    "usageIndication": "Allergy syrup for kids (sneezing, runny nose)",
+    "priceCentavos": 16500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "59",
+    "name": "Allerkid 5mg/5mL Syrup 60mL",
+    "packageType": "Box (1 Bottle)",
+    "usageIndication": "Allergy syrup for kids (sneezing, runny nose)",
+    "priceCentavos": 16500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "60",
+    "name": "Allerkid 2.5mg/mL Oral Drops 10mL",
+    "packageType": "Bottle (10mL)",
+    "usageIndication": "Allergy drops for infants and young children",
+    "priceCentavos": 14000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "61",
+    "name": "Allerkid 2.5mg/mL Oral Drops 10mL",
+    "packageType": "Box (1 Bottle)",
+    "usageIndication": "Allergy drops for infants and young children",
+    "priceCentavos": 14000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "62",
+    "name": "Ascorbic Acid 500mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Vitamin C supplement for immune system support",
+    "priceCentavos": 200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "63",
+    "name": "Ascorbic Acid 500mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Vitamin C supplement for immune system support",
+    "priceCentavos": 1800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "64",
+    "name": "Ascorbic Acid 500mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Vitamin C supplement for immune system support",
+    "priceCentavos": 15000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "65",
+    "name": "Fern-C 500mg Capsule (Sodium Ascorbate)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Non-acidic Vitamin C for immunity",
+    "priceCentavos": 700,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Sodium Ascorbate"
+  },
+  {
+    "productId": "66",
+    "name": "Fern-C 500mg Capsule (Sodium Ascorbate)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Non-acidic Vitamin C for immunity",
+    "priceCentavos": 6800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Sodium Ascorbate"
+  },
+  {
+    "productId": "67",
+    "name": "Fern-C 500mg Capsule (Sodium Ascorbate)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Non-acidic Vitamin C for immunity",
+    "priceCentavos": 65000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Sodium Ascorbate"
+  },
+  {
+    "productId": "68",
+    "name": "Enervon-C Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Multivitamins with Vitamin C for energy and immunity",
+    "priceCentavos": 700,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "69",
+    "name": "Enervon-C Tablet",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Multivitamins with Vitamin C for energy and immunity",
+    "priceCentavos": 6800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "70",
+    "name": "Enervon-C Tablet",
+    "packageType": "Box (100s)",
+    "usageIndication": "Multivitamins with Vitamin C for energy and immunity",
+    "priceCentavos": 65000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "71",
+    "name": "Revicon Forte Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Multivitamins for physical endurance and fatigue",
+    "priceCentavos": 800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "72",
+    "name": "Revicon Forte Tablet",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Multivitamins for physical endurance and fatigue",
+    "priceCentavos": 7800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "73",
+    "name": "Revicon Forte Tablet",
+    "packageType": "Box (100s)",
+    "usageIndication": "Multivitamins for physical endurance and fatigue",
+    "priceCentavos": 75000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "74",
+    "name": "Amlodipine 5mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For high blood pressure (hypertension) management",
+    "priceCentavos": 200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "75",
+    "name": "Amlodipine 5mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For high blood pressure (hypertension) management",
+    "priceCentavos": 1800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "76",
+    "name": "Amlodipine 5mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For high blood pressure (hypertension) management",
+    "priceCentavos": 15000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "77",
+    "name": "Norvasc 5mg Tablet (Amlodipine)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Brand name medicine for high blood pressure",
+    "priceCentavos": 2400,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Amlodipine"
+  },
+  {
+    "productId": "78",
+    "name": "Norvasc 5mg Tablet (Amlodipine)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Brand name medicine for high blood pressure",
+    "priceCentavos": 23500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Amlodipine"
+  },
+  {
+    "productId": "79",
+    "name": "Norvasc 5mg Tablet (Amlodipine)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Brand name medicine for high blood pressure",
+    "priceCentavos": 230000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Amlodipine"
+  },
+  {
+    "productId": "80",
+    "name": "Losartan 50mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For high blood pressure and kidney protection",
+    "priceCentavos": 300,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "81",
+    "name": "Losartan 50mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For high blood pressure and kidney protection",
+    "priceCentavos": 2800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "82",
+    "name": "Losartan 50mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For high blood pressure and kidney protection",
+    "priceCentavos": 25000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "83",
+    "name": "Cozaar 50mg Tablet (Losartan)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Brand name medicine for high blood pressure",
+    "priceCentavos": 3200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Losartan"
+  },
+  {
+    "productId": "84",
+    "name": "Cozaar 50mg Tablet (Losartan)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Brand name medicine for high blood pressure",
+    "priceCentavos": 31000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Losartan"
+  },
+  {
+    "productId": "85",
+    "name": "Cozaar 50mg Tablet (Losartan)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Brand name medicine for high blood pressure",
+    "priceCentavos": 300000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Losartan"
+  },
+  {
+    "productId": "86",
+    "name": "Metformin 500mg (Generic Tablet)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For blood sugar control in type 2 diabetes",
+    "priceCentavos": 200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "87",
+    "name": "Metformin 500mg (Generic Tablet)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "For blood sugar control in type 2 diabetes",
+    "priceCentavos": 1800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "88",
+    "name": "Metformin 500mg (Generic Tablet)",
+    "packageType": "Box (100s)",
+    "usageIndication": "For blood sugar control in type 2 diabetes",
+    "priceCentavos": 15000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "89",
+    "name": "Glucophage 500mg Tablet (Metformin)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Brand name medicine for type 2 diabetes control",
     "priceCentavos": 1400,
-    "stock": 5,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Tuseran"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Metformin"
   },
   {
-    "name": "Vicks",
-    "priceCentavos": 3600,
-    "stock": 5,
+    "productId": "90",
+    "name": "Glucophage 500mg Tablet (Metformin)",
+    "packageType": "Blister Pack (10s)",
+    "usageIndication": "Brand name medicine for type 2 diabetes control",
+    "priceCentavos": 13500,
+    "stock": 20,
     "expiryDate": null,
     "aliases": [],
-    "genericKey": null,
-    "meta": {
-      "units": 5.0,
-      "spellings": [
-        "Vicks"
-      ],
-      "lastSeen": "2026-10-09"
-    }
+    "genericKey": "Metformin"
+  },
+  {
+    "productId": "91",
+    "name": "Glucophage 500mg Tablet (Metformin)",
+    "packageType": "Box (100s)",
+    "usageIndication": "Brand name medicine for type 2 diabetes control",
+    "priceCentavos": 130000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Metformin"
+  },
+  {
+    "productId": "92",
+    "name": "Green Cross Ethyl Alcohol 70% 250mL",
+    "packageType": "Bottle (250mL)",
+    "usageIndication": "Antiseptic and disinfectant for hand hygiene",
+    "priceCentavos": 4800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "93",
+    "name": "Green Cross Ethyl Alcohol 70% 500mL",
+    "packageType": "Bottle (500mL)",
+    "usageIndication": "Antiseptic and disinfectant for general hygiene",
+    "priceCentavos": 8800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "94",
+    "name": "Casino Isopropyl Alcohol 70% 250mL",
+    "packageType": "Bottle (250mL)",
+    "usageIndication": "Rubbing alcohol for disinfection and cleaning",
+    "priceCentavos": 4500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "95",
+    "name": "Casino Isopropyl Alcohol 70% 500mL",
+    "packageType": "Bottle (500mL)",
+    "usageIndication": "Rubbing alcohol for sanitation and home use",
+    "priceCentavos": 8200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "96",
+    "name": "Betadine Antiseptic Solution 10% 15mL",
+    "packageType": "Bottle (15mL)",
+    "usageIndication": "Povidone-iodine solution for wound disinfection",
+    "priceCentavos": 6500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "97",
+    "name": "Efficascent Oil Regular 100mL",
+    "packageType": "Bottle (100mL)",
+    "usageIndication": "Liniment for muscle pain, cramps, and headache",
+    "priceCentavos": 5800,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "98",
+    "name": "White Flower Embrocation 5mL",
+    "packageType": "Bottle (5mL)",
+    "usageIndication": "Aromatic oil for dizziness, colds, and headaches",
+    "priceCentavos": 7500,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "99",
+    "name": "Vicks Vaporub Ointment 25g",
+    "packageType": "Jar (25g)",
+    "usageIndication": "Vaporizing ointment for cough and nasal congestion",
+    "priceCentavos": 11000,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": null
+  },
+  {
+    "productId": "100",
+    "name": "Solmux 500mg Capsule (Carbocisteine)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For cough with phlegm (mucolytic)",
+    "priceCentavos": 1200,
+    "stock": 20,
+    "expiryDate": null,
+    "aliases": [],
+    "genericKey": "Carbocisteine"
   }
 ]

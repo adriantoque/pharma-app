@@ -140,7 +140,7 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
       expect(find.byTooltip('Scan'), findsOneWidget);
       expect(find.text('Products'), findsOneWidget);
-      expect(find.text('Alcohol'), findsOneWidget);
+      expect(find.text('Alaxan FR Capsule'), findsOneWidget);
     });
 
     testWidgets('hides products whose stock has not been counted', (
@@ -164,42 +164,50 @@ void main() {
     testWidgets('search filters the product list', (tester) async {
       await pumpSale(tester);
 
-      await tester.enterText(find.byType(TextField), 'cefa');
+      await tester.enterText(find.byType(TextField), 'amox');
       await tester.pumpAndSettle();
 
-      expect(find.text('cefalexin'), findsOneWidget);
-      expect(find.text('Alcohol'), findsNothing);
+      expect(
+        find.text('Amoxil 500mg Capsule (Amoxicillin)'),
+        findsOneWidget,
+      );
+      expect(find.text('Alaxan FR Capsule'), findsNothing);
     });
 
     testWidgets('clear restores the full product list', (tester) async {
       await pumpSale(tester);
 
-      await tester.enterText(find.byType(TextField), 'cefa');
+      await tester.enterText(find.byType(TextField), 'amox');
       await tester.pumpAndSettle();
-      expect(find.text('Alcohol'), findsNothing);
+      expect(find.text('Alaxan FR Capsule'), findsNothing);
 
       await tester.tap(find.byTooltip('Clear'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Alcohol'), findsOneWidget);
+      expect(find.text('Alaxan FR Capsule'), findsOneWidget);
     });
 
     testWidgets('add puts a line in the order', (tester) async {
       final sale = await pumpSale(tester);
 
-      await tester.tap(find.byTooltip('Add Alcohol'));
+      await tester.tap(find.byTooltip('Add Alaxan FR Capsule'));
       await tester.pumpAndSettle();
 
       expect(sale.order.itemCount, 1);
-      expect(sale.order.lines.single.medicine.name, 'Alcohol');
-      expect(find.byTooltip('Remove 1 × Alcohol'), findsOneWidget);
+      expect(sale.order.lines.single.medicine.name, 'Alaxan FR Capsule');
+      expect(
+        find.byTooltip('Remove 1 × Alaxan FR Capsule'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('an out-of-stock item cannot be added', (tester) async {
-      // 'Alcohol small' is in the static list at stock 0.
+      // 'Allerkid 2.5mg/mL Oral Drops' is in the static list at stock 0.
       final sale = await pumpSale(tester);
 
-      await tester.tap(find.byTooltip('Add Alcohol small'));
+      await tester.tap(
+        find.byTooltip('Add Allerkid 2.5mg/mL Oral Drops 10mL'),
+      );
       await tester.pumpAndSettle();
 
       expect(sale.order.isEmpty, isTrue);
@@ -210,7 +218,7 @@ void main() {
     ) async {
       await pumpSale(tester, withRouter: true);
 
-      await tester.tap(find.byTooltip('Add Alcohol'));
+      await tester.tap(find.byTooltip('Add Alaxan FR Capsule'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('View cart'));
@@ -332,7 +340,7 @@ void main() {
     ) async {
       final sale = await pumpSale(tester, withRouter: true);
 
-      await tester.tap(find.byTooltip('Add Alcohol'));
+      await tester.tap(find.byTooltip('Add Alaxan FR Capsule'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('View cart'));
@@ -349,14 +357,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(sale.order.isEmpty, isTrue);
-      expect(sale.history.orders.single.items.single.medicine.name, 'Alcohol');
+      expect(
+        sale.history.orders.single.items.single.medicine.name,
+        'Alaxan FR Capsule',
+      );
       expect(find.text('Orders Screen'), findsOneWidget);
     });
 
     testWidgets('cancelling the confirm keeps the cart intact', (tester) async {
       final sale = await pumpSale(tester, withRouter: true);
 
-      await tester.tap(find.byTooltip('Add Alcohol'));
+      await tester.tap(find.byTooltip('Add Alaxan FR Capsule'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('View cart'));

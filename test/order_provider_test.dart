@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/orders/data/models/order_line_model.dart';
+import 'package:pharmaguide/features/orders/data/repositories/order_draft_store.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 
 import 'helpers/fake_auth_repository.dart';
 
@@ -313,6 +315,46 @@ void main() {
     });
   });
 
+  group('restoring drafts against product IDs', () {
+    test('matches an old line when its name and price are unambiguous', () async {
+      final repository = FakeAuthRepository();
+      final auth = AuthProvider(repository);
+      await auth.ready;
+      await auth.login(email: 'a@b.com', password: 'secret');
+      addTearDown(() {
+        auth.dispose();
+        repository.dispose();
+      });
+
+      const legacy = MedicineModel(
+        name: 'Paracetamol',
+        priceCentavos: 200,
+        stock: null,
+      );
+      const imported = MedicineModel(
+        productId: '101',
+        name: 'Paracetamol',
+        packageType: 'Piece (Dosage)',
+        priceCentavos: 200,
+        stock: 20,
+      );
+      final draft = _FixedOrderDraftStore([
+        OrderLineModel(medicine: legacy, quantity: 2),
+      ]);
+      final order = OrderProvider(
+        auth: auth,
+        draftFor: (_) => draft,
+        catalogue: _TestMedicineRepository([imported]),
+      );
+      addTearDown(order.dispose);
+
+      await pumpEventQueue();
+
+      expect(order.lines.single.medicine, imported);
+      expect(order.lines.single.quantity, 2);
+    });
+  });
+
   group('signing out', () {
     late FakeAuthRepository repository;
     late AuthProvider auth;
@@ -358,4 +400,34 @@ void main() {
       expect(order.quantityOf(dearAmox), 3);
     });
   });
+}
+
+class _TestMedicineRepository implements MedicineRepository {
+  _TestMedicineRepository(this.medicines);
+
+  final List<MedicineModel> medicines;
+
+  @override
+  List<MedicineModel> all() => medicines;
+
+  @override
+  List<MedicineModel> search(String query) =>
+      medicines.where((medicine) => medicine.matches(query)).toList();
+}
+
+class _FixedOrderDraftStore implements OrderDraftStore {
+  _FixedOrderDraftStore(this.lines);
+
+  final List<OrderLineModel> lines;
+
+  @override
+  Stream<List<OrderLineModel>> watchDraft() async* {
+    yield lines;
+  }
+
+  @override
+  Future<void> save(List<OrderLineModel> lines) async {}
+
+  @override
+  Future<void> clear() => save(const []);
 }

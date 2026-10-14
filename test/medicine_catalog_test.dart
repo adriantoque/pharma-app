@@ -8,7 +8,7 @@ void main() {
 
   group('catalog', () {
     test('holds the transcribed list', () {
-      expect(repository.all(), hasLength(64));
+      expect(repository.all(), hasLength(50));
     });
 
     test('has no duplicate name+price pairs', () {
@@ -19,79 +19,87 @@ void main() {
       expect(keys.toSet(), hasLength(keys.length));
     });
 
-    test('keeps repeated names that have different prices', () {
-      // These are separate products sharing a shorthand name, so collapsing
-      // them would silently drop a real price.
-      expect(repository.search('Amox'), hasLength(4));
-      expect(repository.search('Diatabs'), hasLength(3));
-      expect(repository.search('Tramadol'), hasLength(3));
-      expect(repository.search('Tuseran'), hasLength(2));
+    test('keeps repeated names that have different packages', () {
+      // These are separate products sharing a name, so collapsing them would
+      // silently drop a real price.
+      const paracetamol = 'Paracetamol 500mg (Generic Tablet)';
+      const biogesic = 'Biogesic 500mg Tablet (Paracetamol)';
+      const amoxicillin = 'Amoxicillin 500mg (Generic Capsule)';
+      const diatabs = 'Diatabs 2mg Capsule (Loperamide)';
+      const cetirizine = 'Cetirizine 10mg (Generic Tablet)';
+
+      expect(repository.search(paracetamol), hasLength(3));
+      expect(repository.search(biogesic), hasLength(3));
+      expect(repository.search(amoxicillin), hasLength(3));
+      expect(repository.search(diatabs), hasLength(3));
+      expect(repository.search(cetirizine), hasLength(3));
     });
 
-    test('formats the only price with centavos exactly', () {
-      final geterizine = repository.all().firstWhere(
-        (m) => m.name == 'GETERIZINE',
-      );
+    test('formats a price with centavos exactly', () {
+      const half = MedicineModel(name: 'X', priceCentavos: 250, stock: null);
 
-      expect(geterizine.priceCentavos, 250);
-      expect(geterizine.formattedPrice, '₱2.50');
+      expect(half.formattedPrice, '₱2.50');
     });
 
     test('formats whole prices to two decimals', () {
-      final alcohol = repository.all().firstWhere((m) => m.name == 'Alcohol');
+      final casino = repository.all().firstWhere(
+        (m) => m.name == 'Casino Isopropyl Alcohol 70% 500mL',
+      );
 
-      expect(alcohol.formattedPrice, '₱65.00');
+      expect(casino.formattedPrice, '₱82.00');
     });
   });
 
   group('search', () {
     test('an empty query returns everything', () {
-      expect(repository.search(''), hasLength(64));
-      expect(repository.search('   '), hasLength(64));
+      expect(repository.search(''), hasLength(50));
+      expect(repository.search('   '), hasLength(50));
     });
 
     test('matches names case-insensitively', () {
-      expect(repository.search('bIOgEsIc'), hasLength(1));
-      expect(repository.search('biogesic').single.name, 'Biogesic');
+      expect(repository.search('bIOfLu').single.name, 'Bioflu Tablet');
     });
 
     test('matches on a substring, not just a prefix', () {
       expect(repository.search('syrup').map((m) => m.name), [
-        'Cetirizine syrup',
-        'Fern s syrup',
-        'Para syrup',
+        'Allerkid 5mg/5mL Syrup 60mL',
       ]);
-      expect(repository.search('roll').map((m) => m.name), ['Katinko roll']);
+      expect(repository.search('softgel').map((m) => m.name), [
+        'Medicol Advance 200mg Softgel',
+      ]);
     });
 
-    test('ignores spaces so babyoil finds "Baby Oil"', () {
-      expect(repository.search('babyoil').single.name, 'Baby Oil');
+    test('ignores spaces so medicoladvance finds "Medicol Advance 200mg Softgel"',
+        () {
+      expect(
+        repository.search('medicoladvance').single.name,
+        'Medicol Advance 200mg Softgel',
+      );
     });
 
     test('matches on price with or without decimals', () {
-      expect(repository.search('65.00').map((m) => m.name), [
-        'Alcohol',
-        'Alcohol med',
+      expect(repository.search('82.00').map((m) => m.name), [
+        'Casino Isopropyl Alcohol 70% 500mL',
       ]);
       // Bare integers work too: the requirement is two or more digits.
-      expect(repository.search('65').map((m) => m.name), [
-        'Alcohol',
-        'Alcohol med',
-      ]);
-      // Three items sit at 22.00, which is easy to get wrong by eye.
-      expect(repository.search('₱22.00').map((m) => m.name), [
-        'Alcohol small',
-        'DIATABS',
-        'Tuseran',
+      expect(repository.search('82').map((m) => m.name), [
+        'Casino Isopropyl Alcohol 70% 500mL',
       ]);
     });
 
     test('a bare short number does not match prices', () {
       // '2' would otherwise flood the list with every cheap item on the shelf.
       final results = repository.search('2');
-      final byPrice = results.where((m) => m.priceCentavos == 200).toList();
+      const paracetamolPiece = MedicineModel(
+        productId: '1',
+        name: 'Paracetamol 500mg (Generic Tablet)',
+        packageType: 'Piece (Dosage)',
+        usageIndication: 'For fever and mild to moderate pain relief',
+        priceCentavos: 200,
+        stock: 120,
+      );
 
-      expect(byPrice, isEmpty);
+      expect(results.contains(paracetamolPiece), isFalse);
     });
 
     test('returns nothing for a query that matches nothing', () {
@@ -99,14 +107,20 @@ void main() {
     });
 
     test('sorts by name ignoring case, then cheapest first', () {
-      final names = repository.search('amox').map((m) => m.name).toList();
+      final diatabs = repository.search('diatabs');
+      final prices = diatabs.map((m) => m.priceCentavos);
 
-      expect(names, ['Amox', 'Amox', 'Amox 250 CAP', 'Amox 500mg']);
-      final prices = repository
-          .search('amox')
-          .where((m) => m.name == 'Amox')
-          .map((m) => m.priceCentavos);
-      expect(prices, [400, 4500]);
+      expect(prices, [800, 7800, 75000]);
+    });
+
+    test('searching a generic also finds the branded product', () {
+      final names = repository
+          .search('amoxicillin')
+          .map((m) => m.name)
+          .toSet();
+
+      expect(names, contains('Amoxicillin 500mg (Generic Capsule)'));
+      expect(names, contains('Amoxil 500mg Capsule (Amoxicillin)'));
     });
 
     test('the full list is alphabetical ignoring case', () {

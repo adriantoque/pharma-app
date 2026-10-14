@@ -15,6 +15,14 @@ void main() {
   MedicineModel medicine(String name, {int? stock}) =>
       MedicineModel(name: name, priceCentavos: 100, stock: stock);
 
+  MedicineModel product(String id, String name, {int? stock}) => MedicineModel(
+    productId: id,
+    name: name,
+    packageType: 'Piece',
+    priceCentavos: 100,
+    stock: stock,
+  );
+
   /// Waits for the stream's last list, once [count] of them have arrived.
   ///
   /// Not `stream.first`: the bundled list is emitted as soon as it is read, which
@@ -141,6 +149,45 @@ void main() {
             'pharmacist\'s own decision',
       );
     });
+
+    test('a legacy account is not migrated automatically', () async {
+      final remote = FakeMedicineStore(initial: [medicine('A', stock: 3)]);
+      final store = SeededMedicineStore(
+        remote: remote,
+        bundled: ListMedicineSource([product('1', 'A'), product('2', 'B')]),
+      );
+
+      final merged = await settle(store.watchAll());
+      await pumpEventQueue();
+
+      expect(merged.map((item) => item.name), ['A', 'B']);
+      expect(merged.first.stock, 3);
+      expect(
+        remote.operations,
+        isEmpty,
+        reason:
+            'legacy records cannot distinguish unimported products from '
+            'records a pharmacist deliberately removed',
+      );
+    });
+
+    test(
+      'a partially migrated account receives only missing product IDs',
+      () async {
+        final remote = FakeMedicineStore(
+          initial: [product('1', 'A', stock: 3)],
+        );
+        final store = SeededMedicineStore(
+          remote: remote,
+          bundled: ListMedicineSource([product('1', 'A'), product('2', 'B')]),
+        );
+
+        await store.watchAll().first;
+        await pumpEventQueue();
+
+        expect(remote.operations, ['upsertAll 1']);
+      },
+    );
 
     test('seeding happens once, not on every snapshot', () async {
       final remote = FakeMedicineStore();

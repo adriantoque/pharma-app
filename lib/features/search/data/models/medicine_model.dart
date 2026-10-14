@@ -4,11 +4,10 @@ import '../../../../core/utils/search_text.dart';
 /// How much of a medicine is on the shelf.
 ///
 /// [unknown] is a real state and not a missing value. The pharmacy's records
-/// carry prices and sales but no stock counts, so an import knows what a thing
-/// costs and nothing at all about how many are on the shelf. Reading that as
-/// zero would put every product out of stock and make the price list useless;
-/// reading it as some plausible number would be inventing a count nobody took.
-/// It therefore stays visibly uncounted until a member of staff types one in.
+/// may not include a stock count, so an import knows what a thing costs but
+/// nothing about how many are on the shelf. Reading that as zero would put the
+/// product out of stock; inventing a plausible number would be just as wrong.
+/// It therefore stays visibly uncounted until a member of staff records a count.
 ///
 /// Stand-in for "this argument was not passed" in [MedicineModel.copyWith], where
 /// null is a real value rather than an absence. See there for why.
@@ -31,17 +30,18 @@ enum StockState {
 
 /// One line in the pharmacy price list.
 ///
-/// A line is identified by name *and* price: the source list has several
-/// products sharing a shorthand name at different prices (`Amox` at both
-/// 4.00 and 45.00), and those are separate items, not a conflict to resolve.
-/// That rule is enforced by [operator ==] so anywhere an item is looked up --
-/// an order line, say -- it comes out right without every call site repeating
-/// the pair comparison.
+/// A line uses its source product ID when available. Older entries without one
+/// fall back to name, package type, and price; this keeps repeated shorthand
+/// products (such as `Amox` at 4.00 and 45.00) distinct. That rule is enforced
+/// by [operator ==] so lookups use the same identity everywhere.
 class MedicineModel {
   const MedicineModel({
     required this.name,
     required this.priceCentavos,
     required this.stock,
+    this.productId,
+    this.packageType,
+    this.usageIndication,
     this.aliases = const [],
     this.genericKey,
     this.expiryDate,
@@ -52,6 +52,15 @@ class MedicineModel {
   /// deliberately: a wrong drug name in a pharmacy app is worse than an ugly
   /// one, so correcting them is a decision for the pharmacist, not the code.
   final String name;
+
+  /// Stable identifier supplied by the pharmacy dataset, when present.
+  final String? productId;
+
+  /// Package size or sale unit, such as "Piece (Dosage)" or "Box (100s)".
+  final String? packageType;
+
+  /// Usage or indication supplied by the pharmacy's dataset.
+  final String? usageIndication;
 
   /// Price in centavos. Integer rather than a double so a price with centavos
   /// (there is one: 2.50) is stored exactly and never drifts.
@@ -191,13 +200,25 @@ class MedicineModel {
   /// guaranteed stable within one process, and an id that moved between runs
   /// would re-create every document and orphan the stock counts again.
   ///
-  /// The name goes in exactly as written, capitals included, so correcting a
-  /// name yields a different id. That is deliberate: a corrected name is a
-  /// different document, and retiring the old one is the pharmacist's call
-  /// rather than something the app does silently.
+  /// Imported rows use their stable [productId]. Older entries fall back to
+  /// their exact name and price, with [packageType] included when available.
   String get documentId {
+    final identity = productId != null
+        ? 'productId|$productId'
+        : packageType == null
+        ? '$name|$priceCentavos'
+        : '$name|$packageType|$priceCentavos';
+    return _hashIdentity(identity);
+  }
+
+  /// Document ID used before product IDs were added to imported catalogue rows.
+  ///
+  /// Kept only to migrate existing offline stock and expiry overlays.
+  String get legacyDocumentId => _hashIdentity('$name|$priceCentavos');
+
+  static String _hashIdentity(String identity) {
     var hash = 0x811c9dc5;
-    for (final unit in '$name|$priceCentavos'.codeUnits) {
+    for (final unit in identity.codeUnits) {
       hash = ((hash ^ unit) * 0x01000193) & 0xFFFFFFFF;
     }
     return hash.toRadixString(16).padLeft(8, '0');
@@ -213,7 +234,10 @@ class MedicineModel {
   /// repeating it inside would be a second place for the same value to be wrong.
   Map<String, dynamic> toFirestore() => {
         'name': name,
-        'priceCentavos': priceCentavos,
+    'productId': productId,
+    'packageType': packageType,
+    'usageIndication': usageIndication,
+    'priceCentavos': priceCentavos,
         'stock': stock,
         'aliases': aliases,
         'genericKey': genericKey,
@@ -233,6 +257,9 @@ class MedicineModel {
   factory MedicineModel.fromFirestore(Map<String, dynamic> data) {
     return MedicineModel(
       name: data['name'] as String? ?? '',
+      productId: _readProductId(data['productId']),
+      packageType: data['packageType'] as String?,
+      usageIndication: data['usageIndication'] as String?,
       priceCentavos: _readInt(data['priceCentavos']),
       // Read as nullable, unlike the price. A count that cannot be parsed is
       // *not* a count of zero, and reading it as one would mark a stocked item
@@ -253,6 +280,12 @@ class MedicineModel {
   /// not a line anybody can sell, and it must still sort and compare. Stock does
   /// not get that luxury, which is why it goes through [_readIntOrNull].
   static int _readInt(Object? value) => _readIntOrNull(value) ?? 0;
+
+  static String? _readProductId(Object? value) => switch (value) {
+    String id when id.isNotEmpty => id,
+    num id => id.toInt().toString(),
+    _ => null,
+  };
 
   /// A whole number, or null when [value] is not one.
   static int? _readIntOrNull(Object? value) => switch (value) {
@@ -322,6 +355,9 @@ class MedicineModel {
   /// field as it was.
   MedicineModel copyWith({
     String? name,
+    Object? productId = _keep,
+    Object? packageType = _keep,
+    Object? usageIndication = _keep,
     int? priceCentavos,
     Object? stock = _keep,
     List<String>? aliases,
@@ -330,6 +366,15 @@ class MedicineModel {
   }) {
     return MedicineModel(
       name: name ?? this.name,
+      productId: identical(productId, _keep)
+          ? this.productId
+          : productId as String?,
+      packageType: identical(packageType, _keep)
+          ? this.packageType
+          : packageType as String?,
+      usageIndication: identical(usageIndication, _keep)
+          ? this.usageIndication
+          : usageIndication as String?,
       priceCentavos: priceCentavos ?? this.priceCentavos,
       stock: identical(stock, _keep) ? this.stock : stock as int?,
       aliases: aliases ?? this.aliases,
@@ -339,26 +384,30 @@ class MedicineModel {
   }
 
 
-  /// Two entries are the same item when the name and the price both match, per
-  /// the class doc: `Amox` at 4.00 is not `Amox` at 45.00, and `DIATABS` at
-  /// 11.00 is not `Diatabs` at 7.00 even though only the capitalisation differs.
+  /// Product IDs identify imported rows; older rows use their exact name,
+  /// package type, and price. `Amox` at 4.00 is not `Amox` at 45.00, and
+  /// `DIATABS` at 11.00 is not `Diatabs` at 7.00 even if only capitalization
+  /// differs.
   ///
   /// [stock] is excluded on purpose; see its doc comment. [aliases] and
   /// [genericKey] are excluded for the same reason: they are extra ways to find
   /// a line, not a second line.
   ///
-  /// [hashCode] pairs the fields in the same order as [operator ==]; Dart's
-  /// bit-mixing is commutative so the order is not load-bearing, but keeping them
-  /// together is what makes the pair readable side by side.
+  /// [hashCode] uses the same identity fields as [operator ==].
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is MedicineModel &&
-          other.name == name &&
-          other.priceCentavos == priceCentavos;
+          (productId != null || other.productId != null
+              ? productId != null && productId == other.productId
+              : other.name == name &&
+                  other.priceCentavos == priceCentavos &&
+                  other.packageType == packageType);
 
   @override
-  int get hashCode => Object.hash(name, priceCentavos);
+  int get hashCode => productId != null
+      ? Object.hash('productId', productId)
+      : Object.hash(name, priceCentavos, packageType);
 
   /// The order a price list is shown in: alphabetical ignoring case, then
   /// cheapest first.
@@ -370,7 +419,14 @@ class MedicineModel {
   /// come back in a different order depending on where it was read.
   static int compareByNameThenPrice(MedicineModel a, MedicineModel b) {
     final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    return byName != 0 ? byName : a.priceCentavos.compareTo(b.priceCentavos);
+    if (byName != 0) return byName;
+    final byPrice = a.priceCentavos.compareTo(b.priceCentavos);
+    if (byPrice != 0) return byPrice;
+    final byPackage = (a.packageType ?? '').toLowerCase().compareTo(
+      (b.packageType ?? '').toLowerCase(),
+    );
+    if (byPackage != 0) return byPackage;
+    return (a.productId ?? '').compareTo(b.productId ?? '');
   }
 
   /// Whether this item should appear for [query].
@@ -393,15 +449,11 @@ class MedicineModel {
     final needle = _normalise(trimmed);
     if (needle.isEmpty) return true;
 
-    // 1. Match against name, aliases, or generic key
     for (final candidate in searchableNames) {
       if (_normalise(candidate).contains(needle)) return true;
     }
 
-    // 2. Match as a price: `65`, `65.00`, `65.5`, `₱65.00`
-    // Bare one- and two-digit numbers are excluded from price matching
-    // so a stray `4` does not dump every 4-peso item.
-    if (_priceQuery(trimmed) case final int? centavos?) {
+    if (_priceQuery(trimmed) case final centavos?) {
       return priceCentavos == centavos;
     }
     return false;
@@ -412,7 +464,12 @@ class MedicineModel {
   ///
   /// One place so search and any later suggestion UI cannot disagree about
   /// which spellings count.
-  Iterable<String> get searchableNames => [name, ...aliases, ?genericKey];
+  Iterable<String> get searchableNames => [
+    name,
+    ?packageType,
+    ...aliases,
+    ?genericKey,
+  ];
 
   /// Lowercases and drops everything that is not a letter or a digit, so `Baby
   /// Oil` is findable by typing `babyoil`, and `Amox 500mg` by `amox500mg`.

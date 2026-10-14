@@ -291,12 +291,10 @@ class OrderProvider extends ChangeNotifier {
 
   /// Puts a stored draft on screen, matched against the live price list.
   ///
-  /// A restored line carries a name and a price and nothing else, and
-  /// [MedicineModel]'s identity rule is exactly those two fields -- so the live
-  /// catalogue's entry is the one that goes back in, bringing its own stock count,
-  /// aliases and expiry with it. That is the whole point: a basket restored
-  /// tomorrow must be capped by tomorrow's shelf, not by a count copied out of a
-  /// document yesterday.
+  /// A restored line carries its product ID when available, or the older
+  /// name/price identity. Matching it against the live catalogue brings back the
+  /// current stock count, aliases and expiry. If a legacy identity could refer
+  /// to multiple packages, it stays unresolved rather than choosing one.
   ///
   /// A line whose product is no longer in the price list keeps the stored copy,
   /// with no count. Silently deleting somebody's line because the catalogue moved
@@ -323,9 +321,22 @@ class OrderProvider extends ChangeNotifier {
     MedicineModel stored,
   ) {
     if (catalogue == null) return stored;
-    for (final medicine in catalogue.all()) {
+    final medicines = catalogue.all();
+    for (final medicine in medicines) {
       if (medicine == stored) return medicine;
     }
+
+    if (stored.productId == null) {
+      final legacyMatches = medicines.where(
+        (medicine) =>
+            medicine.name == stored.name &&
+            medicine.priceCentavos == stored.priceCentavos &&
+            (stored.packageType == null ||
+                medicine.packageType == stored.packageType),
+      );
+      if (legacyMatches.length == 1) return legacyMatches.single;
+    }
+
     return stored;
   }
 

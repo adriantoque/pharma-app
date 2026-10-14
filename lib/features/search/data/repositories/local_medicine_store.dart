@@ -46,12 +46,26 @@ class LocalMedicineStore
   Map<String, Map<String, dynamic>> _overlay = {};
   bool _loaded = false;
   bool _disposed = false;
+  Future<void>? _initPending;
 
   Future<List<MedicineModel>> _loadBase() =>
       _basePending ??= _bundled.load().catchError((Object _) => const <MedicineModel>[]);
 
   Future<void> _init() async {
     if (_loaded) return;
+    final pending = _initPending;
+    if (pending != null) return pending;
+
+    final initialization = _initialize();
+    _initPending = initialization;
+    try {
+      await initialization;
+    } finally {
+      if (identical(_initPending, initialization)) _initPending = null;
+    }
+  }
+
+  Future<void> _initialize() async {
     final prefs = await _prefsFuture;
     final raw = prefs.getString(_overlayKey);
     if (raw != null) {
@@ -73,7 +87,40 @@ class LocalMedicineStore
         _overlay = {};
       }
     }
+    final base = await _loadBase();
+    if (_migrateLegacyOverlay(base)) await _persistOverlay();
     _loaded = true;
+  }
+
+  bool _migrateLegacyOverlay(List<MedicineModel> base) {
+    final byLegacyId = <String, MedicineModel>{};
+    final ambiguousIds = <String>{};
+    for (final medicine in base.where((medicine) => medicine.productId != null)) {
+      final id = medicine.legacyDocumentId;
+      if (byLegacyId.containsKey(id)) {
+        byLegacyId.remove(id);
+        ambiguousIds.add(id);
+      } else if (!ambiguousIds.contains(id)) {
+        byLegacyId[id] = medicine;
+      }
+    }
+
+    var changed = false;
+    for (final entry in _overlay.entries.toList()) {
+      final medicine = byLegacyId[entry.key];
+      if (medicine == null || ambiguousIds.contains(entry.key)) continue;
+
+      final migrated = _overlay.putIfAbsent(
+        medicine.documentId,
+        () => <String, dynamic>{},
+      );
+      for (final patch in entry.value.entries) {
+        migrated.putIfAbsent(patch.key, () => patch.value);
+      }
+      _overlay.remove(entry.key);
+      changed = true;
+    }
+    return changed;
   }
 
   Future<void> _persistOverlay() async {

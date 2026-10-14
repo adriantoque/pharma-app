@@ -17,6 +17,8 @@ abstract final class OrderLineCodec {
   /// One line as stored.
   static Map<String, dynamic> toMap(OrderLineModel line) => {
     'name': line.medicine.name,
+    'productId': line.medicine.productId,
+    'packageType': line.medicine.packageType,
     'priceCentavos': line.medicine.priceCentavos,
     'quantity': line.quantity,
   };
@@ -39,6 +41,8 @@ abstract final class OrderLineCodec {
   static OrderLineModel? readLine(Object? entry) {
     if (entry is! Map) return null;
     final name = entry['name'];
+    final productId = entry['productId'];
+    final packageType = entry['packageType'];
     final price = readIntOrNull(entry['priceCentavos']);
     final quantity = readIntOrNull(entry['quantity']);
     if (name is! String || name.isEmpty || price == null || quantity == null) {
@@ -53,7 +57,13 @@ abstract final class OrderLineCodec {
     // ordered in quantity; a count read out of a draft is a count from whenever
     // the order was started and may be hours and several other counts out of date.
     return OrderLineModel(
-      medicine: MedicineModel(name: name, priceCentavos: price, stock: null),
+      medicine: MedicineModel(
+        name: name,
+        productId: productId is String ? productId : productId?.toString(),
+        packageType: packageType is String ? packageType : null,
+        priceCentavos: price,
+        stock: null,
+      ),
       quantity: quantity,
     );
   }

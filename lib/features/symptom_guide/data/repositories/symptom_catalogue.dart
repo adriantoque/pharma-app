@@ -12,10 +12,10 @@ import '../models/symptom_entry.dart';
 /// Aliases: temperature, lagnat, high temp
 /// Summary: <1-2 sentences; include when to refer to the pharmacist>
 /// Medicines:
-///   - Biogesic
+///   - Biogesic 500mg Tablet (Paracetamol)
 ///       How to use: <directions, no numeric dose>
 ///       Cautions: <warnings / red flags>
-///   - Tempra 1-5
+///   - Paracetamol 500mg (Generic Tablet)
 ///       How to use: ...
 ///       Cautions: ...
 /// Symptom: Headache
@@ -50,7 +50,10 @@ const List<SymptomEntry> symptomCatalogue = [
     summary: '[Placeholder] A raised body temperature, often from an infection. '
         'Refer to the pharmacist if it lasts more than a few days or comes with '
         'a stiff neck, a rash, or confusion.',
-    medicineNames: ['Biogesic', 'Tempra 1-5', 'Paracetamol 125'],
+    medicineNames: [
+      'Biogesic 500mg Tablet (Paracetamol)',
+      'Paracetamol 500mg (Generic Tablet)',
+    ],
     referralNote: '[Placeholder] Refer to the pharmacist for fever in infants, '
         'or fever lasting more than three days.',
     isDraft: true,
@@ -62,7 +65,10 @@ const List<SymptomEntry> symptomCatalogue = [
     summary: '[Placeholder] Pain in the head. Refer to the pharmacist if it is '
         'sudden and severe, follows a head injury, or comes with a fever and '
         'neck stiffness.',
-    medicineNames: ['Biogesic', 'Medicol'],
+    medicineNames: [
+      'Biogesic 500mg Tablet (Paracetamol)',
+      'Medicol Advance 200mg Softgel',
+    ],
     isDraft: true,
   ),
   SymptomEntry(
@@ -72,7 +78,10 @@ const List<SymptomEntry> symptomCatalogue = [
     summary: '[Placeholder] A cough, often from a cold. Refer to the pharmacist '
         'if it lasts more than two weeks, brings up blood, or comes with '
         'breathing difficulty.',
-    medicineNames: ['Tuseran', 'Symdex'],
+    medicineNames: [
+      'Solmux 500mg Capsule (Carbocisteine)',
+      'Bioflu Tablet',
+    ],
     isDraft: true,
   ),
   SymptomEntry(
@@ -82,7 +91,11 @@ const List<SymptomEntry> symptomCatalogue = [
     summary: '[Placeholder] Sneezing, itching, or a runny nose from an allergen. '
         'Refer to the pharmacist at once for swelling of the face or throat or '
         'difficulty breathing.',
-    medicineNames: ['Ceterizine Tab', 'Ceterizine Syrup'],
+    medicineNames: [
+      'Cetirizine 10mg (Generic Tablet)',
+      'Virlix 10mg Tablet (Cetirizine)',
+      'Allerkid 5mg/5mL Syrup 60mL',
+    ],
     isDraft: true,
   ),
 ];

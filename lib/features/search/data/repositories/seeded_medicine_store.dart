@@ -154,10 +154,50 @@ class SeededMedicineStore
     if (remote.isEmpty) return List.unmodifiable(base);
     if (base.isEmpty) return List.unmodifiable(remote);
 
+    final bundledProductIds = {
+      for (final medicine in base)
+        if (medicine.productId != null) medicine.productId,
+    };
+    final legacyMatches = <String, MedicineModel>{};
+    final ambiguousLegacyKeys = <String>{};
+    if (bundledProductIds.isNotEmpty) {
+      for (final medicine in base) {
+        final key = _legacyIdentity(medicine);
+        if (legacyMatches.containsKey(key)) {
+          legacyMatches.remove(key);
+          ambiguousLegacyKeys.add(key);
+        } else if (!ambiguousLegacyKeys.contains(key)) {
+          legacyMatches[key] = medicine;
+        }
+      }
+    }
     final byId = <String, MedicineModel>{
       for (final medicine in base) medicine.documentId: medicine,
     };
     for (final medicine in remote) {
+      if (bundledProductIds.isNotEmpty) {
+        if (medicine.productId != null) {
+          if (bundledProductIds.contains(medicine.productId)) {
+            final bundledMedicine = byId[medicine.documentId]!;
+            byId[medicine.documentId] = medicine.copyWith(
+              usageIndication:
+                  medicine.usageIndication ?? bundledMedicine.usageIndication,
+            );
+          }
+          continue;
+        }
+
+        final legacy = legacyMatches[_legacyIdentity(medicine)];
+        if (legacy != null) {
+          byId[legacy.documentId] = legacy.copyWith(
+            stock: medicine.stock,
+            expiryDate: medicine.expiryDate,
+            aliases: medicine.aliases.isEmpty ? legacy.aliases : medicine.aliases,
+            genericKey: medicine.genericKey ?? legacy.genericKey,
+          );
+        }
+        continue;
+      }
       byId[medicine.documentId] = medicine;
     }
 
@@ -166,24 +206,36 @@ class SeededMedicineStore
     return List.unmodifiable(merged);
   }
 
-/// Uploads the bundled price list the first time the shared collection is found empty.
+  static String _legacyIdentity(MedicineModel medicine) =>
+      '${medicine.name}\u0000${medicine.priceCentavos}';
+
+/// Uploads the bundled catalogue when the collection is empty or every existing
+/// record already uses a product-ID identity.
 ///
 /// This replaces signing up and then running `tool/seed_firestore.dart` from a
 /// laptop, which was the only other way a new pharmacy ever got a price list and
 /// needed a connection to do it.
 ///
-/// If the shared collection already has lines (added by another user), it is left
-/// alone: putting the bundled list back would undo edits the pharmacist made.
+/// A non-empty legacy collection is left untouched. It has no product IDs to
+/// distinguish a new item from one a pharmacist deliberately removed, so
+/// automatically adding the new catalogue there could undo that decision.
 Future<void> _seedIfEmpty(List<MedicineModel> remote) async {
   if (_seedAttempted) return;
   _seedAttempted = true;
-  if (remote.isNotEmpty) return;
 
   final base = await _loadBase();
   if (_disposed || base.isEmpty) return;
+  final isLegacyCollection = remote.any((medicine) => medicine.productId == null);
+  if (remote.isNotEmpty && isLegacyCollection) return;
+
+  final remoteIds = {for (final medicine in remote) medicine.documentId};
+  final missing = base
+      .where((medicine) => !remoteIds.contains(medicine.documentId))
+      .toList();
+  if (missing.isEmpty) return;
 
   try {
-    await _remote.upsertAll(base);
+    await _remote.upsertAll(missing);
   } catch (_) {
     // Offline, or refused. The bundled list is already on screen, and this is
     // offered again the next time the app starts.

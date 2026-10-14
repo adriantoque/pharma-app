@@ -17,8 +17,8 @@ import 'helpers/fake_prescription_recognizer.dart';
 ///
 /// The catalogue is injected rather than read from a `MedicineProvider`, which
 /// is what lets these tests run without the auth-backed provider chain the real
-/// app builds. `Amox 500mg` is in the static list, so a scanned line naming it
-/// always produces exactly one add button keyed `addAmox 500mg`.
+/// app builds. `Bioflu Tablet` is in the static list, so a scanned line naming
+/// it always produces exactly one add button keyed `addBioflu Tablet`.
 Future<OrderProvider> pumpScan(
   WidgetTester tester, {
   FakePrescriptionCamera? camera,
@@ -137,7 +137,7 @@ void main() {
   group('reading a prescription', () {
     testWidgets('shows every line it read, numbered from one', (tester) async {
       final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Amox 500mg', 'cefalexin'),
+        readings: readingsOf('Bioflu Tablet', 'Kremil-S Tablet'),
       );
       await pumpScan(
         tester,
@@ -152,8 +152,8 @@ void main() {
       await tester.tap(scanButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Line 1: "Amox 500mg"'), findsOneWidget);
-      expect(find.text('Line 2: "cefalexin"'), findsOneWidget);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsOneWidget);
+      expect(find.text('Line 2: "Kremil-S Tablet"'), findsOneWidget);
       expect(recognizer.recognizeCalls, hasLength(1));
     });
 
@@ -162,7 +162,7 @@ void main() {
     ) async {
       final recognizer = FakePrescriptionRecognizer(
         readings: [
-          const RecognizedLine('Amox 500mg'),
+          const RecognizedLine('Bioflu Tablet'),
           const RecognizedLine(''),
         ],
       );
@@ -182,7 +182,7 @@ void main() {
       tester,
     ) async {
       final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Amox 500mg'),
+        readings: readingsOf('Bioflu Tablet'),
         blockRecognize: true,
       );
       await pumpScan(tester, recognizer: recognizer);
@@ -191,13 +191,13 @@ void main() {
       await tester.pump();
 
       expect(find.text('Reading…'), findsOneWidget);
-      expect(find.text('Line 1: "Amox 500mg"'), findsNothing);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsNothing);
 
       recognizer.completeRecognize();
       await tester.pumpAndSettle();
 
       expect(find.text('Reading…'), findsNothing);
-      expect(find.text('Line 1: "Amox 500mg"'), findsOneWidget);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsOneWidget);
     });
 
     testWidgets('a corrected line is matched again without re-reading', (
@@ -219,11 +219,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('What it said'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'Amox 500mg');
+      await tester.enterText(find.byType(TextField), 'Bioflu Tablet');
       await tester.tap(find.text('Use this'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Line 1: "Amox 500mg"'), findsOneWidget);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsOneWidget);
       // The photo was read once; the fix went through the matcher only.
       expect(recognizer.recognizeCalls, hasLength(1));
     });
@@ -273,7 +273,7 @@ void main() {
     testWidgets('reads a picked photo', (tester) async {
       final camera = FakePrescriptionCamera(galleryBytes: Uint8List(64));
       final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('cefalexin'),
+        readings: readingsOf('Kremil-S Tablet'),
       );
       await pumpScan(tester, camera: camera, recognizer: recognizer);
 
@@ -281,7 +281,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(recognizer.recognizeCalls, hasLength(1));
-      expect(find.text('Line 1: "cefalexin"'), findsOneWidget);
+      expect(find.text('Line 1: "Kremil-S Tablet"'), findsOneWidget);
     });
 
     testWidgets('backing out changes nothing and does not crash', (
@@ -289,7 +289,7 @@ void main() {
     ) async {
       final camera = FakePrescriptionCamera(galleryBytes: null);
       final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('cefalexin'),
+        readings: readingsOf('Kremil-S Tablet'),
       );
       await pumpScan(tester, camera: camera, recognizer: recognizer);
 
@@ -304,35 +304,35 @@ void main() {
   group('adding a suggestion to the order', () {
     testWidgets('goes through the quantity sheet and confirms', (tester) async {
       final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Amox 500mg'),
+        readings: readingsOf('Bioflu Tablet'),
       );
       final order = await pumpScan(tester, recognizer: recognizer);
 
       await tester.tap(scanButton);
       await tester.pumpAndSettle();
 
-      // Scoped to the key: `Amox` also matches this line, and its own add
-      // button is disabled because that listing is out of stock.
-      await tester.tap(find.byKey(const Key('addAmox 500mg')));
+      // Scoped to the key: the reading is an exact name, so exactly one add
+      // button is offered.
+      await tester.tap(find.byKey(const Key('addBioflu Tablet')));
       await tester.pumpAndSettle();
 
       expect(find.text('Add to order'), findsOneWidget);
       await tester.tap(find.text('Add to order'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Added 1 × Amox 500mg'), findsOneWidget);
+      expect(find.text('Added 1 × Bioflu Tablet'), findsOneWidget);
       expect(order.itemCount, 1);
     });
 
     testWidgets('dismissing the sheet adds nothing', (tester) async {
       final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Amox 500mg'),
+        readings: readingsOf('Bioflu Tablet'),
       );
       final order = await pumpScan(tester, recognizer: recognizer);
 
       await tester.tap(scanButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('addAmox 500mg')));
+      await tester.tap(find.byKey(const Key('addBioflu Tablet')));
       await tester.pumpAndSettle();
 
       // Tapping the barrier is how the sheet is dismissed.

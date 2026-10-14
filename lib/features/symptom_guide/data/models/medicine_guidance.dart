@@ -35,7 +35,7 @@ class MedicineGuidance {
   /// checks that a suggested medicine is one the counter can actually sell, but
   /// the directions below are the app's scaffold, not clinical advice.
   static const Map<String, MedicineGuidance> _byName = {
-    'biogesic': MedicineGuidance(
+    'biogesic 500mg tablet (paracetamol)': MedicineGuidance(
       howToUse: '[Placeholder] Swallow with water. Can be taken with or without '
           'food. Replace with the pharmacist\'s wording.',
       cautions: '[Placeholder] Do not take with other paracetamol products. '
@@ -43,21 +43,14 @@ class MedicineGuidance {
           'wording.',
       isDraft: true,
     ),
-    'tempra 1-5': MedicineGuidance(
-      howToUse: '[Placeholder] Give by mouth as directed on the label. Replace '
-          'with the pharmacist\'s wording.',
-      cautions: '[Placeholder] For children; confirm the age and weight with '
-          'the pharmacist. Replace with the pharmacist\'s wording.',
-      isDraft: true,
-    ),
-    'paracetamol 125': MedicineGuidance(
-      howToUse: '[Placeholder] Give by mouth as directed on the label. Replace '
-          'with the pharmacist\'s wording.',
-      cautions: '[Placeholder] Do not give with other paracetamol products. '
+    'paracetamol 500mg (generic tablet)': MedicineGuidance(
+      howToUse: '[Placeholder] Swallow with water. Can be taken with or without '
+          'food. Replace with the pharmacist\'s wording.',
+      cautions: '[Placeholder] Do not take with other paracetamol products. '
           'Replace with the pharmacist\'s wording.',
       isDraft: true,
     ),
-    'medicol': MedicineGuidance(
+    'medicol advance 200mg softgel': MedicineGuidance(
       howToUse: '[Placeholder] Swallow with water, preferably after food. '
           'Replace with the pharmacist\'s wording.',
       cautions: '[Placeholder] Can irritate the stomach. Ask the pharmacist '
@@ -65,28 +58,35 @@ class MedicineGuidance {
           'pharmacist\'s wording.',
       isDraft: true,
     ),
-    'ceterizine tab': MedicineGuidance(
+    'cetirizine 10mg (generic tablet)': MedicineGuidance(
       howToUse: '[Placeholder] Swallow with water. Replace with the '
           'pharmacist\'s wording.',
       cautions: '[Placeholder] May cause drowsiness; avoid driving until you '
           'know how it affects you. Replace with the pharmacist\'s wording.',
       isDraft: true,
     ),
-    'ceterizine syrup': MedicineGuidance(
+    'virlix 10mg tablet (cetirizine)': MedicineGuidance(
+      howToUse: '[Placeholder] Swallow with water. Replace with the '
+          'pharmacist\'s wording.',
+      cautions: '[Placeholder] May cause drowsiness. Replace with the '
+          'pharmacist\'s wording.',
+      isDraft: true,
+    ),
+    'allerkid 5mg/5ml syrup 60ml': MedicineGuidance(
       howToUse: '[Placeholder] Measure with the supplied cup. Replace with the '
           'pharmacist\'s wording.',
       cautions: '[Placeholder] May cause drowsiness. Replace with the '
           'pharmacist\'s wording.',
       isDraft: true,
     ),
-    'tuseran': MedicineGuidance(
+    'solmux 500mg capsule (carbocisteine)': MedicineGuidance(
       howToUse: '[Placeholder] Take as directed on the label. Replace with the '
           'pharmacist\'s wording.',
       cautions: '[Placeholder] Check the label for ingredients you may also be '
           'taking. Replace with the pharmacist\'s wording.',
       isDraft: true,
     ),
-    'symdex': MedicineGuidance(
+    'bioflu tablet': MedicineGuidance(
       howToUse: '[Placeholder] Take as directed on the label. Replace with the '
           'pharmacist\'s wording.',
       cautions: '[Placeholder] May cause drowsiness. Replace with the '

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/features/auth/data/models/user_model.dart';
 import 'package:pharmaguide/features/auth/data/repositories/offline_session.dart';
@@ -211,6 +213,43 @@ void main() {
       expect(medicines.firstWhere((m) => m.name == 'Amox').stock, 3);
     });
 
+    test('migrates a legacy overlay to a unique product ID', () async {
+      const legacy = MedicineModel(
+        name: 'Paracetamol',
+        priceCentavos: 200,
+        stock: null,
+      );
+      const imported = MedicineModel(
+        productId: '101',
+        name: 'Paracetamol',
+        packageType: 'Piece (Dosage)',
+        priceCentavos: 200,
+        stock: 20,
+      );
+      SharedPreferences.setMockInitialValues({
+        'offlineMedicinesOverlay': jsonEncode({
+          legacy.documentId: {
+            'stock': 3,
+            'expiryDate': '2027-01-15',
+          },
+        }),
+      });
+
+      final store = LocalMedicineStore(
+        bundled: ListMedicineSource(const [imported]),
+      );
+
+      final medicines = await firstList(store);
+      final prefs = await SharedPreferences.getInstance();
+      final savedOverlay =
+          jsonDecode(prefs.getString('offlineMedicinesOverlay')!) as Map;
+
+      expect(medicines.single.stock, 3);
+      expect(medicines.single.expiryDate, DateTime(2027, 1, 15));
+      expect(savedOverlay.containsKey(imported.documentId), isTrue);
+      expect(savedOverlay.containsKey(legacy.documentId), isFalse);
+    });
+
     test('clearing a count back to uncounted is stored as a real value', () async {
       final store = buildStore();
       await store.setStock(amox, 5);
@@ -364,8 +403,10 @@ void main() {
 
       await pumpEventQueue();
 
-      final amox = catalogue.all().firstWhere((m) => m.name == 'Amox');
-      orders.add(amox, 2);
+      final bioflu = catalogue.all().firstWhere(
+        (m) => m.name == 'Bioflu Tablet',
+      );
+      orders.add(bioflu, 2);
       await pumpEventQueue();
 
       expect(orders.lines, hasLength(1));
