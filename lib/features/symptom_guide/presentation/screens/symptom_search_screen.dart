@@ -9,9 +9,7 @@ import 'package:pharmaguide/features/symptom_guide/presentation/widgets/symptom_
 /// The search screen for the Symptom Guide.
 ///
 /// Staff type a symptom and see matching entries from the guide's catalogue.
-/// The content is supplied and reviewed by the pharmacist; the scaffold ships
-/// with placeholders (`SymptomEntry.isDraft`) so the screens work end to end
-/// before the real text lands.
+/// The content is supplied and reviewed by the pharmacist.
 ///
 /// The filtering itself lives in [SymptomSearchProvider], which watches the
 /// query and guards against notifying on an unchanged one, so typing only

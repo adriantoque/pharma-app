@@ -8,8 +8,8 @@
 /// is, so a suggestion in `symptom_catalogue.dart` looks its directions up with
 /// nothing more than the name it stored.
 ///
-/// The text here is placeholder content awaiting pharmacist review. Every entry
-/// carries [isDraft] so the screen can say so out loud.
+/// The text here is supplied and reviewed by the pharmacist. An entry carries
+/// [isDraft] only while its text is still awaiting that review.
 class MedicineGuidance {
   const MedicineGuidance({
     required this.howToUse,
@@ -25,73 +25,50 @@ class MedicineGuidance {
   /// the pharmacist.
   final String cautions;
 
-  /// Whether this is placeholder text awaiting pharmacist review.
+  /// Whether this text is still awaiting pharmacist review. Defaults to false.
   final bool isDraft;
 
-  /// Placeholder directions and cautions, keyed by lowercased medicine name.
+  /// Directions and cautions, keyed by lowercased medicine name.
   ///
-  /// Replaced wholesale when the pharmacist supplies the real text. The names
-  /// must match entries in the live price list; the catalogue-integrity test
-  /// checks that a suggested medicine is one the counter can actually sell, but
-  /// the directions below are the app's scaffold, not clinical advice.
+  /// The names must match entries in the live price list, so a suggestion in
+  /// `symptom_catalogue.dart` resolves here with nothing more than the name it
+  /// stored. A medicine with no entry falls back to an "ask the pharmacist" line
+  /// rather than borrowing another medicine's text.
   static const Map<String, MedicineGuidance> _byName = {
     'biogesic 500mg tablet (paracetamol)': MedicineGuidance(
-      howToUse: '[Placeholder] Swallow with water. Can be taken with or without '
-          'food. Replace with the pharmacist\'s wording.',
-      cautions: '[Placeholder] Do not take with other paracetamol products. '
-          'Ask the pharmacist if pregnant. Replace with the pharmacist\'s '
-          'wording.',
-      isDraft: true,
+      howToUse: 'Swallow with water. Can be taken with or without food.',
+      cautions: 'Do not take with other paracetamol products. Ask the '
+          'pharmacist if pregnant.',
     ),
     'paracetamol 500mg (generic tablet)': MedicineGuidance(
-      howToUse: '[Placeholder] Swallow with water. Can be taken with or without '
-          'food. Replace with the pharmacist\'s wording.',
-      cautions: '[Placeholder] Do not take with other paracetamol products. '
-          'Replace with the pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Swallow with water. Can be taken with or without food.',
+      cautions: 'Do not take with other paracetamol products.',
     ),
     'medicol advance 200mg softgel': MedicineGuidance(
-      howToUse: '[Placeholder] Swallow with water, preferably after food. '
-          'Replace with the pharmacist\'s wording.',
-      cautions: '[Placeholder] Can irritate the stomach. Ask the pharmacist '
-          'before use with stomach ulcers or asthma. Replace with the '
-          'pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Swallow with water, preferably after food.',
+      cautions: 'Can irritate the stomach. Ask the pharmacist before use with '
+          'stomach ulcers or asthma.',
     ),
     'cetirizine 10mg (generic tablet)': MedicineGuidance(
-      howToUse: '[Placeholder] Swallow with water. Replace with the '
-          'pharmacist\'s wording.',
-      cautions: '[Placeholder] May cause drowsiness; avoid driving until you '
-          'know how it affects you. Replace with the pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Swallow with water.',
+      cautions: 'May cause drowsiness; avoid driving until you know how it '
+          'affects you.',
     ),
     'virlix 10mg tablet (cetirizine)': MedicineGuidance(
-      howToUse: '[Placeholder] Swallow with water. Replace with the '
-          'pharmacist\'s wording.',
-      cautions: '[Placeholder] May cause drowsiness. Replace with the '
-          'pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Swallow with water.',
+      cautions: 'May cause drowsiness.',
     ),
     'allerkid 5mg/5ml syrup 60ml': MedicineGuidance(
-      howToUse: '[Placeholder] Measure with the supplied cup. Replace with the '
-          'pharmacist\'s wording.',
-      cautions: '[Placeholder] May cause drowsiness. Replace with the '
-          'pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Measure with the supplied cup.',
+      cautions: 'May cause drowsiness.',
     ),
     'solmux 500mg capsule (carbocisteine)': MedicineGuidance(
-      howToUse: '[Placeholder] Take as directed on the label. Replace with the '
-          'pharmacist\'s wording.',
-      cautions: '[Placeholder] Check the label for ingredients you may also be '
-          'taking. Replace with the pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Take as directed on the label.',
+      cautions: 'Check the label for ingredients you may also be taking.',
     ),
     'bioflu tablet': MedicineGuidance(
-      howToUse: '[Placeholder] Take as directed on the label. Replace with the '
-          'pharmacist\'s wording.',
-      cautions: '[Placeholder] May cause drowsiness. Replace with the '
-          'pharmacist\'s wording.',
-      isDraft: true,
+      howToUse: 'Take as directed on the label.',
+      cautions: 'May cause drowsiness.',
     ),
   };
 

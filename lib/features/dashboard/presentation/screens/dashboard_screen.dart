@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../orders/data/models/order_history_model.dart';
 import '../../../orders/data/repositories/order_history_repository.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
@@ -88,52 +89,29 @@ class DashboardScreen extends StatelessWidget {
             children: [
               Expanded(
                 flex: 6,
-                child: _CurrentOrderStrip(
+                child: _CartButton(
                   onTap: () => context.goNamed('new-sale'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 flex: 5,
-                child: SizedBox(
-                  height: 42,
-                  child: FilledButton(
-                    onPressed: () => context.goNamed('new-sale'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1678ED),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add, size: 18),
-                        SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            'New order',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: _ActionButton(
+                  icon: Icons.add,
+                  label: 'New order',
+                  onTap: () => context.goNamed('new-sale'),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _QuickAction(
+          _ActionButton(
             icon: Icons.document_scanner_outlined,
             label: 'Scan',
             onTap: () => context.pushNamed('home-scan'),
           ),
-          const SizedBox(width: 12),
-          _QuickAction(
+          const SizedBox(height: 8),
+          _ActionButton(
             icon: Icons.healing_outlined,
             label: 'Symptom guide',
             onTap: () => context.pushNamed('home-symptom-guide'),
@@ -437,106 +415,95 @@ class _CountTile extends StatelessWidget {
 // Counter shortcuts
 // ---------------------------------------------------------------------------
 
-class _CurrentOrderStrip extends StatelessWidget {
-  const _CurrentOrderStrip({required this.onTap});
+class _CartButton extends StatelessWidget {
+  const _CartButton({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final (count, total) = context.select<OrderProvider, (int, String)>(
       (order) => (order.itemCount, order.formattedTotal),
     );
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: theme.colorScheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.shopping_cart_outlined,
-                color: Color(0xFF1680F5),
-                size: 18,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      count == 0
-                          ? 'Cart is empty'
-                          : 'Cart · ${count == 1 ? '1 item' : '$count items'}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    if (count > 0)
-                      Text(
-                        '$total so far',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: theme.colorScheme.primary,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _ActionButton(
+      icon: Icons.shopping_cart_outlined,
+      label: count == 0
+          ? 'Cart is empty'
+          : 'Cart · ${count == 1 ? '1 item' : '$count items'}',
+      sublabel: count > 0 ? '$total so far' : null,
+      onTap: onTap,
     );
   }
 }
 
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
+/// The primary action button shared by the Home counter shortcuts.
+///
+/// One definition so the Cart, New order, Scan, and Symptom guide buttons
+/// cannot drift apart. [sublabel] adds a second, smaller line under [label]
+/// (used by the Cart to show the running total).
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.sublabel,
   });
 
   final IconData icon;
   final String label;
+  final String? sublabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final detail = sublabel;
 
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: theme.colorScheme.surfaceContainerLow,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          child: Row(
-            children: [
-              Icon(icon, color: const Color(0xFF1680F5), size: 22),
-              const SizedBox(width: 10),
-              Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+    return SizedBox(
+      height: 42,
+      child: FilledButton(
+        onPressed: onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 6),
+            Flexible(
+              child: detail == null
+                  ? Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        Text(
+                          detail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
         ),
       ),
     );

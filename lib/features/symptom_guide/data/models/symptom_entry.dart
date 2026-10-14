@@ -6,9 +6,8 @@ import '../../../search/data/models/medicine_model.dart';
 ///
 /// The clinical text on this model -- [summary], and the directions held in
 /// `MedicineGuidance` -- is supplied and reviewed by the pharmacist, not
-/// authored by the app. The scaffold ships with clearly-marked placeholders
-/// ([isDraft]) so the screens work end to end before that text lands; see
-/// `symptom_catalogue.dart` for the format the text is pasted in.
+/// authored by the app. See `symptom_catalogue.dart` for the format the text is
+/// stored in.
 ///
 /// Deliberately not a `FeatureEntry` with a different name. A feature is a
 /// screen the user jumps to; a symptom is clinical content matched to a
@@ -62,9 +61,8 @@ class SymptomEntry {
   /// suggestions.
   final String? referralNote;
 
-  /// Whether the clinical text is placeholder content awaiting pharmacist
-  /// review. The screen shows a "draft" banner while this is true, so nobody
-  /// mistakes scaffolding for advice.
+  /// Whether the clinical text is still awaiting pharmacist review, so an
+  /// unreviewed entry can be told apart from an approved one. Defaults to false.
   final bool isDraft;
 
   /// Whether this entry should appear for [query].

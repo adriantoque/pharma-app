@@ -18,7 +18,7 @@ import 'package:pharmaguide/features/symptom_guide/presentation/widgets/safety_b
 /// pharmacist's picks lead, and anything the catalogue says is for this symptom
 /// follows. Each card carries the real price and shelf count, and its directions
 /// come from [MedicineGuidance] -- falling back to a "ask the pharmacist" line
-/// rather than the wrong medicine's placeholder text when none is recorded.
+/// rather than the wrong medicine's fallback text when none is recorded.
 class SymptomDetailScreen extends StatelessWidget {
   const SymptomDetailScreen({super.key, required this.symptomId});
 
@@ -140,10 +140,10 @@ class _SymptomBody extends StatelessWidget {
 
   /// The directions and cautions to show for [medicine].
   ///
-  /// Falls back to a "ask the pharmacist" line rather than a generic
-  /// placeholder: a medicine with no recorded guidance must not borrow another
-  /// medicine's text, or the guide would tell somebody to take paracetamol when
-  /// they picked an ointment.
+  /// Falls back to a "ask the pharmacist" line rather than a generic fallback:
+  /// a medicine with no recorded guidance must not borrow another medicine's
+  /// text, or the guide would tell somebody to take paracetamol when they picked
+  /// an ointment.
   static (String, String) _guidanceFor(MedicineModel medicine) {
     final guidance = MedicineGuidance.forName(medicine.name);
     if (guidance != null) return (guidance.howToUse, guidance.cautions);

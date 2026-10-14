@@ -200,7 +200,7 @@ void main() {
 
       expect(find.text('Biogesic 500mg Tablet (Paracetamol)'), findsOneWidget);
       expect(find.text('₱6.00'), findsOneWidget);
-      // Guidance is looked up by name, not placeholder text.
+      // Guidance is looked up by name, not fallback text.
       expect(find.textContaining('Swallow with water'), findsOneWidget);
       // The cough medicine has nothing to do with fever.
       expect(find.text('Vicks Vaporub Ointment 25g'), findsNothing);
