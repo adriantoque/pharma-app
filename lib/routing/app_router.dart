@@ -258,23 +258,21 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                         path: 'permissions',
                         name: 'home-profile-permissions',
                         builder: (context, state) => const PermissionsScreen(),
-),
-                ],
-
-                // ignore: extra_positional_arguments_could_be_named
-GoRoute(
-                  path: AppRoutes.homeSymptomGuide,
-                  name: 'home-symptom-guide',
-                  builder: (context, state) => const SymptomSearchScreen(),
-                ),
-                GoRoute(
-                  path: AppRoutes.homeSymptomDetail,
-                  name: 'home-symptom-detail',
-                  builder: (context, state) {
-                    final symptomId = state.pathParameters['symptomId'];
-                    return SymptomDetailScreen(symptomId: symptomId!);
-                  },
-                ),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'symptom-guide',
+                    name: 'home-symptom-guide',
+                    builder: (context, state) => const SymptomSearchScreen(),
+                  ),
+                  GoRoute(
+                    path: 'symptom-guide/:symptomId',
+                    name: 'home-symptom-detail',
+                    builder: (context, state) {
+                      final symptomId = state.pathParameters['symptomId'];
+                      return SymptomDetailScreen(symptomId: symptomId!);
+                    },
                   ),
                   GoRoute(
                     path: 'notifications',
