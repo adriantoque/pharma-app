@@ -82,14 +82,6 @@ Future<void> _confirmExitOffline(BuildContext context) async {
   await auth.exitOfflineMode();
 }
 
-/// Placeholder for screens that are not built yet. Replace each call with a
-/// real route (e.g. `context.push('/profile/store')`) as screens land.
-void _comingSoon(BuildContext context, String label) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(label)));
-}
-
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -243,16 +235,6 @@ class _BusinessSection extends StatelessWidget {
     return _Section(
       title: 'Manage business',
       children: [
-        _NavTile(
-          icon: Icons.storefront_outlined,
-          label: 'Store details',
-          onTap: () => _comingSoon(context, 'Store details'),
-        ),
-        _NavTile(
-          icon: Icons.lock_outline,
-          label: 'Permissions',
-          onTap: () => context.pushNamed('home-profile-permissions'),
-        ),
         _NavTile(
           icon: Icons.palette_outlined,
           label: 'Appearance',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/orders/data/models/order_line_model.dart';
@@ -7,6 +9,7 @@ import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 
 import 'helpers/fake_auth_repository.dart';
+import 'helpers/fake_order_history_repository.dart';
 
 // The catalog deliberately repeats names at different prices. Every lookup
 // here is by name *and* price, so these two must never be confused.
@@ -400,6 +403,127 @@ void main() {
       expect(order.quantityOf(dearAmox), 3);
     });
   });
+
+  // A sale rung up without a connection is kept in an in-memory history. When an
+  // account signs in, that history has to travel with it, or the shift's takings
+  // are stranded on one tablet and the shared history never sees them.
+  group('signing in from offline mode', () {
+    late FakeAuthRepository repository;
+    late AuthProvider auth;
+    late FakeOrderHistoryRepository offlineHistory;
+    late FakeOrderHistoryRepository accountHistory;
+    late OrderProvider order;
+
+    setUp(() async {
+      repository = FakeAuthRepository();
+      auth = AuthProvider(repository);
+      await auth.ready;
+      offlineHistory = FakeOrderHistoryRepository();
+      accountHistory = FakeOrderHistoryRepository();
+      order = OrderProvider(
+        auth: auth,
+        historyFor: (uid) => uid == AuthProvider.offlineUserId
+            ? offlineHistory
+            : accountHistory,
+      );
+      await auth.enterOfflineMode();
+      await pumpEventQueue();
+    });
+
+    tearDown(() {
+      order.dispose();
+      auth.dispose();
+      repository.dispose();
+      offlineHistory.dispose();
+      accountHistory.dispose();
+    });
+
+    test('finished offline orders appear in the account that signs in', () async {
+      order.add(dearAmox, 2);
+      expect(order.complete(), isTrue);
+      await pumpEventQueue();
+
+      expect(offlineHistory.orders, hasLength(1));
+      final id = offlineHistory.orders.single.id;
+
+      await auth.login(email: 'staff@x.com', password: 'secret');
+      await pumpEventQueue();
+
+      // Carried over under its own id, and dropped from the offline history so
+      // the next sign-in has nothing left to send.
+      expect(accountHistory.orders, hasLength(1));
+      expect(accountHistory.orders.single.id, id);
+      expect(accountHistory.orders.single.totalCentavos, 9000);
+      expect(offlineHistory.orders, isEmpty);
+    });
+
+    test('nothing is carried over when offline finished no orders', () async {
+      await auth.login(email: 'staff@x.com', password: 'secret');
+      await pumpEventQueue();
+
+      expect(accountHistory.orders, isEmpty);
+    });
+  });
+
+  // A basket is a sale in progress. Signing in must not throw it away just
+  // because the offline session that built it is over.
+  group('carrying an offline basket over on sign-in', () {
+    late FakeAuthRepository repository;
+    late AuthProvider auth;
+    late _RecordingDraftStore offlineDraft;
+    late _RecordingDraftStore accountDraft;
+    late OrderProvider order;
+
+    setUp(() async {
+      repository = FakeAuthRepository();
+      auth = AuthProvider(repository);
+      await auth.ready;
+      offlineDraft = _RecordingDraftStore([
+        const OrderLineModel(medicine: dearAmox, quantity: 2),
+      ]);
+      accountDraft = _RecordingDraftStore();
+      order = OrderProvider(
+        auth: auth,
+        draftFor: (uid) => uid == AuthProvider.offlineUserId
+            ? offlineDraft
+            : accountDraft,
+      );
+      await auth.enterOfflineMode();
+      await pumpEventQueue();
+    });
+
+    tearDown(() {
+      order.dispose();
+      auth.dispose();
+      repository.dispose();
+      offlineDraft.dispose();
+      accountDraft.dispose();
+    });
+
+    test('the part-built basket moves to the account that signs in', () async {
+      expect(order.quantityOf(dearAmox), 2);
+
+      await auth.login(email: 'staff@x.com', password: 'secret');
+      await pumpEventQueue();
+
+      // Copied onto the account's own draft, shown on screen, and cleared from
+      // the offline copy so a later offline session starts clean.
+      expect(accountDraft.saved, hasLength(1));
+      expect(accountDraft.saved.single.quantity, 2);
+      expect(order.quantityOf(dearAmox), 2);
+      expect(offlineDraft.saved, isEmpty);
+    });
+
+    test('an empty offline basket leaves the account draft alone', () async {
+      offlineDraft.clear();
+      await pumpEventQueue();
+
+      await auth.login(email: 'staff@x.com', password: 'secret');
+      await pumpEventQueue();
+
+      expect(accountDraft.saved, isEmpty);
+    });
+  });
 }
 
 class _TestMedicineRepository implements MedicineRepository {
@@ -430,4 +554,46 @@ class _FixedOrderDraftStore implements OrderDraftStore {
 
   @override
   Future<void> clear() => save(const []);
+}
+
+/// A draft store that keeps what it is given and replays it to subscribers, so a
+/// test can watch a basket move from one store to another.
+class _RecordingDraftStore implements OrderDraftStore {
+  _RecordingDraftStore([List<OrderLineModel> initial = const []])
+    : _lines = [...initial];
+
+  List<OrderLineModel> _lines;
+  final StreamController<List<OrderLineModel>> _changes =
+      StreamController<List<OrderLineModel>>.broadcast();
+
+  /// What the store currently holds, for asserting on the write side.
+  List<OrderLineModel> get saved => List.unmodifiable(_lines);
+
+  @override
+  Stream<List<OrderLineModel>> watchDraft() {
+    // Emits the current lines on subscribe, then every change, which is the
+    // shape the real Firestore store has and the one the provider expects.
+    return Stream<List<OrderLineModel>>.multi((controller) {
+      controller.add(List.unmodifiable(_lines));
+      final subscription = _changes.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = () => unawaited(subscription.cancel());
+    });
+  }
+
+  @override
+  Future<void> save(List<OrderLineModel> lines) async {
+    _lines = [...lines];
+    if (!_changes.isClosed) _changes.add(List.unmodifiable(_lines));
+  }
+
+  @override
+  Future<void> clear() => save(const []);
+
+  void dispose() {
+    if (!_changes.isClosed) unawaited(_changes.close());
+  }
 }

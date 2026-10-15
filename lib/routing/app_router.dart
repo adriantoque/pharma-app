@@ -17,7 +17,6 @@ import '../features/orders/presentation/screens/orders_screen.dart';
 import '../features/orders/presentation/screens/order_history_screen.dart';
 import '../features/profile/presentation/screens/about_screen.dart';
 import '../features/profile/presentation/screens/appearance_screen.dart';
-import '../features/profile/presentation/screens/permissions_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
@@ -253,11 +252,6 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                         path: 'about',
                         name: 'home-profile-about',
                         builder: (context, state) => const AboutScreen(),
-                      ),
-                      GoRoute(
-                        path: 'permissions',
-                        name: 'home-profile-permissions',
-                        builder: (context, state) => const PermissionsScreen(),
                       ),
                     ],
                   ),

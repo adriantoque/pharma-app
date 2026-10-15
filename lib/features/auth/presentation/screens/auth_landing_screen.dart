@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_bottom_sheet.dart';
 
 /// Brand greens for the landing screen.
 ///
-/// Local to this file so the rest of the app keeps its blue theme until the
-/// whole palette is moved over. The deep green matches the `brandColor` used
-/// on the order cards; the surface and border are its lighter tints.
+/// The surface and border are the lighter tint of the shared [AppColors]
+/// brand green; the primary value lives there now so the rest of the app can
+/// reach the same token.
 abstract final class _LandingColors {
-  static const Color primary = Color(0xFF0E5A52);
+  static const Color primary = AppColors.brandGreen;
   static const Color primarySurface = Color(0xFFE2F1ED);
   static const Color primarySurfaceBorder = Color(0xFFA7CFC6);
 }

@@ -532,7 +532,6 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 | `widget_test.dart` | auth provider units, routing, app bar titles, login sheet |
 | `features/admin/activity_log_screen_test.dart` | the full activity log: entries, category filter, empty state |
 | `features/profile/about_screen_test.dart` | the About screen's name and licence affordance |
-| `features/profile/permissions_screen_test.dart` | the capability list per role (admin/staff/guest) |
 | `features/dashboard/expiring_meds_screen_test.dart` | the CSV export of the dated list, and its absence when empty |
 | `features/finder/feature_catalogue_test.dart` | feature ids, route paths and icon keys |
 | `features/finder/feature_entry_test.dart` | feature search matching and ordering |
@@ -725,10 +724,10 @@ The "coming soon" affordances were dealt with one of three ways:
 - **Implemented.** Inventory and Expiring Meds export their lists through a shared
   `showCsvExportDialog` (selectable text plus copy-to-clipboard); the Admin home's
   "Activity log" opens the full `ActivityLogScreen`; and Profile gains
-  `AboutScreen` and a read-only `PermissionsScreen` (the capability list is read
-  from the `UserRoleCapabilities` extension, so it cannot drift from the router).
+  `AboutScreen`.
 - **Removed.** Inventory's bulk count entry, and Expiring Meds' batch expiry
-  entry and expiry notifications, and Profile's help and support.
+  entry and expiry notifications, and Profile's help and support, store details,
+  and permissions tiles.
 - **Deferred.** Admin's store settings and Profile's store details keep their
   stubs.
 

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/data/repositories/medicine_repository.dart';
@@ -362,9 +363,16 @@ class _CameraControls extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          FilledButton.icon(
+          OutlinedButton.icon(
             key: const Key('scanButton'),
             onPressed: canUseCamera ? onScan : null,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(
+                color: AppColors.brandGreenSurfaceBorder,
+              ),
+            ),
             icon: const Icon(Icons.camera_alt),
             label: Text(isReading ? 'Reading…' : 'Scan it'),
           ),
@@ -430,6 +438,9 @@ class _CameraGate extends StatelessWidget {
               child: TextButton(
                 key: const Key('retryCameraButton'),
                 onPressed: onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.brandGreen,
+                ),
                 child: const Text('Retry'),
               ),
             ),
@@ -517,6 +528,9 @@ class _ErrorCard extends StatelessWidget {
           TextButton(
             key: const Key('retryReadingButton'),
             onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.brandGreen,
+            ),
             child: Text(needsConnection ? 'Try again' : 'Retry'),
           ),
         ],
@@ -626,6 +640,9 @@ class _LineResult extends StatelessWidget {
                 TextButton(
                   key: Key('editReading$index'),
                   onPressed: onEdit,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.brandGreen,
+                  ),
                   child: const Text('Fix'),
                 ),
             ],
@@ -764,8 +781,15 @@ class _EditLineDialogState extends State<_EditLineDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(
+        OutlinedButton(
           onPressed: () => Navigator.of(context).pop(_controller.text),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: AppColors.brandGreenSurface,
+            foregroundColor: AppColors.brandGreen,
+            side: const BorderSide(
+              color: AppColors.brandGreenSurfaceBorder,
+            ),
+          ),
           child: const Text('Use this'),
         ),
       ],

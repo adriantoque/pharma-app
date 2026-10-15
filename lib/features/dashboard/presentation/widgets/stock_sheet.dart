@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 
@@ -190,11 +191,18 @@ class _StockSheetState extends State<_StockSheet> {
               ],
               Expanded(
                 flex: 2,
-                child: FilledButton(
+                child: OutlinedButton(
                   key: const Key('stockSave'),
                   // Disabled until there is a number, because committing an empty
                   // field as zero is exactly the mistake described on [_typed].
                   onPressed: _typed == null ? null : _save,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppColors.brandGreenSurface,
+                    foregroundColor: AppColors.brandGreen,
+                    side: const BorderSide(
+                      color: AppColors.brandGreenSurfaceBorder,
+                    ),
+                  ),
                   child: const Text('Save count'),
                 ),
               ),

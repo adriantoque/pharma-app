@@ -9,9 +9,11 @@ import 'package:pharmaguide/features/orders/presentation/providers/orders_provid
 import 'package:pharmaguide/features/orders/presentation/screens/order_history_screen.dart';
 import 'package:pharmaguide/features/orders/presentation/screens/orders_screen.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
+import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'helpers/fake_auth_repository.dart';
+import 'helpers/fake_medicine_store.dart';
 import 'helpers/fake_order_history_repository.dart';
 
 void main() {
@@ -68,9 +70,11 @@ void main() {
   );
 
   /// Wires the providers [OrdersScreen] reads: the auth user (for the uid), the
-  /// per-user repository factory, and the provider the approve/reject buttons
-  /// write through.
-  Future<void> pumpOrders(
+  /// per-user repository factory, the provider the approve/reject buttons write
+  /// through, and the catalogue an approved order takes its stock from.
+  ///
+  /// Returns the fake store so a test can read what the approval wrote to it.
+  Future<FakeMedicineStore> pumpOrders(
     WidgetTester tester,
     FakeOrderHistoryRepository repository,
   ) async {
@@ -85,10 +89,15 @@ void main() {
 
     final ordersProvider = OrdersProvider(historyFactory: () => repository);
 
+    final store = FakeMedicineStore(initial: const [alcohol, cefalexin]);
+    final catalogue = MedicineProvider(auth: auth, storeFor: (_) => store);
+
     addTearDown(auth.dispose);
     addTearDown(authRepository.dispose);
     addTearDown(repository.dispose);
     addTearDown(ordersProvider.dispose);
+    addTearDown(catalogue.dispose);
+    addTearDown(store.dispose);
 
     await tester.pumpWidget(
       MultiProvider(
@@ -98,6 +107,7 @@ void main() {
             value: (_) => repository,
           ),
           ChangeNotifierProvider<OrdersProvider>.value(value: ordersProvider),
+          ChangeNotifierProvider<MedicineProvider>.value(value: catalogue),
         ],
         child: MaterialApp(
           theme: buildAppTheme(Brightness.light),
@@ -106,6 +116,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    return store;
   }
 
   group('OrdersScreen (pending orders)', () {
@@ -165,6 +177,25 @@ void main() {
       );
     });
 
+    testWidgets('approving takes the ordered units off the shelf', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      final store = await pumpOrders(tester, repo);
+
+      // The card must be expanded before its action buttons are built.
+      await tester.tap(find.text('Order #1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Approve'));
+      await tester.pumpAndSettle();
+
+      // newOrder holds 2 x Alcohol (200) and 1 x cefalexin (200).
+      expect(store.operations, contains('setStock Alcohol -> 198'));
+      expect(store.operations, contains('setStock cefalexin -> 199'));
+    });
+
     testWidgets('rejecting asks for confirmation, then removes the order', (
       tester,
     ) async {
@@ -181,7 +212,12 @@ void main() {
 
       expect(find.text('Reject this order?'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Reject'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.widgetWithText(OutlinedButton, 'Reject'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Order #1'), findsNothing);

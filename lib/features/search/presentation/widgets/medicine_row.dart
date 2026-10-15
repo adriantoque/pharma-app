@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/medicine_model.dart';
 
 /// A search/result row showing a medicine with add/remove quantity control.
@@ -94,6 +95,10 @@ class _QuantityControl extends StatelessWidget {
     if (quantity == 0) {
       return IconButton.filledTonal(
         onPressed: medicine.isOutOfStock ? null : onAdd,
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.brandGreenSurface,
+          foregroundColor: AppColors.brandGreen,
+        ),
         icon: const Icon(Icons.add),
         tooltip: 'Add ${medicine.name}',
       );
@@ -101,9 +106,12 @@ class _QuantityControl extends StatelessWidget {
 
     return Tooltip(
       message: 'Remove $quantity × ${medicine.name}',
-      child: FilledButton.tonal(
+      child: OutlinedButton(
         onPressed: onRemove,
-        style: FilledButton.styleFrom(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.brandGreenSurface,
+          foregroundColor: AppColors.brandGreen,
+          side: const BorderSide(color: AppColors.brandGreenSurfaceBorder),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           minimumSize: const Size(0, 40),
         ),

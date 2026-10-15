@@ -85,7 +85,7 @@ void main() {
       expect(find.text('The camera permission was refused.'), findsOneWidget);
       expect(find.text('Opening the camera…'), findsNothing);
       // Nothing can be scanned without a preview, so the button is disabled.
-      expect(tester.widget<FilledButton>(scanButton).onPressed, isNull);
+      expect(tester.widget<OutlinedButton>(scanButton).onPressed, isNull);
 
       camera.initializeError = null;
       await tester.tap(retryCameraButton);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../orders/data/models/order_line_model.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../domain/payment_method.dart';
@@ -70,8 +71,15 @@ class _CartScreenState extends State<CartScreen> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(
+                color: AppColors.brandGreenSurfaceBorder,
+              ),
+            ),
             child: const Text('Clear'),
           ),
         ],
@@ -179,10 +187,17 @@ class _EmptyCart extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            FilledButton.tonalIcon(
+            OutlinedButton.icon(
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back),
               label: const Text('Back to products'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.brandGreenSurface,
+                foregroundColor: AppColors.brandGreen,
+                side: const BorderSide(
+                  color: AppColors.brandGreenSurfaceBorder,
+                ),
+              ),
             ),
           ],
         ),
@@ -253,11 +268,16 @@ class _CheckoutFooter extends StatelessWidget {
                 onChanged: onPaymentChanged,
               ),
               const SizedBox(height: 16),
-              FilledButton(
+              OutlinedButton(
                 key: const Key('proceedButton'),
                 onPressed: onProceed,
-                style: FilledButton.styleFrom(
+                style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 48),
+                  backgroundColor: AppColors.brandGreenSurface,
+                  foregroundColor: AppColors.brandGreen,
+                  side: const BorderSide(
+                    color: AppColors.brandGreenSurfaceBorder,
+                  ),
                 ),
                 child: const Text('Proceed'),
               ),

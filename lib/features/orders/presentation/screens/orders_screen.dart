@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_history_repository.dart';
 import '../providers/orders_provider.dart';
@@ -154,21 +156,54 @@ class _EmptyOrderList extends StatelessWidget {
 }
 
 /// One pending order, with the two buttons that move it out of the list.
-class _PendingOrderCard extends StatelessWidget {
+class _PendingOrderCard extends StatefulWidget {
   const _PendingOrderCard({required this.order});
 
   final OrderHistory order;
 
+  @override
+  State<_PendingOrderCard> createState() => _PendingOrderCardState();
+}
+
+class _PendingOrderCardState extends State<_PendingOrderCard> {
+  /// True while a decision is being written.
+  ///
+  /// The card leaves the list once the status lands, but the stream takes a
+  /// round trip to say so. Without this a second tap in that gap would approve
+  /// the same order twice, and take its lines off the shelf twice with it.
+  bool _busy = false;
+
+  OrderHistory get order => widget.order;
+
   /// Units across every line, which is what the counter means by "items".
   int get _units => order.items.fold(0, (sum, line) => sum + line.quantity);
 
-  Future<void> _approve(BuildContext context) async {
-    await context
-        .read<OrdersProvider>()
-        .updateOrderStatus(order.id, OrderStatus.approved);
+  Future<void> _approve() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+
+    // Read before the first await: after it the card may have been disposed.
+    final orders = context.read<OrdersProvider>();
+    final catalogue = context.read<MedicineProvider>();
+
+    await orders.updateOrderStatus(order.id, OrderStatus.approved);
+
+    // The shelf comes down only once the order is approved. A pending or
+    // rejected order never left the counter, so its lines are left alone.
+    await catalogue.recordSale([
+      for (final line in order.items)
+        (medicine: line.medicine, quantity: line.quantity),
+    ]);
+
+    if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _reject(BuildContext context) async {
+  Future<void> _reject() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+
+    final orders = context.read<OrdersProvider>();
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -179,18 +214,27 @@ class _PendingOrderCard extends StatelessWidget {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(
+                color: AppColors.brandGreenSurfaceBorder,
+              ),
+            ),
             child: const Text('Reject'),
           ),
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
 
-    await context
-        .read<OrdersProvider>()
-        .updateOrderStatus(order.id, OrderStatus.rejected);
+    await orders.updateOrderStatus(order.id, OrderStatus.rejected);
+    if (mounted) setState(() => _busy = false);
   }
 
   @override
@@ -272,7 +316,7 @@ class _PendingOrderCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _reject(context),
+                        onPressed: _busy ? null : _reject,
                         icon: const Icon(Icons.close, size: 18),
                         label: const Text('Reject'),
                         style: OutlinedButton.styleFrom(
@@ -283,8 +327,15 @@ class _PendingOrderCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () => _approve(context),
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _approve,
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: AppColors.brandGreenSurface,
+                          foregroundColor: AppColors.brandGreen,
+                          side: const BorderSide(
+                            color: AppColors.brandGreenSurfaceBorder,
+                          ),
+                        ),
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Approve'),
                       ),

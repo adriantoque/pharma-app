@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
@@ -53,7 +54,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () {
               Navigator.of(context).pop();
               final success = order.complete();
@@ -68,6 +69,13 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                 );
               }
             },
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(
+                color: AppColors.brandGreenSurfaceBorder,
+              ),
+            ),
             child: const Text('Continue'),
           ),
         ],

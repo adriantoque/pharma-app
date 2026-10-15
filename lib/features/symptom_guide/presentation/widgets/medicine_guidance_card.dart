@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../search/data/models/medicine_model.dart' show StockState;
 
 /// A card showing one medicine's guidance.
@@ -110,6 +111,13 @@ class MedicineGuidanceCard extends StatelessWidget {
               child: OutlinedButton(
                 key: Key('add$recommendedName'),
                 onPressed: stockState == StockState.outOfStock ? null : onAdd,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.brandGreenSurface,
+                  foregroundColor: AppColors.brandGreen,
+                  side: const BorderSide(
+                    color: AppColors.brandGreenSurfaceBorder,
+                  ),
+                ),
                 child: const Text('Add to order'),
               ),
             ),

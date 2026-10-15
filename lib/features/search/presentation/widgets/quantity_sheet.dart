@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../data/models/medicine_model.dart';
 
@@ -192,7 +193,17 @@ class _QuantitySheetState extends State<_QuantitySheet> {
             ),
           ),
           const SizedBox(height: 24),
-          FilledButton(onPressed: _confirm, child: const Text('Add to order')),
+          OutlinedButton(
+            onPressed: _confirm,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(
+                color: AppColors.brandGreenSurfaceBorder,
+              ),
+            ),
+            child: const Text('Add to order'),
+          ),
         ],
       ),
     );

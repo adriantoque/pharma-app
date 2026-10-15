@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../providers/notification_model.dart';
 import '../providers/notification_provider.dart';
 
@@ -157,8 +158,15 @@ class NotificationsScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(
+                color: AppColors.brandGreenSurfaceBorder,
+              ),
+            ),
             child: const Text('Clear all'),
           ),
         ],
@@ -297,6 +305,7 @@ class _NotificationTile extends StatelessWidget {
               icon: const Icon(Icons.arrow_forward, size: 14),
               label: const Text('View details'),
               style: TextButton.styleFrom(
+                foregroundColor: AppColors.brandGreen,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 minimumSize: const Size(0, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,

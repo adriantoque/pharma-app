@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/models/medicine_information.dart';
@@ -549,15 +548,6 @@ class _MedicineDetailsSheet extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => _updateStock(context, currentMedicine),
-                      icon: const Icon(Icons.inventory_2_outlined),
-                      label: const Text('Update stock'),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -565,77 +555,6 @@ class _MedicineDetailsSheet extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _updateStock(
-    BuildContext context,
-    MedicineModel medicine,
-  ) async {
-    var stockInput = medicine.stock?.toString() ?? '';
-    final messenger = ScaffoldMessenger.of(context);
-    final result = await showDialog<(bool, int?)>(
-      context: context,
-      builder: (dialogContext) {
-        String? validationError;
-        return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Update stock'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Enter the current quantity for ${medicine.name}.'),
-                const SizedBox(height: 12),
-                TextFormField(
-                  initialValue: stockInput,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (value) => stockInput = value,
-                  decoration: InputDecoration(
-                    labelText: 'Quantity',
-                    errorText: validationError,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, (true, null)),
-                child: const Text('Not counted'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final value = int.tryParse(stockInput.trim());
-                  if (value == null) {
-                    setDialogState(
-                      () => validationError = 'Enter a stock quantity.',
-                    );
-                    return;
-                  }
-                  Navigator.pop(dialogContext, (true, value));
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (result == null || !context.mounted) return;
-    final catalogue = context.read<MedicineProvider>();
-    await catalogue.setStock(medicine, result.$2);
-    if (!context.mounted) return;
-    if (catalogue.error case final String message) {
-      messenger.showSnackBar(SnackBar(content: Text(message)));
-    } else {
-      messenger.showSnackBar(const SnackBar(content: Text('Stock updated')));
-    }
   }
 }
 

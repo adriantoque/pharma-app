@@ -268,6 +268,18 @@ class OrderProvider extends ChangeNotifier {
       return;
     }
 
+    // Carry the offline session's finished orders over to the account that has
+    // just signed in, so a sale rung up without a connection is not stranded on
+    // the tablet. Runs against the offline history, which the draft switch
+    // below does not touch. Guarded on the *incoming* user being a real account:
+    // auth also notifies while a sign-in is still in flight, and those carry the
+    // offline user, which must not read as an account to sync onto.
+    if (_uid == AuthProvider.offlineUserId &&
+        user.id != AuthProvider.offlineUserId) {
+      unawaited(_syncOfflineOrdersTo(user.id));
+      unawaited(_carryOfflineBasketOver(user.id));
+    }
+
     // A different user is worth reacting to; a refresh of the same one is not.
     // On a shared counter tablet the session can be replaced underneath the app,
     // and a store still pointed at the previous account would either throw or
@@ -278,6 +290,64 @@ class OrderProvider extends ChangeNotifier {
     _lines.clear();
     _safeNotify();
     _attachDraft(user.id);
+  }
+
+  /// Pushes every order finished in offline mode onto [uid]'s history, then
+  /// drops them from the offline history so a later session cannot sync the
+  /// same sale twice.
+  ///
+  /// The order keeps its own id, which is the Firestore document id, so a retry
+  /// overwrites the same document rather than appending a copy. Offline history
+  /// is in memory only, so a failed push leaves the orders where they were and
+  /// the next sign-in tries again.
+  Future<void> _syncOfflineOrdersTo(String uid) async {
+    final historyFactory = _historyForFactory;
+    if (historyFactory == null) return;
+
+    final offline = historyFactory(AuthProvider.offlineUserId);
+    final orders = await offline.watchAll().first;
+    if (orders.isEmpty) return;
+
+    final target = historyFactory(uid);
+    try {
+      for (final order in orders) {
+        await target.save(order);
+      }
+    } catch (_) {
+      // Best-effort, like the draft write. Offline history is in memory, so the
+      // sale is not lost: the next sign-in retries the whole batch, and a repeat
+      // save lands on the same document id rather than creating a second order.
+      return;
+    }
+    for (final order in orders) {
+      await offline.delete(order.id);
+    }
+  }
+
+  /// Moves a part-built offline basket onto the account that just signed in.
+  ///
+  /// A basket is a sale in progress, so it is worth more than the session that
+  /// built it: without this a customer's half-rung order would be gone the
+  /// moment the counter tablet signed in. The lines are copied onto the
+  /// account's own draft, then the offline copy is cleared so a later offline
+  /// session does not resurrect a basket the account already owns. Best-effort,
+  /// like the draft write itself: a failed copy leaves the offline basket where
+  /// it was, for the next sign-in to try again.
+  Future<void> _carryOfflineBasketOver(String uid) async {
+    final draftFor = _draftFor;
+    final offline = _draftStore;
+    if (draftFor == null || offline == null) return;
+
+    final lines = await offline.watchDraft().first;
+    if (lines.isEmpty) return;
+
+    final target = draftFor(uid);
+    try {
+      await target.save(lines);
+    } catch (_) {
+      return;
+    }
+    await offline.clear();
   }
 
   void _attachDraft(String uid) {

@@ -80,7 +80,6 @@ Statuses mirror `docs/architecture.md` §10.
 | `features/admin/activity_log_screen_test.dart` | 3 | Entries, category filter, empty state (G10) |
 | `features/dashboard/expiring_meds_screen_test.dart` | 2 | CSV export, and its absence when empty (G10) |
 | `features/profile/about_screen_test.dart` | 1 | App name and licence affordance (G10) |
-| `features/profile/permissions_screen_test.dart` | 3 | Capability list per role (G10) |
 | `firestore_medicine_store_test.dart` | 8 | Confirmation intersection, replay ordering, refusal/transport, `isTransportFailure` (G6) |
 
 ### 📋 Test Gaps

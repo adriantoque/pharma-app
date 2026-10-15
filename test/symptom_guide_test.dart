@@ -281,7 +281,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Add to order'), findsWidgets);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Add to order'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.widgetWithText(OutlinedButton, 'Add to order'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(order.itemCount, 1);

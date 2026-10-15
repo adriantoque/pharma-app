@@ -326,7 +326,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Clear cart?'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Clear'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Clear'));
       await tester.pumpAndSettle();
 
       expect(order.isEmpty, isTrue);

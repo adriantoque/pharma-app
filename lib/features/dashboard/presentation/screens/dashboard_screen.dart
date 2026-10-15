@@ -462,11 +462,12 @@ class _ActionButton extends StatelessWidget {
 
     return SizedBox(
       height: 42,
-      child: FilledButton(
+      child: OutlinedButton(
         onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.brandGreenSurface,
+          foregroundColor: AppColors.brandGreen,
+          side: const BorderSide(color: AppColors.brandGreenSurfaceBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(13),
           ),

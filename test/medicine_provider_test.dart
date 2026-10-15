@@ -214,6 +214,72 @@ void main() {
     });
   });
 
+  group('recording a sale', () {
+    test('takes the sold units off the shelf', () async {
+      final provider = await signedIn('u1', catalogue: [cetirizine, amox]);
+
+      await provider.recordSale([(medicine: cetirizine, quantity: 3)]);
+
+      expect(provider.all().firstWhere((m) => m == cetirizine).stock, 9);
+      expect(stores['u1']!.operations, contains('setStock Cetirizine -> 9'));
+    });
+
+    test('leaves an uncounted line alone', () async {
+      // A null count is "nobody has counted this", not zero. Subtracting from it
+      // would invent a shelf number nobody recorded.
+      final provider = await signedIn('u1', catalogue: [amox]);
+
+      await provider.recordSale([(medicine: amox, quantity: 2)]);
+
+      expect(provider.all().single.stock, isNull);
+      expect(stores['u1']!.operations, isEmpty);
+    });
+
+    test('holds the count at zero rather than going negative', () async {
+      final provider = await signedIn('u1', catalogue: [cetirizine]);
+
+      await provider.recordSale([(medicine: cetirizine, quantity: 20)]);
+
+      expect(provider.all().single.stock, 0);
+      expect(stores['u1']!.operations, contains('setStock Cetirizine -> 0'));
+    });
+
+    test('adds up two lines of the same medicine', () async {
+      final provider = await signedIn('u1', catalogue: [cetirizine]);
+
+      await provider.recordSale([
+        (medicine: cetirizine, quantity: 2),
+        (medicine: cetirizine, quantity: 3),
+      ]);
+
+      expect(provider.all().single.stock, 7);
+      expect(stores['u1']!.operations, [
+        'setStock Cetirizine -> 10',
+        'setStock Cetirizine -> 7',
+      ]);
+    });
+
+    test('ignores a line whose medicine is gone from the catalogue', () async {
+      final provider = await signedIn('u1', catalogue: [cetirizine]);
+      const gone = MedicineModel(name: 'Gone', priceCentavos: 100, stock: 5);
+
+      await provider.recordSale([(medicine: gone, quantity: 1)]);
+
+      expect(provider.all().single.stock, 12);
+      expect(stores['u1']!.operations, isEmpty);
+    });
+
+    test('puts the counts back when the write fails', () async {
+      final provider = await signedIn('u1', catalogue: [cetirizine]);
+      stores['u1']!.writeError = Exception('offline');
+
+      await provider.recordSale([(medicine: cetirizine, quantity: 2)]);
+
+      expect(provider.all().single.stock, 12);
+      expect(provider.error, contains('offline'));
+    });
+  });
+
   group('recording an expiry', () {
     test('paints the date and keeps it', () async {
       final provider = await signedIn('u1', catalogue: [cetirizine]);

@@ -242,6 +242,62 @@ _syncStatus = SyncStatus.unknown;
     }
   }
 
+  /// Takes an approved sale off the shelf.
+  ///
+  /// Each line is a medicine and how many of it left with the customer. Only
+  /// lines that have been counted are touched: a null count means nobody has
+  /// recorded how many are on the shelf, and subtracting from an unknown would
+  /// invent a number rather than maintain a real one. A count that would fall
+  /// below zero is held at zero, because the sale did happen -- the shelf is
+  /// empty -- but a negative count is not a state this model has.
+  ///
+  /// Every line is painted before the writes go out, the same optimistic step
+  /// [setStock] takes, so an approval is not left looking refused while a round
+  /// trip completes. An offline store queues the writes and resolves at once, so
+  /// only a write the server actually rejects rolls the count back. A line whose
+  /// medicine is no longer in the catalogue is skipped: there is nothing to count.
+  Future<void> recordSale(
+    Iterable<({MedicineModel medicine, int quantity})> lines,
+  ) async {
+    final store = _store;
+    if (store == null) return;
+
+    final previous = _medicines;
+    final updated = List.of(_medicines);
+    final writes = <({MedicineModel medicine, int stock})>[];
+
+    for (final line in lines) {
+      final index = updated.indexWhere((item) => item == line.medicine);
+      if (index == -1) continue;
+
+      final current = updated[index].stock;
+      if (current == null) continue;
+
+      final remaining = current - line.quantity;
+      final newStock = remaining < 0 ? 0 : remaining;
+      if (newStock == current) continue;
+
+      updated[index] = updated[index].copyWith(stock: newStock);
+      writes.add((medicine: updated[index], stock: newStock));
+    }
+
+    // Nothing counted, so nothing to write -- and no rebuild to spend on it.
+    if (writes.isEmpty) return;
+
+    _replace(updated);
+
+    try {
+      for (final write in writes) {
+        await store.setStock(write.medicine, write.stock);
+      }
+      _clearError();
+    } catch (error) {
+      _replace(previous);
+      _error = _describe(error);
+      _safeNotify();
+    }
+  }
+
   /// Records or clears an expiry date. Rolls back and reports the same way as
   /// [setStock].
   Future<void> setExpiry(MedicineModel medicine, DateTime? expiry) async {

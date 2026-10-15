@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 /// Brand colours shared by the app's screens and navigation.
 abstract final class AppColors {
   static const Color primary = Color(0xFF1678ED);
+  static const Color brandGreen = Color(0xFF0E5A52);
+  static const Color brandGreenSurface = Color(0xFFE2F1ED);
+  static const Color brandGreenSurfaceBorder = Color(0xFFA7CFC6);
   static const Color primarySurface = Color(0xFFE8F1FF);
   static const Color primarySurfaceBorder = Color(0xFFBBD5F8);
   static const Color pageBackground = Color(0xFFF4F8FB);

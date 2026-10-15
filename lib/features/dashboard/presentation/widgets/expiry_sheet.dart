@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 
@@ -107,6 +108,11 @@ class _ExpirySheetState extends State<_ExpirySheet> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             key: const Key('expiryPick'),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.brandGreenSurface,
+              foregroundColor: AppColors.brandGreen,
+              side: const BorderSide(color: AppColors.brandGreenSurfaceBorder),
+            ),
             onPressed: () async {
               final picked = await showDatePicker(
                 context: context,
@@ -139,9 +145,16 @@ class _ExpirySheetState extends State<_ExpirySheet> {
               ],
               Expanded(
                 flex: 2,
-                child: FilledButton(
+                child: OutlinedButton(
                   key: const Key('expirySave'),
                   onPressed: _save,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppColors.brandGreenSurface,
+                    foregroundColor: AppColors.brandGreen,
+                    side: const BorderSide(
+                      color: AppColors.brandGreenSurfaceBorder,
+                    ),
+                  ),
                   child: const Text('Save date'),
                 ),
               ),
