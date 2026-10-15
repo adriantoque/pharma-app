@@ -47,7 +47,7 @@ class SplashScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontSize: 40,
-                  color: AppColors.primary,
+                  color: AppColors.brandGreen,
                   fontFamily: 'PlayfairDisplay',
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
