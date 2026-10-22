@@ -14,6 +14,10 @@ analyzer:
     - build/**
     - android/**
     - web/**
+    # Files kept for reference only. They are not imported by the app, so their
+    # relative imports no longer resolve from here; analyzing them would report
+    # errors about code nothing runs.
+    - dead_code/**
 
 linter:
   # The lint rules applied to this project can be customized in the
