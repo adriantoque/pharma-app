@@ -74,7 +74,7 @@ AppBar _posAppBar(BuildContext context) {
             child: Text('Notifications'),
           ),
           PopupMenuItem(value: 'medicines', child: Text('Medicine list')),
-          PopupMenuItem(value: 'order-history', child: Text('Order history')),
+          PopupMenuItem(value: 'orders-history', child: Text('Order history')),
 
 
         ],
