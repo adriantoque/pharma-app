@@ -1,4 +1,4 @@
-// Seeds the authenticated user's Firestore catalogue from the bundled JSON.
+// Syncs the authenticated user's Firestore catalogue with the bundled JSON.
 //
 // Written here so it can be run once, after signing in, in case Firebase is set
 // up after the app was first built. The helper reads
@@ -6,9 +6,14 @@
 // document id derived by [MedicineModel.documentId], so a second run updates
 // rather than duplicates.
 //
+// It then removes documents whose id is not in the seed, so the collection ends
+// up matching the file rather than growing forever as products are retired.
+// Pass `--keep-extra` to upload without deleting anything.
+//
 // Usage:
 //   - Sign in to the app.
 //   - From the root of the repository: `dart run tool/seed_firestore.dart`
+//   - Add `--keep-extra` to leave products missing from the seed untouched.
 
 import 'dart:convert';
 import 'dart:io';
@@ -19,7 +24,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/firebase_options.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  final keepExtra = args.contains('--keep-extra');
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final auth = FirebaseAuth.instance;
@@ -42,7 +49,13 @@ Future<void> main() async {
   ];
 
   final firestore = FirebaseFirestore.instance;
-  final collection = firestore.collection('users').doc(uid).collection('medicines');
+  // The path the app actually reads: one shared catalogue for every account,
+  // not a per-user copy. The per-user path this used to write was left behind
+  // when the store moved to `pharmacy/medicines/items`.
+  final collection = firestore
+      .collection('pharmacy')
+      .doc('medicines')
+      .collection('items');
   final batch = firestore.batch();
   var pending = 0;
   const batchLimit = 500;
@@ -63,4 +76,43 @@ Future<void> main() async {
     stdout.writeln('Committed $pending lines');
   }
   stdout.writeln('Seeded ${medicines.length} medicines for $uid');
+
+  if (keepExtra) {
+    stdout.writeln('Kept extra documents (--keep-extra)');
+    return;
+  }
+
+  // A product removed from the workbook must disappear from the catalogue too,
+  // otherwise "replace the list" only ever adds. Deleting by id rather than
+  // clearing the collection keeps the documents that match untouched, so their
+  // counters and expiry dates are not rewritten by the sync itself.
+  final seededIds = {for (final medicine in medicines) medicine.documentId};
+  final existing = await collection.get();
+  final stale = [
+    for (final doc in existing.docs)
+      if (!seededIds.contains(doc.id)) doc.id,
+  ];
+
+  if (stale.isEmpty) {
+    stdout.writeln('No extra documents to remove');
+    return;
+  }
+
+  var deleteBatch = firestore.batch();
+  var deletePending = 0;
+  for (final id in stale) {
+    deleteBatch.delete(collection.doc(id));
+    if (++deletePending == batchLimit) {
+      await deleteBatch.commit();
+      stdout.writeln('Removed $batchLimit stale documents');
+      deletePending = 0;
+      // A committed batch cannot take more writes, so start a fresh one.
+      deleteBatch = firestore.batch();
+    }
+  }
+  if (deletePending > 0) {
+    await deleteBatch.commit();
+    stdout.writeln('Removed $deletePending stale documents');
+  }
+  stdout.writeln('Catalogue now matches the seed (${stale.length} removed)');
 }

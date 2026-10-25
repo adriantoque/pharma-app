@@ -43,17 +43,22 @@ lib/
       show_csv_export_dialog.dart  Shared CSV dialog (Inventory + Expiring meds)
 
   routing/
-    app_router.dart           GoRouter, auth redirect, four shell branches
+    app_router.dart           GoRouter, auth redirect, three staff tabs +
+                              admin workspace, finder, legacy redirects
 
   features/
-    auth/       sign in, sign up, Google, deliberate offline mode
-    search/     the price list: model, stores, offline sync, provider, row UI
-    dashboard/  Home tab, Inventory tab, Expiring meds
-    orders/     order draft + order history, two providers
-    sales/      the new-sale screen
-    reports/    sales / low stock / expiry reporting
-    scan/       camera -> ML Kit OCR -> catalogue matching
-    profile/    profile screen, appearance, about, permissions
+    auth/         sign in, sign up, Google, role login, deliberate offline mode
+    search/       the price list: model, stores, offline sync, provider, row UI
+    orders/       order draft + order history, two providers
+    sales/        the New Sale tab and its cart bottom sheet
+    symptom_guide/ curated symptom catalogue, the Symptom Finder tab
+    scan/         camera -> ML Kit OCR -> catalogue matching
+    finder/       the screen finder: search a screen, jump to its route
+    dashboard/    (staff sale branch) Expiring meds + Notifications screens
+    inventory/    the price list manager (admin-only workspace screen)
+    reports/      sales / low stock / expiry reporting (admin workspace)
+    admin/        admin home, users, activity log, store settings, notices
+    profile/      profile screen, appearance, about
 
 assets/
   data/medicines_seed.json    490 price-list lines, bundled
@@ -66,7 +71,7 @@ tool/
   seed_firestore.dart         optional manual upload of the seed
   out/                        generated review artefacts (checked in)
 
-test/                         27 test files + 6 shared fakes in helpers/
+test/                         30 test files + 6 shared fakes in helpers/
 integration_test/             EMPTY (package still declared as a dev dep)
 
 firestore.rules               deployed by hand, deliberately not in build path
@@ -107,9 +112,9 @@ graph TD
   end
 
   subgraph presentation["Presentation"]
-    screens["screens (10)"]
+    screens["screens (23)"]
     widgets["widgets (21)"]
-    providers["providers (5)<br/>Auth, Medicine, Order, Orders, Reports"]
+    providers["providers (10)<br/>Auth, Medicine, Order, Orders,<br/>Notifications, Reports, Users, …"]
   end
 
   subgraph domain["Domain interfaces"]
@@ -170,18 +175,21 @@ graph TD
 
 | Feature | Provider | Screens | Backing store |
 |---|---|---|---|
-| auth | `AuthProvider` | `AuthLandingScreen` | Firebase Auth + `OfflineSession` |
-| search | `MedicineProvider` | (no screen; feeds Home/Inventory/Reports) | `SeededMedicineStore` → `FirestoreMedicineStore` or `LocalMedicineStore` |
-| dashboard | — | `DashboardScreen`, `InventoryScreen`, `ExpiringMedsScreen` | reads `MedicineProvider` + `OrderProvider` |
-| orders | `OrderProvider`, `OrdersProvider` | `OrdersScreen` | `OrderDraftStore`, `OrderHistoryRepository` |
-| sales | — | `NewSaleScreen` | writes through `OrderProvider` |
-| reports | `ReportsProvider` | `ReportsScreen` | `ReportsRepositoryImpl` |
+| auth | `AuthProvider` | `AuthLandingScreen`, `RoleLoginScreen` | Firebase Auth + `OfflineSession` |
+| search | `MedicineProvider` | `MedicineScreen` (sale branch "Medicines") | `SeededMedicineStore` → `FirestoreMedicineStore` or `LocalMedicineStore` |
+| orders | `OrderProvider`, `OrdersProvider`, `OrderHistoryProvider` | `OrdersScreen`, `OrderHistoryScreen` | `OrderDraftStore`, `OrderHistoryRepository` |
+| sales | — | `NewSaleScreen`, `cart_sheet.dart` (`showCartSheet`) | writes through `OrderProvider` |
+| symptom_guide | — | `SymptomFinderScreen` | reads `MedicineProvider` + `OrderProvider`; curated catalogue in code |
 | scan | — | `ScanScreen` | `PrescriptionCamera`, `PrescriptionRecognizer`, `PrescriptionMatcher` |
-| profile | — | `ProfileScreen`, `SettingsScreen` (unused) | reads `AuthProvider` |
+| finder | `FeatureSearchProvider` | `FinderScreen` | curated catalogue in code |
+| dashboard | `NotificationsProvider` | `ExpiringMedsScreen`, `NotificationsScreen` | reads `MedicineProvider` + `OrderProvider` |
+| inventory | — | `InventoryScreen` | reads `MedicineProvider` (admin workspace) |
+| reports | `ReportsProvider` | `ReportsScreen` | `ReportsRepositoryImpl` (admin workspace) |
+| admin | `UsersProvider` | `AdminHomeScreen`, `UsersScreen`, `ActivityLogScreen`, `StoreSettingsScreen`, `AdminNotificationsScreen` | `AuditRepository` and stubs |
+| profile | `ThemeModeProvider` (core) | `ProfileScreen`, `AppearanceScreen`, `AboutScreen` | reads `AuthProvider` |
 
-Note that only three features own providers. The dashboard and sales features
-are views over other features' state, which is why they have no provider of
-their own.
+Note that `sales`, `symptom_guide`, `dashboard` and `profile` are views over
+other features' state, which is why they have no provider of their own.
 
 ---
 
@@ -249,58 +257,83 @@ Two decisions worth naming:
 
 ## 4. Navigation
 
-`StatefulShellRoute.indexedStack` with four branches. Each branch keeps its own
+`StatefulShellRoute.indexedStack` with **three staff branches**: New Sale,
+Symptom Finder, and Scan SKU, in that order. Each branch keeps its own
 navigator, so a tab's stack and scroll position survive a round trip to another
-tab.
+tab. Everything else the counter needs (Orders, history, Medicines, Expiring
+meds, Notifications, Profile) is nested under the New Sale branch, so the back
+arrow always returns to the shelf. The cart is not a route at all: it is a
+bottom sheet opened from the sale screen's app bar.
 
 ```mermaid
 graph TD
   login["/login<br/>AuthLandingScreen"]
+  staff["/staff-login /admin-login<br/>RoleLoginScreen"]
   shell["AppShell<br/>NavigationBar"]
 
-  home["/home  (branch 0)<br/>DashboardScreen"]
-  expiring["/home/expiring<br/>ExpiringMedsScreen"]
-  scan["/home/scan<br/>ScanScreen"]
-  profile["/home/profile<br/>ProfileScreen"]
+  sale["/sale  (branch 0)<br/>NewSaleScreen + cart sheet"]
+  orders["/sale/orders<br/>OrdersScreen"]
+  history["/sale/orders/history<br/>OrderHistoryScreen"]
+  medicines["/sale/medicines<br/>MedicineScreen"]
+  expiring["/sale/expiring<br/>ExpiringMedsScreen"]
+  notifications["/sale/notifications<br/>NotificationsScreen"]
+  profile["/sale/profile<br/>ProfileScreen + appearance + about"]
 
-  inv["/inventory  (branch 1)<br/>InventoryScreen"]
+  symptoms["/symptoms  (branch 1)<br/>SymptomFinderScreen"]
+  scan["/scan  (branch 2)<br/>ScanScreen"]
 
-  orders["/orders  (branch 2)<br/>OrdersScreen"]
-  newsale["/new-sale<br/>NewSaleScreen"]
+  admin["/admin<br/>AdminHomeScreen"]
+  adminRoutes["/admin/users · inventory · reports<br/>activity · store-settings · notifications"]
 
-  reports["/reports  (branch 3)<br/>ReportsScreen"]
+  finder["/finder<br/>FinderScreen"]
+  legacy["/home · /inventory · /reports<br/>/medicines · /orders (redirects)"]
 
   login --> shell
-  shell --> home
-  shell --> inv
-  shell --> orders
-  shell --> reports
-  home --> expiring
-  home --> scan
-  home --> profile
-  orders --> newsale
+  staff --> shell
+  shell --> sale
+  shell --> symptoms
+  shell --> scan
+  finder --> shell
+  sale --> orders
+  orders --> history
+  sale --> medicines
+  sale --> expiring
+  sale --> notifications
+  sale --> profile
+  legacy --> sale
+  admin --> adminRoutes
 ```
 
-- There is **no `/` route.** The signed-in area is the shell, and each branch owns
-  its own path, so the app starts on branch 0 directly.
-- `expiring`, `scan` and `profile` are nested children of Home rather than tabs,
-  so the bottom bar keeps Home selected and the back arrow has somewhere to go.
-- **The branch order in `app_router.dart` and `AppShell.destinations` must match.**
-  `navigationShell.goBranch` takes an index, not a route name. This is the one
-  silent-failure coupling in the app, and `test/nav_alignment_test.dart` exists
-  specifically to walk every index and break it loudly if it drifts.
+- There is **no `/` route.** The router starts the staff shell directly at
+  `/sale`.
+- The sale children are *relative* routes (`'orders'`, `'medicines'` …), so the
+  bottom bar keeps New Sale selected while they push.
+- The cart lives as `showCartSheet` inside
+  `lib/features/sales/presentation/screens/cart_sheet.dart`. It hands back a
+  `CartResult(proceed, payment)` when it closes; finishing the sale stays on
+  the sale screen.
+- `FinderScreen` (`/finder`) is a route-aware index: each entry carries the
+  destination route it points to, and tapping one `context.go`s there.
+- Legacy paths (`/home`, `/inventory`, `/reports`, `/medicines`, `/orders`)
+  have no builder; they only redirect, so old links and notifications still
+  arrive somewhere sensible.
+- **The branch order in `app_router.dart` and `AppShell.destinations` must
+  match.** `navigationShell.goBranch` takes an index, not a route name. This is
+  the one silent-failure coupling in the app, and
+  `test/nav_alignment_test.dart` exists specifically to walk every index and
+  break it loudly if it drifts.
 
-The redirect in `app_router.dart:49` resolves the four auth statuses:
+The redirect in `app_router.dart` resolves the auth statuses, and it also
+enforces the role split between staff and admin:
 
-| `AuthStatus` | At `/login`? | Result |
-|---|---|---|
-| `unknown` | — | wait on `auth.ready` first |
-| `unauthenticated` | yes | stay |
-| `unauthenticated` | no | → `/login` |
-| `authenticated` | yes | → `/home` |
-| `authenticated` | no | stay |
-| `offline` | yes | → `/home` |
-| `offline` | no | stay |
+| Condition | Result |
+|---|---|
+| `unknown` | wait on `auth.ready` first |
+| `unauthenticated`, not at an auth screen | → `/login` |
+| `authenticated` + `isAdmin`, not in `/admin*` | → `/admin` |
+| `authenticated` (staff) + tries `/admin*` | → `/sale` |
+| `authenticated` (staff) + at an auth screen | → `/sale` |
+| `offline` + tries `/admin*` or an auth screen | → `/sale` |
 
 ---
 
@@ -309,7 +342,7 @@ The redirect in `app_router.dart:49` resolves the four auth statuses:
 ### The price-list line
 
 `MedicineModel` (`lib/features/search/data/models/medicine_model.dart`) is the
-central model. Two of its choices propagate everywhere:
+central model. Three of its choices propagate everywhere:
 
 1. **`stock` is nullable, and `null` is not zero.** `null` means "never counted".
    A zero count means "counted, and there is none". `StockState` is four-valued
@@ -318,11 +351,24 @@ central model. Two of its choices propagate everywhere:
 2. **`==` is on `(name, priceCentavos)` only.** Stock, expiry, aliases and
    `genericKey` are excluded, so a line keeps its identity when the pharmacist
    edits it.
+3. **The descriptive fields are optional and read tolerantly.** `ageGroup`
+   (`AgeGroup.child` / `adult` / `both`), `category`, `requiresRx` and
+   `dosageInfo` are all hand-entered annotations, not facts the price list
+   carries. A missing or unrecognised value reads as the safe default —
+   `both` for the age group, `false` for the prescription flag — because the
+   wrong default hides the shelf or blocks a legal sale. Like stock, they are
+   excluded from identity: the same product is the same product whichever age
+   group it is written for.
 
 `documentId` is an FNV-1a hash of `'$name|$priceCentavos'` rendered as 8 hex
 chars. Because the price is in the hash, the same product at a new price is a new
 line, and re-importing the spreadsheet updates existing lines in place instead of
 duplicating them.
+
+`MedicineModel.isForAge(group)` decides who a line is offered to. A line
+recorded for one age group is offered to that group, and a line recorded for
+neither is offered to both: the price list mostly says nothing about age, and
+hiding those lines from the child filter would hide most of the shelf.
 
 ### Firestore schema
 
@@ -340,6 +386,10 @@ never reaches Firestore, because offline mode substitutes local stores.
 | `expiryDate` | string or null | `yyyy-MM-dd`, deliberately **not** a `Timestamp` |
 | `aliases` | list of string | alternative spellings, for OCR matching |
 | `genericKey` | string or null | the generic the brand belongs to |
+| `ageGroup` | string | `'child'`, `'adult'` or `'both'`; anything else reads as `'both'` |
+| `category` | string or null | the shelf or counter the line sits on |
+| `requiresRx` | bool | whether a prescription is needed before selling it |
+| `dosageInfo` | string or null | how much to take, and how often |
 | `updatedAt` | `serverTimestamp` | added on every write |
 
 Read as `orderBy('name').snapshots()`. There is **no `where(...)` anywhere in the
@@ -537,20 +587,20 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 | `features/finder/feature_entry_test.dart` | feature search matching and ordering |
 | `features/finder/feature_repository_test.dart` | feature repository ordering and query behaviour |
 | `medicine_catalog_test.dart` | `StaticMedicineRepository`, search semantics |
-| `medicine_persistence_test.dart` | `documentId` stability, Firestore round trip, `copyWith` |
+| `medicine_persistence_test.dart` | `documentId` stability, Firestore round trip, `copyWith`, the age/shelf/prescription fields |
 | `medicine_provider_test.dart` | account scoping, optimistic writes and rollback |
 | `seeded_medicine_store_test.dart` | bundle/server merge, auto-seed, disposal |
 | `firestore_medicine_store_test.dart` | confirmation intersection, replay-before-`enableNetwork`, refusal vs transport |
 | `order_provider_test.dart` | basket arithmetic, stock caps, sign-out behaviour |
 | `orders_screen_test.dart` | order tabs, approve action, empty states |
-| `new_sale_screen_test.dart` | cart, payment selection, completing a sale |
+| `new_sale_screen_test.dart` | cart, payment selection, completing a sale, the age and shelf filters |
 | `offline_mode_test.dart` | offline session, both local stores, `OrderLineCodec` |
 | `offline_banner_test.dart` | `OfflineBanner` copy per status, singular/plural, safe-vs-pending |
 | `pending_write_queue_test.dart` | both queue implementations: durability, id reuse, ceiling, unreadable storage |
 | `connection_source_test.dart` | `PlatformConnectionSource` against a fake `ConnectivityPlatform` |
 | `reports_test.dart` | report arithmetic against `SaleModel` |
 | `prescription_matcher_test.dart` | OCR-to-catalogue ranking, including misreads |
-| `scan_screen_test.dart` | camera gate, reading, suggestions, disposal |
+| `scan_screen_test.dart` | camera gate, reading, suggestions, manual entry, disposal |
 | `mlkit_text_recognizer_test.dart` | plugin channel mapping and failure modes |
 | `nav_alignment_test.dart` | bar/branch order and label fit on a 360 dp phone |
 | `splash_test.dart` | splash artwork, bootstrap gating |

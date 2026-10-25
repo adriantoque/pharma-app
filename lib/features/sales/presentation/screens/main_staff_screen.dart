@@ -1,0 +1,1008 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../core/utils/currency.dart';
+import '../../../orders/presentation/providers/order_provider.dart';
+import '../../../search/data/models/age_guidance.dart';
+import '../../../search/data/models/medicine_model.dart';
+import '../../../search/presentation/providers/medicine_provider.dart';
+import '../../../symptom_guide/data/repositories/symptom_repository.dart';
+import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
+
+/// The staff POS front view, restored from the `dashboard_screenv2` design.
+///
+/// One shell, three tabs -- New Sale, Symptom Finder and Scan SKU -- behind a
+/// shared app bar with an added-to-cart badge and a cart sheet in the
+/// committed subtotal / tax / total layout. Instead of the design's
+/// throw-away demo models, everything reads the real providers: the catalogue
+/// from [MedicineProvider], the basket from [OrderProvider] and the symptom
+/// recommendations from the bundled [StaticSymptomRepository].
+///
+/// The visual rules (colours, paddings, widget shapes and wording) are the
+/// committed ones; only the data behind them changed. Prices print in pesos
+/// because the catalogue is priced in centavos, and Tax (5%) is display-only:
+/// the order itself is still saved at the goods subtotal, which is what the
+/// rest of the app reports.
+
+/// The POS accent colour the design seeds its whole theme from.
+const Color _posPrimary = Color(0xFF0284C7);
+
+/// The app bar shared by all three tabs: the pharmacy word-mark, the routes
+/// out of the POS (history, profile, the management screens) and the cart.
+///
+/// The committed design keeps its word-mark row leading-aligned, so the
+/// theme's centerTitle is deliberately off here.
+AppBar _posAppBar(BuildContext context, OrderProvider order) {
+  final cartCount = order.itemCount;
+
+  return AppBar(
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    surfaceTintColor: Colors.transparent,
+    centerTitle: false,
+    // The word-mark scales down rather than overflowing on narrow phones:
+    // with four actions the title row has little room on a 360dp screen, and
+    // a hard overflow there would be worse than a slightly smaller mark.
+    title: const FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        children: [
+          Icon(Icons.local_pharmacy, color: _posPrimary),
+          SizedBox(width: 8),
+          Text(
+            'PharmaStaff POS',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      IconButton(
+        tooltip: 'Order history',
+        icon: const Icon(Icons.receipt_long_outlined),
+        onPressed: () => context.pushNamed('orders-history'),
+      ),
+      const SizedBox(width: 8),
+      Stack(
+        alignment: Alignment.center,
+        children: [
+          IconButton(
+            tooltip: 'Current cart',
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => _showCartSheet(context, order),
+          ),
+          if (cartCount > 0)
+            Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.redAccent,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 16,
+                  minHeight: 16,
+                ),
+                child: Text(
+                  '$cartCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+      IconButton(
+        tooltip: 'Profile',
+        icon: const Icon(Icons.account_circle_outlined),
+        onPressed: () => context.pushNamed('home-profile'),
+      ),
+      // The management screens live behind a menu rather than their own tabs:
+      // the committed bar is exactly three destinations wide. They are still
+      // routed underneath, so the menu only has to name them.
+      PopupMenuButton<String>(
+        tooltip: 'More',
+        icon: const Icon(Icons.more_vert),
+        onSelected: (route) => context.pushNamed(route),
+        itemBuilder: (context) => const [
+          PopupMenuItem(value: 'home-expiring', child: Text('Expiring Meds')),
+          PopupMenuItem(
+            value: 'home-notifications',
+            child: Text('Notifications'),
+          ),
+          PopupMenuItem(value: 'medicines', child: Text('Medicine list')),
+        ],
+      ),
+      const SizedBox(width: 4),
+    ],
+  );
+}
+
+/// Adds one more of [medicine] to the order, the way the design's
+/// `_addToCart` did: the line goes into the provider and a short floating
+/// snackbar confirms it. An item the shelf cannot supply is reported instead
+/// of being silently swallowed.
+void _addToOrder(
+  BuildContext context,
+  OrderProvider order,
+  MedicineModel medicine,
+) {
+  if (OrderProvider.capFor(medicine) < OrderProvider.minQuantity) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Nothing left on the shelf for this item'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    return;
+  }
+
+  order.add(medicine, 1);
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('${medicine.name} added to cart'),
+      duration: const Duration(seconds: 1),
+      behavior: SnackBarBehavior.floating,
+    ),
+  );
+}
+
+/// TAB 1: NEW SALE -- search, the demographic segmented control, the category
+/// chips, then the price list as cards.
+class NewSaleCatalogScreen extends StatelessWidget {
+  const NewSaleCatalogScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final order = context.watch<OrderProvider>();
+    final provider = context.watch<MedicineProvider>();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: _posAppBar(context, order),
+      body: switch ((provider.error, provider.isLoading, provider.all())) {
+        (final String message, _, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(message),
+          ),
+        ),
+        (_, true, _) => const Center(child: CircularProgressIndicator()),
+        (_, _, final List<MedicineModel> items) => _SaleCatalogTab(
+          medicines: items,
+        ),
+      },
+    );
+  }
+}
+
+class _SaleCatalogTab extends StatefulWidget {
+  const _SaleCatalogTab({required this.medicines});
+
+  final List<MedicineModel> medicines;
+
+  @override
+  State<_SaleCatalogTab> createState() => _SaleCatalogTabState();
+}
+
+class _SaleCatalogTabState extends State<_SaleCatalogTab> {
+  AgeGroup _selectedAgeGroup = AgeGroup.both;
+  String _searchQuery = '';
+  String _selectedCategory = 'All';
+
+  /// The chips are read from the data, so a category the workbook adds shows
+  /// up on its own; lines whose category was never recorded only surface
+  /// under All.
+  List<String> get _categories {
+    final names = widget.medicines
+        .map((medicine) => medicine.category)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
+    return ['All', ...names];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final order = context.watch<OrderProvider>();
+    final filtered = widget.medicines.where((medicine) {
+      if (_selectedAgeGroup != AgeGroup.both &&
+          !medicine.isForAge(_selectedAgeGroup)) {
+        return false;
+      }
+      if (_selectedCategory != 'All' &&
+          medicine.category != _selectedCategory) {
+        return false;
+      }
+      if (_searchQuery.isNotEmpty && !medicine.matches(_searchQuery)) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  hintText: 'Search medicine, generic name...',
+                  prefixIcon: const Icon(Icons.search),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF1F5F9),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // The demographic-first control from the design, with All so a
+              // price list that records no age still shows.
+              SegmentedButton<AgeGroup>(
+                segments: const [
+                  ButtonSegment(
+                    value: AgeGroup.both,
+                    label: Text('All'),
+                    icon: Icon(Icons.people_outline, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: AgeGroup.child,
+                    label: Text('Child'),
+                    icon: Icon(Icons.child_care, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: AgeGroup.adult,
+                    label: Text('Adult'),
+                    icon: Icon(Icons.person_outline, size: 16),
+                  ),
+                ],
+                selected: {_selectedAgeGroup},
+                onSelectionChanged: (Set<AgeGroup> newSelection) {
+                  setState(() {
+                    _selectedAgeGroup = newSelection.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 36,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isSelected = _selectedCategory == category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        selected: isSelected,
+                        label: Text(category),
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                        selectedColor: const Color(0xFFE0F2FE),
+                        checkmarkColor: _posPrimary,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(
+                  child: Text('No medicines found matching filters.'),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final medicine = filtered[index];
+                    return _PosProductCard(
+                      medicine: medicine,
+                      onAdd: () => _addToOrder(context, order, medicine),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// TAB 2: SYMPTOM FINDER -- what the customer has, what to hand over.
+class PosSymptomFinderScreen extends StatefulWidget {
+  const PosSymptomFinderScreen({super.key});
+
+  @override
+  State<PosSymptomFinderScreen> createState() => _PosSymptomFinderScreenState();
+}
+
+class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
+  static const SymptomRepository _repository = StaticSymptomRepository();
+
+  AgeGroup _targetAgeGroup = AgeGroup.child;
+  final Set<String> _selectedSymptoms = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final order = context.watch<OrderProvider>();
+    final catalogue = context.read<MedicineProvider>().all();
+
+    final symptoms = _repository.all();
+    final picked = symptoms
+        .where((entry) => _selectedSymptoms.contains(entry.name))
+        .toList();
+
+    // The union of what each picked symptom recommends -- deduplicated by
+    // [SymptomEntry.recommendationsIn] -- narrowed to who the customer is.
+    final matches = <MedicineModel>[];
+    final seen = <String>{};
+    for (final entry in picked) {
+      for (final medicine in entry.recommendationsIn(catalogue)) {
+        if (!medicine.isForAge(_targetAgeGroup)) continue;
+        if (seen.add(medicine.name.trim().toLowerCase())) {
+          matches.add(medicine);
+        }
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: _posAppBar(context, order),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // The committed heading, with the app's standing disclaimer right
+            // under it: the finder may suggest, it must not diagnose.
+            const Text(
+              'Patient Demographic & Symptoms',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            const SafetyBanner(),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                ChoiceChip(
+                  avatar: const Icon(Icons.child_care, size: 16),
+                  label: const Text('Pediatric / Child'),
+                  selected: _targetAgeGroup == AgeGroup.child,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() => _targetAgeGroup = AgeGroup.child);
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  avatar: const Icon(Icons.person, size: 16),
+                  label: const Text('Adult'),
+                  selected: _targetAgeGroup == AgeGroup.adult,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() => _targetAgeGroup = AgeGroup.adult);
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Select Symptoms:',
+              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              children: symptoms
+                  .map(
+                    (symptom) => FilterChip(
+                      label: Text(
+                        symptom.name,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      selected: _selectedSymptoms.contains(symptom.name),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedSymptoms.add(symptom.name);
+                          } else {
+                            _selectedSymptoms.remove(symptom.name);
+                          }
+                        });
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Recommended Medications (${matches.length})',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: matches.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No matching medication found for selected criteria.',
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: matches.length,
+                      itemBuilder: (context, index) {
+                        final medicine = matches[index];
+                        return _PosProductCard(
+                          medicine: medicine,
+                          onAdd: () => _addToOrder(context, order, medicine),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// TAB 3: SCAN SKU -- the scanner frame, a manual SKU entry, quick chips.
+class SkuScannerScreen extends StatefulWidget {
+  const SkuScannerScreen({super.key});
+
+  @override
+  State<SkuScannerScreen> createState() => _SkuScannerScreenState();
+}
+
+class _SkuScannerScreenState extends State<SkuScannerScreen> {
+  final TextEditingController _skuController = TextEditingController();
+  final FocusNode _skuFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _skuController.dispose();
+    _skuFocus.dispose();
+    super.dispose();
+  }
+
+  /// Turns a typed or "scanned" SKU into a line on the order: first by
+  /// product ID, then by exact name. An unknown SKU is reported rather than
+  /// guessed at -- the design's demo fell back to the first product, which
+  /// would silently ring up the wrong item.
+  void _scanSku(String sku) {
+    final order = context.read<OrderProvider>();
+    final catalogue = context.read<MedicineProvider>().all();
+    final needle = sku.trim().toLowerCase();
+
+    MedicineModel? match;
+    for (final medicine in catalogue) {
+      if (medicine.productId?.toLowerCase() == needle ||
+          medicine.name.toLowerCase() == needle) {
+        match = medicine;
+        break;
+      }
+    }
+
+    if (match == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No product for SKU "$sku"'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _addToOrder(context, order, match);
+    _skuController.clear();
+    _skuFocus.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final order = context.watch<OrderProvider>();
+    final catalogue = context.watch<MedicineProvider>().all();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: _posAppBar(context, order),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Container(
+              height: 220,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.qr_code_scanner,
+                        color: Colors.white54,
+                        size: 64,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Position Barcode inside Frame',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                  Container(height: 2, width: 200, color: Colors.redAccent),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // The app has a real camera scanner behind this same route, so the
+            // committed preview frame keeps its manual entry and gains one
+            // button into the camera flow.
+            OutlinedButton.icon(
+              onPressed: () => context.pushNamed('scan-sku-camera'),
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: const Text('Scan with camera'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _skuController,
+              focusNode: _skuFocus,
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty) _scanSku(value);
+              },
+              decoration: InputDecoration(
+                labelText: 'Manual SKU / Barcode Entry',
+                hintText: 'e.g. MED-1001',
+                suffixIcon: IconButton(
+                  tooltip: 'Add to cart',
+                  icon: const Icon(Icons.add_shopping_cart),
+                  onPressed: () {
+                    if (_skuController.text.trim().isNotEmpty) {
+                      _scanSku(_skuController.text);
+                    }
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Quick Scan Samples (Tap to Scan)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final medicine in catalogue)
+                        ActionChip(
+                          avatar: const Icon(Icons.qr_code, size: 16),
+                          label: Text(
+                            '${medicine.name}'
+                            ' (${medicine.productId ?? medicine.packageType ?? 'no SKU'})',
+                          ),
+                          onPressed: () =>
+                              _scanSku(medicine.productId ?? medicine.name),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The committed product card: the age badge and the Rx pill, the name, the
+/// generic underneath, the dosage line and the price with the Add button.
+class _PosProductCard extends StatelessWidget {
+  const _PosProductCard({required this.medicine, required this.onAdd});
+
+  final MedicineModel medicine;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: _badges(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              medicine.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            if (medicine.genericKey ?? medicine.packageType case final generic?)
+              Text(
+                generic,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              ),
+            const SizedBox(height: 6),
+            if (medicine.dosageInfo case final dosage?)
+              Text(
+                'Dosage: $dosage',
+                style: const TextStyle(fontSize: 11, color: Colors.black87),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  medicine.formattedPrice,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _posPrimary,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _posPrimary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add_shopping_cart, size: 16),
+                  label: const Text('Add'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The two things worth calling out, per the committed design: a
+  /// pediatric-only line, a line children may take only with advice, and
+  /// whether a prescription is needed.
+  List<Widget> _badges() {
+    final badges = <Widget>[];
+
+    if (medicine.ageGroup == AgeGroup.child) {
+      badges.add(_badge(
+        icon: Icons.child_care,
+        label: 'PEDIATRIC / CHILD',
+        background: const Color(0xFFFEF3C7),
+        foreground: const Color(0xFFD97706),
+      ));
+    } else if (medicine.ageGuidance?.kids case AgeSuitability.caution) {
+      badges.add(_badge(
+        icon: Icons.child_care,
+        label: 'KIDS: ASK FIRST',
+        background: const Color(0xFFFEF3C7),
+        foreground: const Color(0xFFD97706),
+      ));
+    } else if (medicine.ageGroup == AgeGroup.adult) {
+      badges.add(_badge(
+        icon: Icons.person_outline,
+        label: 'ADULT FORMULA',
+        background: const Color(0xFFE0E7FF),
+        foreground: const Color(0xFF4338CA),
+      ));
+    }
+
+    if (medicine.requiresRx) {
+      badges.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'Rx Required',
+            style: TextStyle(
+              color: Colors.red.shade700,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return badges;
+  }
+
+  static Widget _badge({
+    required IconData icon,
+    required String label,
+    required Color background,
+    required Color foreground,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The committed cart bottom sheet: entries with +/- steppers, the subtotal,
+/// the 5% tax line, the grand total and the Complete Sale button.
+void _showCartSheet(BuildContext context, OrderProvider order) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (sheetContext) {
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          // Watched rather than copied, so the sheet is rebuilt by the same
+          // change that moves the badge in the app bar behind it.
+          final watched = context.watch<OrderProvider>();
+          final lines = watched.lines;
+          final subtotal = watched.totalCentavos;
+          final tax = subtotal ~/ 20;
+          final grandTotal = subtotal + tax;
+          final amountPaid = formatCentavos(grandTotal);
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Current Cart (${lines.length})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => context.pushNamed('orders-history'),
+                      icon: const Icon(Icons.receipt_long, size: 18),
+                      label: const Text('History'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                if (lines.isEmpty)
+                  const Expanded(
+                    child: Center(
+                      child: Text(
+                        'Cart is empty',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: lines.length,
+                      separatorBuilder: (_, _) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final line = lines[index];
+                        final medicine = line.medicine;
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            medicine.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '${medicine.formattedPrice} x ${line.quantity}',
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline),
+                                onPressed: () {
+                                  watched.setQuantity(
+                                    medicine,
+                                    line.quantity - 1,
+                                  );
+                                  setSheetState(() {});
+                                },
+                              ),
+                              Text(
+                                '${line.quantity}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline),
+                                onPressed: () {
+                                  watched.setQuantity(
+                                    medicine,
+                                    line.quantity + 1,
+                                  );
+                                  setSheetState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                if (lines.isNotEmpty) ...[
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Subtotal'),
+                      Text(formatCentavos(subtotal)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Tax (5%)'),
+                      Text(formatCentavos(tax)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        formatCentavos(grandTotal),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _posPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _posPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        final completed = watched.complete();
+                        Navigator.pop(context);
+                        if (!completed) {
+                          ScaffoldMessenger.of(sheetContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not save the order.'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                          return;
+                        }
+                        _showCheckoutSuccessDialog(sheetContext, amountPaid);
+                      },
+                      child: const Text(
+                        'Complete Sale',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+/// The committed "Transaction Successful!" dialog. The order itself is saved
+/// at the goods subtotal; [amountPaid] is what the sheet showed, tax included.
+void _showCheckoutSuccessDialog(BuildContext context, String amountPaid) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Transaction Successful!',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Text('Amount Paid: $amountPaid'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('New Sale'),
+        ),
+      ],
+    ),
+  );
+}

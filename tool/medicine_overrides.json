@@ -1,0 +1,293 @@
+{
+  "Alcohol Med": {
+    "name": "Alcohol (Medium)",
+    "packageType": "Bottle",
+    "usageIndication": "Rubbing alcohol for disinfection and cleaning"
+  },
+  "Alcohol Small": {
+    "name": "Alcohol (Small)",
+    "packageType": "Bottle",
+    "usageIndication": "Rubbing alcohol for disinfection and cleaning"
+  },
+  "Alchol": {
+    "name": "Alcohol",
+    "packageType": "Bottle",
+    "usageIndication": "Rubbing alcohol for disinfection and cleaning"
+  },
+  "Amox": {
+    "name": "Amoxicillin",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Antibiotic used to treat bacterial infections",
+    "genericKey": "Amoxicillin"
+  },
+  "Amox 250 Cap": {
+    "name": "Amoxicillin 250mg Capsule",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Antibiotic used to treat bacterial infections",
+    "genericKey": "Amoxicillin"
+  },
+  "Amox 500mg": {
+    "name": "Amoxicillin 500mg Capsule",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Antibiotic used to treat bacterial infections",
+    "genericKey": "Amoxicillin"
+  },
+  "Amplodiphine": {
+    "name": "Amlodipine",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For high blood pressure (hypertension) management",
+    "genericKey": "Amlodipine"
+  },
+  "Ascorbic Tablet": {
+    "name": "Ascorbic Acid Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Vitamin C supplement for immune system support",
+    "genericKey": "Ascorbic Acid"
+  },
+  "Aspirin": {
+    "name": "Aspirin",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Aspirin",
+    "usageIndication": "For pain relief, fever, and inflammation"
+  },
+  "Baby Oil": {
+    "name": "Baby Oil",
+    "packageType": "Bottle",
+    "usageIndication": "For moisturizing and protecting baby skin"
+  },
+  "Biogesic": {
+    "name": "Biogesic (Paracetamol)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For fever, headache, and body aches",
+    "genericKey": "Paracetamol"
+  },
+  "Bioflu": {
+    "name": "Bioflu",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For relief of flu, fever, cough, and colds"
+  },
+  "Calmosipten": {
+    "name": "Calmosipten"
+  },
+  "Carbo Cap": {
+    "name": "Carbocisteine Capsule",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For cough with phlegm (mucolytic)",
+    "genericKey": "Carbocisteine"
+  },
+  "Cefalexin": {
+    "name": "Cephalexin",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Cephalexin",
+    "usageIndication": "Antibiotic used to treat bacterial infections"
+  },
+  "Ceterizine Syrup": {
+    "name": "Cetirizine Syrup",
+    "packageType": "Bottle",
+    "usageIndication": "For allergies, sneezing, and skin itching",
+    "genericKey": "Cetirizine"
+  },
+  "Ceterizine Tab": {
+    "name": "Cetirizine Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For allergies, sneezing, and skin itching",
+    "genericKey": "Cetirizine"
+  },
+  "Cinnarizine": {
+    "name": "Cinnarizine",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Cinnarizine",
+    "usageIndication": "For dizziness, vertigo, and motion sickness"
+  },
+  "Cloxacillin": {
+    "name": "Cloxacillin",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Cloxacillin",
+    "usageIndication": "Antibiotic used to treat bacterial infections"
+  },
+  "Decolgen": {
+    "name": "Decolgen Tablet",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For nose congestion, colds, and headache relief"
+  },
+  "Diatabs": {
+    "name": "Diatabs (Loperamide)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For relief of diarrhea",
+    "genericKey": "Loperamide"
+  },
+  "Diclofenac": {
+    "name": "Diclofenac",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Diclofenac",
+    "usageIndication": "For pain and inflammation relief"
+  },
+  "Efficasent": {
+    "name": "Efficascent Oil",
+    "packageType": "Bottle",
+    "usageIndication": "Liniment for muscle pain, cramps, and headache"
+  },
+  "ElShadai": {
+    "name": "El Shadai"
+  },
+  "Enervon": {
+    "name": "Enervon-C",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Multivitamins with Vitamin C for energy and immunity"
+  },
+  "Erceflora": {
+    "name": "Erceflora",
+    "usageIndication": "Probiotic for diarrhea and gut health"
+  },
+  "Eyemo": {
+    "name": "Eyemo",
+    "packageType": "Bottle",
+    "usageIndication": "For eye irritation and redness"
+  },
+  "FernC Syrup": {
+    "name": "Fern-C Syrup",
+    "packageType": "Bottle",
+    "usageIndication": "Non-acidic Vitamin C for immunity",
+    "genericKey": "Sodium Ascorbate"
+  },
+  "Flanax": {
+    "name": "Flanax",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Naproxen",
+    "usageIndication": "For pain and inflammation relief"
+  },
+  "Hivent": {
+    "name": "Hivent"
+  },
+  "Katialis": {
+    "name": "Katialis",
+    "usageIndication": "For skin infection and itch relief"
+  },
+  "Katinko": {
+    "name": "Katinko",
+    "usageIndication": "For muscle and joint pain relief"
+  },
+  "Katinko Roll": {
+    "name": "Katinko Roll-On",
+    "packageType": "Roll-On",
+    "usageIndication": "For muscle and joint pain relief"
+  },
+  "Lady Pills": {
+    "name": "Lady Pills",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Oral contraceptive for birth control"
+  },
+  "Losartan": {
+    "name": "Losartan",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For high blood pressure and kidney protection",
+    "genericKey": "Losartan"
+  },
+  "Manzanilla": {
+    "name": "Manzanilla",
+    "packageType": "Bottle",
+    "usageIndication": "Herbal oil for stomach ache and colic"
+  },
+  "Mefenamic": {
+    "name": "Mefenamic Acid",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For toothache, arthritis, and body pain relief",
+    "genericKey": "Mefenamic Acid"
+  },
+  "Medicol": {
+    "name": "Medicol (Ibuprofen)",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Fast-acting relief for headaches and body pain",
+    "genericKey": "Ibuprofen"
+  },
+  "Naproxen": {
+    "name": "Naproxen",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Naproxen",
+    "usageIndication": "For pain and inflammation relief"
+  },
+  "Nutriflex": {
+    "name": "Nutriflex"
+  },
+  "Off Lotion": {
+    "name": "Off Lotion",
+    "packageType": "Bottle",
+    "usageIndication": "Insect repellent lotion"
+  },
+  "Omeprazole": {
+    "name": "Omeprazole",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For hyperacidity, acid reflux, and stomach ulcers",
+    "genericKey": "Omeprazole"
+  },
+  "Para Syrup": {
+    "name": "Paracetamol Syrup",
+    "packageType": "Bottle",
+    "usageIndication": "For fever and mild to moderate pain relief",
+    "genericKey": "Paracetamol"
+  },
+  "Paracetamol 125": {
+    "name": "Paracetamol 125mg",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For fever and mild to moderate pain relief",
+    "genericKey": "Paracetamol"
+  },
+  "Pharex": {
+    "name": "Pharex"
+  },
+  "PT": {
+    "name": "PT"
+  },
+  "Pyroflora": {
+    "name": "Pyroflora",
+    "usageIndication": "Probiotic for diarrhea and gut health"
+  },
+  "Salbutamol 4mg": {
+    "name": "Salbutamol 4mg",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Salbutamol",
+    "usageIndication": "For asthma and bronchospasm relief"
+  },
+  "Salonpas": {
+    "name": "Salonpas",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "For muscle and joint pain relief"
+  },
+  "Suppository": {
+    "name": "Suppository"
+  },
+  "Symdex": {
+    "name": "Symdex",
+    "usageIndication": "For cough and cold relief"
+  },
+  "Tawas": {
+    "name": "Tawas (Alum)",
+    "usageIndication": "Astringent and deodorant"
+  },
+  "Tempra 1-5": {
+    "name": "Tempra 1-5",
+    "packageType": "Bottle",
+    "usageIndication": "For fever and mild to moderate pain relief",
+    "genericKey": "Paracetamol"
+  },
+  "Tramadol": {
+    "name": "Tramadol",
+    "packageType": "Piece (Dosage)",
+    "genericKey": "Tramadol",
+    "usageIndication": "For moderate to severe pain relief"
+  },
+  "Trust Pills": {
+    "name": "Trust Pills",
+    "packageType": "Piece (Dosage)",
+    "usageIndication": "Oral contraceptive for birth control"
+  },
+  "Tuseran": {
+    "name": "Tuseran",
+    "usageIndication": "For cough and cold relief"
+  },
+  "Vicks": {
+    "name": "Vicks Vaporub",
+    "packageType": "Jar",
+    "usageIndication": "Vaporizing ointment for cough and nasal congestion"
+  }
+}

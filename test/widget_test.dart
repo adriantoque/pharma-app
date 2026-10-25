@@ -306,13 +306,13 @@ void main() {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
       expect(find.text('Welcome to'), findsNothing);
     });
 
-// Regression: the home screen previously had no way to sign out. Sign-out
-    // now lives on the Profile page pushed from a Home tile, so the user has to
-    // navigate there first.
+// Regression: the staff screen previously had no way to sign out. Sign-out
+    // now lives on the Profile page pushed from the POS app bar's person
+    // icon, so the user has to navigate there first.
     testWidgets('signing out from the profile page returns to login', (
       tester,
     ) async {
@@ -322,7 +322,7 @@ void main() {
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
 
       // Profile is now an icon button in the AppBar
       await tester.tap(find.byTooltip('Profile'));
@@ -363,23 +363,23 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       int selectedIndex() =>
           tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 
-      await tester.tap(tab('Medicine'));
+      await tester.tap(tab('Symptom Finder'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 1);
-      expect(find.widgetWithText(AppBar, 'Medicine'), findsOneWidget);
+      expect(find.text('Patient Demographic & Symptoms'), findsOneWidget);
 
-      await tester.tap(tab('Orders'));
+      await tester.tap(tab('Scan SKU'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 2);
-      expect(find.text('No orders waiting'), findsOneWidget);
+      expect(find.text('Position Barcode inside Frame'), findsOneWidget);
 
-      await tester.tap(tab('Home'));
+      await tester.tap(tab('New Sale'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 0);
-      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
     });
 
-    testWidgets('medicine sits at index 1 and orders at 2', (
+    testWidgets('symptom finder sits at index 1 and scan SKU at 2', (
       tester,
     ) async {
       final auth = createProvider();
@@ -396,16 +396,16 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       int selectedIndex() =>
           tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 
-      await tester.tap(tab('Orders'));
+      await tester.tap(tab('Scan SKU'));
       await tester.pumpAndSettle();
-      expect(find.text('No orders waiting'), findsOneWidget);
+      expect(find.text('Position Barcode inside Frame'), findsOneWidget);
       expect(selectedIndex(), 2);
 
       // The regression this guards: inserting or removing a branch shifts every
       // later one, so the bar would highlight one tab while showing another.
-      await tester.tap(tab('Medicine'));
+      await tester.tap(tab('Symptom Finder'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, 'Medicine'), findsOneWidget);
+      expect(find.text('Patient Demographic & Symptoms'), findsOneWidget);
       expect(selectedIndex(), 1);
     });
 
@@ -423,13 +423,13 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // Three slots across 360dp is 120dp each, and "Medicine" is the longest
-      // label, so this proves the bar does not clip on the narrowest screen the
-      // app is expected to run on.
+      // Three slots across 360dp is 120dp each, and "Symptom Finder" is the
+      // longest label, so this proves the bar does not clip on the narrowest
+      // screen the app is expected to run on.
       expect(AppShell.destinations, hasLength(3));
       expect(
         AppShell.destinations.map((d) => d.label),
-        ['Home', 'Medicine', 'Orders'],
+        ['New Sale', 'Symptom Finder', 'Scan SKU'],
       );
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -445,35 +445,50 @@ testWidgets('a home action opens a child page and back returns home', (
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // The expiring tile is a child of the Home branch, so it pushes rather
-      // than switch tabs: Home stays selected and a back arrow appears. Found
-      // by its icon because the count in its label varies with the catalogue.
-      await tester.tap(find.byIcon(Icons.event_busy_outlined));
+      // The committed POS has no dashboard tiles; the child pages of the home
+      // branch are reached from the app bar's overflow menu instead. The
+      // expiring page is a child of the New Sale branch, so it pushes rather
+      // than switches tabs: New Sale stays selected and a back arrow appears.
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Expiring Meds'));
       await tester.pumpAndSettle();
       expect(find.text('Expiring Meds'), findsOneWidget);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         0,
-        reason: 'pushing a child page must not switch away from Home',
+        reason: 'pushing a child page must not switch away from New Sale',
       );
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
 
-      // The scan quick action also pushes a child page. Scrolled into view
-      // first because it sits below the fold on the test viewport.
-      await tester.scrollUntilVisible(find.text('Scan'), 200);
-      await tester.tap(find.text('Scan'));
+      // The Scan SKU tab keeps its camera flow as a nested route as well, so
+      // opening the camera scanner must not switch tabs either.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Scan SKU'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Scan with camera'));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(AppBar, 'Scan'), findsOneWidget);
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        2,
+        reason: 'pushing a child page must not switch away from Scan SKU',
+      );
     });
   });
 
   group('app bar titles', () {
-    // Only the three tab roots centre their titles. The pages pushed from a
-    // Home tile stay leading-aligned, so both halves are asserted: a change to
-    // AppBarTheme.centerTitle would centre both and neither mistake throws.
+    // The committed POS app bar keeps its 'PharmaStaff POS' word-mark
+    // leading-aligned on every tab, against the theme's centerTitle; the
+    // pages pushed from the overflow menu still centre their titles. Both
+    // halves are asserted: a change to either rule shows up here.
 
     /// The title inside the AppBar, excluding the bottom bar's identically
     /// labelled destination.
@@ -482,7 +497,9 @@ testWidgets('a home action opens a child page and back returns home', (
       matching: find.text(label),
     );
 
-    testWidgets('the three tab titles sit on the centreline', (tester) async {
+    testWidgets('the tabs keep the committed leading-aligned word-mark', (
+      tester,
+    ) async {
       final auth = createProvider();
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
@@ -490,13 +507,6 @@ testWidgets('a home action opens a child page and back returns home', (
       final width =
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
       final centreline = width / 2;
-
-      // Home names its own title rather than reusing the tab label.
-      final expectedTitles = {
-        'Home': "Wilma Pharmacy's",
-        'Medicine': 'Medicine',
-        'Orders': 'Orders',
-      };
 
       for (final label in AppShell.destinations.map((d) => d.label)) {
         await tester.tap(
@@ -507,16 +517,15 @@ testWidgets('a home action opens a child page and back returns home', (
         );
         await tester.pumpAndSettle();
 
-        final expectedTitle = expectedTitles[label] ?? label;
-        expect(appBarTitle(expectedTitle), findsOneWidget);
-        final centre = tester.getCenter(appBarTitle(expectedTitle)).dx;
-        // The panel's side margins are symmetric, so a title centred in its
-        // AppBar lands on the screen's centreline. One logical pixel of slack
-        // for sub-pixel layout rounding.
+        expect(appBarTitle('PharmaStaff POS'), findsOneWidget);
+        final centre = tester.getCenter(appBarTitle('PharmaStaff POS')).dx;
+        // The committed design lays its word-mark out from the left edge, so
+        // its centre sits left of the screen's centreline even with the
+        // actions on the other side.
         expect(
-          (centre - centreline).abs(),
-          lessThan(1.0),
-          reason: 'the "$label" title should be centred, not leading-aligned',
+          centre,
+          lessThan(centreline),
+          reason: 'the "$label" title should be the leading-aligned word-mark',
         );
       }
     });
@@ -526,7 +535,9 @@ testWidgets('a home action opens a child page and back returns home', (
       await auth.login(email: 'a@b.com', password: 'secret');
       await pumpRealApp(tester, auth: auth);
 
-      await tester.tap(find.byIcon(Icons.event_busy_outlined));
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Expiring Meds'));
       await tester.pumpAndSettle();
 
       final width =
@@ -535,7 +546,8 @@ testWidgets('a home action opens a child page and back returns home', (
       final centre = tester.getCenter(appBarTitle('Expiring Meds')).dx;
 
       // The AppBarTheme sets centerTitle: true for the whole app, so a page
-      // pushed from a Home tile centres its title exactly as a tab root does.
+      // pushed from the overflow menu centres its title the way the tab
+      // roots deliberately do not.
       // One logical pixel of slack for sub-pixel layout rounding.
       expect(
         (centre - centreline).abs(),
@@ -616,7 +628,7 @@ testWidgets('a home action opens a child page and back returns home', (
       await tester.pumpAndSettle();
 
       expect(find.text('Username'), findsNothing);
-      expect(find.widgetWithText(AppBar, "Wilma Pharmacy's"), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
       expect(repository.loginAttempts, 1);
     });
   });

@@ -38,6 +38,7 @@ class StaticMedicineRepository implements MedicineRepository {
       packageType: 'Piece (Dosage)',
       usageIndication: 'For fever and mild to moderate pain relief',
       priceCentavos: 200,
+      requiresRx: false,
       stock: 120,
     ),
     MedicineModel(
@@ -46,6 +47,7 @@ class StaticMedicineRepository implements MedicineRepository {
       packageType: 'Blister Pack (10s)',
       usageIndication: 'For fever and mild to moderate pain relief',
       priceCentavos: 1800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -54,6 +56,7 @@ class StaticMedicineRepository implements MedicineRepository {
       packageType: 'Box (100s)',
       usageIndication: 'For fever and mild to moderate pain relief',
       priceCentavos: 15000,
+      requiresRx: false,
       stock: 20,
     ),
     // Biogesic keeps all three packages.
@@ -62,6 +65,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Biogesic 500mg Tablet (Paracetamol)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 500,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Paracetamol',
     ),
@@ -70,6 +74,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Biogesic 500mg Tablet (Paracetamol)',
       packageType: 'Blister Pack (10s)',
       priceCentavos: 4800,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Paracetamol',
     ),
@@ -78,6 +83,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Biogesic 500mg Tablet (Paracetamol)',
       packageType: 'Box (500s)',
       priceCentavos: 235000,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Paracetamol',
     ),
@@ -87,6 +93,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Amoxicillin 500mg (Generic Capsule)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 400,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -94,6 +101,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Amoxicillin 500mg (Generic Capsule)',
       packageType: 'Blister Pack (10s)',
       priceCentavos: 3800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -101,6 +109,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Amoxicillin 500mg (Generic Capsule)',
       packageType: 'Box (100s)',
       priceCentavos: 35000,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -108,6 +117,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Amoxil 500mg Capsule (Amoxicillin)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 1800,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Amoxicillin',
     ),
@@ -116,6 +126,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Mefenamic Acid 500mg (Generic Capsule)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 300,
+      requiresRx: false,
       stock: 0,
     ),
     MedicineModel(
@@ -123,6 +134,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Dolfenal 500mg Tablet (Mefenamic Acid)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 2800,
+      requiresRx: false,
       stock: 5,
       genericKey: 'Mefenamic Acid',
     ),
@@ -131,6 +143,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Bioflu Tablet',
       packageType: 'Piece (Dosage)',
       priceCentavos: 800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -138,6 +151,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Decolgen Forte Tablet',
       packageType: 'Piece (Dosage)',
       priceCentavos: 700,
+      requiresRx: false,
       stock: 3,
     ),
     MedicineModel(
@@ -145,6 +159,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Neozep Zapp Caplet',
       packageType: 'Piece (Dosage)',
       priceCentavos: 700,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -152,6 +167,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Alaxan FR Capsule',
       packageType: 'Piece (Dosage)',
       priceCentavos: 900,
+      requiresRx: false,
       stock: 2,
     ),
     MedicineModel(
@@ -159,6 +175,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Ibuprofen 200mg (Generic Tablet)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 200,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -166,6 +183,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Medicol Advance 200mg Softgel',
       packageType: 'Piece (Dosage)',
       priceCentavos: 800,
+      requiresRx: false,
       stock: 20,
     ),
     // Diatabs keeps all three packages.
@@ -174,6 +192,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Diatabs 2mg Capsule (Loperamide)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 800,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Loperamide',
     ),
@@ -182,6 +201,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Diatabs 2mg Capsule (Loperamide)',
       packageType: 'Blister Pack (10s)',
       priceCentavos: 7800,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Loperamide',
     ),
@@ -190,6 +210,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Diatabs 2mg Capsule (Loperamide)',
       packageType: 'Box (100s)',
       priceCentavos: 75000,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Loperamide',
     ),
@@ -198,6 +219,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Loperamide 2mg (Generic Capsule)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 300,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -205,6 +227,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Kremil-S Tablet',
       packageType: 'Piece (Dosage)',
       priceCentavos: 800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -212,6 +235,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Omeprazole 20mg (Generic Capsule)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 500,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -219,6 +243,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Losec 20mg Capsule (Omeprazole)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 7000,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Omeprazole',
     ),
@@ -228,6 +253,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Cetirizine 10mg (Generic Tablet)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 300,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -235,6 +261,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Cetirizine 10mg (Generic Tablet)',
       packageType: 'Blister Pack (10s)',
       priceCentavos: 2800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -242,6 +269,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Cetirizine 10mg (Generic Tablet)',
       packageType: 'Box (100s)',
       priceCentavos: 25000,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -249,6 +277,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Virlix 10mg Tablet (Cetirizine)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 3500,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Cetirizine',
     ),
@@ -257,6 +286,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Allerkid 5mg/5mL Syrup 60mL',
       packageType: 'Bottle (60mL)',
       priceCentavos: 16500,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -264,6 +294,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Allerkid 2.5mg/mL Oral Drops 10mL',
       packageType: 'Bottle (10mL)',
       priceCentavos: 14000,
+      requiresRx: false,
       stock: 0,
     ),
     MedicineModel(
@@ -271,6 +302,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Ascorbic Acid 500mg (Generic Tablet)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 200,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -278,6 +310,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Fern-C 500mg Capsule (Sodium Ascorbate)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 700,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Sodium Ascorbate',
     ),
@@ -286,6 +319,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Enervon-C Tablet',
       packageType: 'Piece (Dosage)',
       priceCentavos: 700,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -293,6 +327,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Revicon Forte Tablet',
       packageType: 'Piece (Dosage)',
       priceCentavos: 800,
+      requiresRx: false,
       stock: 0,
     ),
     MedicineModel(
@@ -300,6 +335,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Amlodipine 5mg (Generic Tablet)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 200,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -307,6 +343,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Norvasc 5mg Tablet (Amlodipine)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 2400,
+      requiresRx: false,
       stock: 4,
       genericKey: 'Amlodipine',
     ),
@@ -315,6 +352,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Losartan 50mg (Generic Tablet)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 300,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -322,6 +360,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Cozaar 50mg Tablet (Losartan)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 3200,
+      requiresRx: false,
       stock: 1,
       genericKey: 'Losartan',
     ),
@@ -330,6 +369,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Metformin 500mg (Generic Tablet)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 200,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -337,6 +377,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Glucophage 500mg Tablet (Metformin)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 1400,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Metformin',
     ),
@@ -345,6 +386,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Green Cross Ethyl Alcohol 70% 250mL',
       packageType: 'Bottle (250mL)',
       priceCentavos: 4800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -352,6 +394,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Green Cross Ethyl Alcohol 70% 500mL',
       packageType: 'Bottle (500mL)',
       priceCentavos: 8800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -359,6 +402,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Casino Isopropyl Alcohol 70% 250mL',
       packageType: 'Bottle (250mL)',
       priceCentavos: 4500,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -366,6 +410,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Casino Isopropyl Alcohol 70% 500mL',
       packageType: 'Bottle (500mL)',
       priceCentavos: 8200,
+      requiresRx: false,
       stock: 0,
     ),
     MedicineModel(
@@ -373,6 +418,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Betadine Antiseptic Solution 10% 15mL',
       packageType: 'Bottle (15mL)',
       priceCentavos: 6500,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -380,6 +426,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Efficascent Oil Regular 100mL',
       packageType: 'Bottle (100mL)',
       priceCentavos: 5800,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -387,6 +434,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'White Flower Embrocation 5mL',
       packageType: 'Bottle (5mL)',
       priceCentavos: 7500,
+      requiresRx: false,
       stock: 20,
     ),
     MedicineModel(
@@ -394,6 +442,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Vicks Vaporub Ointment 25g',
       packageType: 'Jar (25g)',
       priceCentavos: 11000,
+      requiresRx: false,
       stock: 0,
     ),
     MedicineModel(
@@ -401,6 +450,7 @@ class StaticMedicineRepository implements MedicineRepository {
       name: 'Solmux 500mg Capsule (Carbocisteine)',
       packageType: 'Piece (Dosage)',
       priceCentavos: 1200,
+      requiresRx: false,
       stock: 20,
       genericKey: 'Carbocisteine',
     ),

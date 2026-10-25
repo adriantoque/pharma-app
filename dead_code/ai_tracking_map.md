@@ -66,12 +66,12 @@ Statuses mirror `docs/architecture.md` §10.
 ## 4. TEST COVERAGE MAP
 
 ### ✅ Passing Tests (Green)
-`flutter test` → **351 passing, 0 failing**. `flutter analyze` → **No issues found**.
+`flutter test` → **414 passing, 0 failing**. `flutter analyze` → **No issues found**.
 
 | Test File | Pass Count | Notes |
 |-----------|------------|-------|
 | `medicine_catalog_test.dart` | 25 | Catalogue grouping, search, paging |
-| `scan_screen_test.dart` | 15 | Scan flow with a fake recogniser |
+| `scan_screen_test.dart` | 19 | Scan flow with a fake recogniser, plus the manual entry |
 | `orders_screen_test.dart` | - | Approve/reject + history, stream-based |
 | `reports_provider_test.dart` | 10 | Sales/low-stock/expiry, error notification |
 | `splash_test.dart` | 6 | Splash + bootstrap failure screen |

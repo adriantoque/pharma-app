@@ -49,8 +49,8 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
-        // Home, Medicine and Orders all read one of these, so tapping those
-        // destinations without them throws instead of failing a useful
+        // New Sale, Symptom Finder and Scan SKU all read these, so tapping
+        // those destinations without them throws instead of failing a useful
         // assertion.
         child: MultiProvider(
           providers: [
@@ -89,9 +89,15 @@ void main() {
     // would be circular: a tab relabelled or moved to the wrong branch would
     // still pass, because the expectation would have moved with it.
     final expected = <({String label, Finder marker})>[
-      (label: 'Home', marker: find.widgetWithText(AppBar, "Wilma Pharmacy's")),
-      (label: 'Medicine', marker: find.widgetWithText(AppBar, 'Medicine')),
-      (label: 'Orders', marker: find.text('No orders waiting')),
+      (
+        label: 'New Sale',
+        marker: find.widgetWithText(AppBar, 'PharmaStaff POS'),
+      ),
+      (
+        label: 'Symptom Finder',
+        marker: find.text('Patient Demographic & Symptoms'),
+      ),
+      (label: 'Scan SKU', marker: find.text('Position Barcode inside Frame')),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.
@@ -136,8 +142,9 @@ void main() {
 
     // Material 3 caps NavigationBar at five destinations, so this test is also
     // the canary for a sixth tab needing a different layout. The staff bar is
-    // at three: Home, Medicine and Orders. Inventory and Reports are admin-only
-    // and live outside the shell.
+    // at three, exactly as committed: New Sale, Symptom Finder and Scan SKU.
+    // The standalone catalogue and order screens are pushed as pages now, and
+    // Inventory and Reports are admin-only, outside the shell.
     expect(AppShell.destinations, hasLength(3));
     expect(tester.takeException(), isNull);
   });

@@ -1,9 +1,10 @@
 rules_version = '2';
 
-// PharmaGuide keeps everything under the signed-in user's own path, so the only
-// question the rules ever have to answer is "is this your account". Nothing is
-// readable without signing in, and one account can never see another's
-// catalogue or sales.
+// PharmaGuide keeps orders, sales and drafts under the signed-in user's own
+// path, so for those the only question the rules answer is "is this your
+// account". The medicine catalogue is the exception: it is one shared price
+// list (`pharmacy/medicines/items`) that every signed-in account reads and
+// writes. Nothing is readable without signing in.
 //
 // Deploy with:
 //   firebase deploy --only firestore
@@ -24,6 +25,17 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId) && validMedicine();
       allow delete: if isOwner(userId);
+    }
+
+    // The shared catalogue the app actually reads and writes
+    // (`pharmacy/medicines/items`). One price list for every signed-in account,
+    // rather than the per-user copy above, which is kept for accounts seeded
+    // before the store moved. Without this block the catch-all below denies the
+    // shared path and the catalogue silently stays on the bundled copy.
+    match /pharmacy/medicines/items/{medicineId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && validMedicine();
+      allow delete: if request.auth != null;
     }
 
     // The order being built up, as a single document rather than a collection:
@@ -63,6 +75,10 @@ service cloud.firestore {
   // would render as a nonsense label, and `isOutOfStock` treats a negative
   // number as orderable. The expiry is a `yyyy-MM-dd` string or nothing, because
   // a shelf expiry is a date with no time of day.
+  //
+  // The descriptive fields are checked only when they are there: every line
+  // carries them, but a line written before they existed does not, and a rule
+  // that demanded them would lock the old documents out of being updated.
   function validMedicine() {
     let data = request.resource.data;
     return data.keys().hasAll(['name', 'priceCentavos', 'stock'])
@@ -74,7 +90,17 @@ service cloud.firestore {
       && (data.stock == null || (data.stock is int && data.stock >= 0))
       && (!data.keys().hasAny(['expiryDate'])
         || data.expiryDate == null
-        || data.expiryDate is string);
+        || data.expiryDate is string)
+      && (!data.keys().hasAny(['ageGroup'])
+        || data.ageGroup in ['child', 'adult', 'both'])
+      && (!data.keys().hasAny(['requiresRx'])
+        || data.requiresRx is bool)
+      && (!data.keys().hasAny(['category'])
+        || data.category == null
+        || data.category is string)
+      && (!data.keys().hasAny(['dosageInfo'])
+        || data.dosageInfo == null
+        || data.dosageInfo is string);
   }
 
   // The basket being built up: `users/{uid}/drafts/order`.

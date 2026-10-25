@@ -490,6 +490,13 @@ class _MedicineDetailsSheet extends StatelessWidget {
                       label: 'Package / unit',
                       value: packageType,
                     ),
+                  if (currentMedicine.category case final category?)
+                    _MedicineInfoRow(label: 'Category', value: category),
+                  if (currentMedicine.ageGuidance case final guidance?)
+                    _MedicineInfoRow(
+                      label: 'Suitable for',
+                      value: guidance.label,
+                    ),
                   _MedicineInfoRow(
                     label: 'Type',
                     value: information?.type ?? 'Information not available',
@@ -520,6 +527,27 @@ class _MedicineDetailsSheet extends StatelessWidget {
                       label: 'Also searched as',
                       value: currentMedicine.aliases.join(', '),
                     ),
+                  if (currentMedicine.dosageInfo case final dosage?)
+                    _MedicineInfoRow(label: 'Directions', value: dosage),
+                  if (currentMedicine.cautions case final cautions?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF4E5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFF0C27B)),
+                        ),
+                        child: Text(
+                          'Caution: $cautions',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFF7A4A00),
+                          ),
+                        ),
+                      ),
+                    ),
                   if (purpose == null)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -541,8 +569,8 @@ class _MedicineDetailsSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      'General information only. Check the product label and ask a '
-                      'pharmacist for advice. Dosage is not provided here.',
+                      'General information only. This is not medical advice. '
+                      'Check the product label and ask a pharmacist for advice.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                       ),

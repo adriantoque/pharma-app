@@ -21,7 +21,7 @@ class PharmacyPosApp extends StatelessWidget {
           secondary: const Color(0xFF0D9488),
         ),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -355,7 +355,7 @@ class _MainStaffScreenState extends State<MainStaffScreen> {
                     Expanded(
                       child: ListView.separated(
                         itemCount: _cart.length,
-                        separatorBuilder: (_, __) => const Divider(),
+                        separatorBuilder: (_, _) => const Divider(),
                         itemBuilder: (context, index) {
                           final item = _cart[index];
                           return ListTile(

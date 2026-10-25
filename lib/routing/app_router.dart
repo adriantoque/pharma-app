@@ -7,7 +7,6 @@ import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_landing_screen.dart';
 import '../features/auth/presentation/screens/role_login_screen.dart';
 import '../features/auth/domain/user_role.dart';
-import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
 import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/search/presentation/screens/medicine_screen.dart';
@@ -20,6 +19,7 @@ import '../features/profile/presentation/screens/appearance_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
+import '../features/sales/presentation/screens/main_staff_screen.dart';
 import '../features/sales/presentation/screens/new_sale_screen.dart';
 import '../features/symptom_guide/presentation/screens/symptom_search_screen.dart';
 import '../features/symptom_guide/presentation/screens/symptom_detail_screen.dart';
@@ -39,6 +39,15 @@ abstract final class AppRoutes {
   static const String medicines = '/medicines';
   static const String orders = '/orders';
   static const String finder = '/finder';
+
+  /// The other two tabs of the committed staff bar. New Sale is the home
+  /// branch itself; these sit beside it.
+  static const String symptomFinder = '/symptom-finder';
+  static const String scanSku = '/scan-sku';
+
+  /// Documentation only: declared as a relative child of `scanSku`, so the
+  /// route that resolves is `/scan-sku/camera`.
+  static const String scanSkuCamera = '/scan-sku/camera';
 
   /// Legacy top-level paths. Kept only so old links and notifications
   /// redirect to the admin workspace instead of failing.
@@ -216,17 +225,19 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         // Branch order must match AppShell.destinations exactly:
-        // 0 Home, 1 Medicine, 2 Orders.
+        // 0 New Sale, 1 Symptom Finder, 2 Scan SKU.
         branches: [
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: AppRoutes.home,
                 name: 'home',
-                builder: (context, state) => const DashboardScreen(),
-                // Nested under Home so each tile pushes a page onto the Home
-                // branch: the bottom bar keeps Home selected and the back
-                // arrow has somewhere to go.
+                builder: (context, state) => const NewSaleCatalogScreen(),
+                // Nested under Home so a pushed page lands on the Home
+                // branch: the bottom bar keeps New Sale selected and the
+                // back arrow has somewhere to go. Reached from the app
+                // bar's overflow menu rather than tiles now, but the
+                // routing is unchanged.
                 routes: [
                   GoRoute(
                     path: 'expiring',
@@ -297,32 +308,57 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
               ),
             ],
           ),
+          // The Symptom Finder tab: symptom-driven recommendations from the
+          // bundled catalogue, in the committed finder layout.
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.medicines,
-                name: 'medicines',
-                builder: (context, state) => const MedicineScreen(),
+                path: AppRoutes.symptomFinder,
+                name: 'symptom-finder',
+                builder: (context, state) => const PosSymptomFinderScreen(),
               ),
             ],
           ),
+          // The Scan SKU tab. Its camera flow is nested here too, so the tab
+          // stays selected while the scanner is open.
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.orders,
-                name: 'orders',
-                builder: (context, state) => const OrdersScreen(),
+                path: AppRoutes.scanSku,
+                name: 'scan-sku',
+                builder: (context, state) => const SkuScannerScreen(),
                 routes: [
-                  // History lives on the same branch as the list it belongs
-                  // to, so the back arrow returns to the pending list.
                   GoRoute(
-                    path: 'history',
-                    name: 'orders-history',
-                    builder: (context, state) => const OrderHistoryScreen(),
+                    path: 'camera',
+                    name: 'scan-sku-camera',
+                    builder: (context, state) => const ScanScreen(),
                   ),
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+
+      // The standalone catalogue and order screens, kept routable but out of
+      // the committed three-destination bar. Pushed as full pages over the
+      // shell, so the bar stays put underneath and back returns to it.
+      GoRoute(
+        path: AppRoutes.medicines,
+        name: 'medicines',
+        builder: (context, state) => const MedicineScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.orders,
+        name: 'orders',
+        builder: (context, state) => const OrdersScreen(),
+        routes: [
+          // History lives on the same route subtree as the list it belongs
+          // to, so the back arrow returns to the pending list.
+          GoRoute(
+            path: 'history',
+            name: 'orders-history',
+            builder: (context, state) => const OrderHistoryScreen(),
           ),
         ],
       ),

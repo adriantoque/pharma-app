@@ -1,6 +1,8 @@
 import '../../../../core/utils/currency.dart';
 import '../../../../core/utils/search_text.dart';
 
+import 'age_guidance.dart';
+
 /// How much of a medicine is on the shelf.
 ///
 /// [unknown] is a real state and not a missing value. The pharmacy's records
@@ -45,6 +47,12 @@ class MedicineModel {
     this.aliases = const [],
     this.genericKey,
     this.expiryDate,
+    this.requiresRx = false,
+    this.dosageInfo,
+    this.category,
+    this.cautions,
+    this.ageGroup = AgeGroup.both,
+    this.ageGuidance,
   });
 
   /// Display name, stored exactly as the pharmacy writes it. The source list
@@ -110,6 +118,56 @@ class MedicineModel {
   /// described here. It is accurate for the common single-lot case and wrong
   /// rather than approximate otherwise.
   final DateTime? expiryDate;
+
+  /// Whether this item can only be handed over with a prescription.
+  ///
+  /// Defaults to false: the workbook says nothing about Rx status for most
+  /// lines, and a shelf item must not start demanding a document the pharmacy
+  /// does not keep. A recorded `true` blocks nothing by itself -- the badge on
+  /// the card is the reminder to ask.
+  final bool requiresRx;
+
+  /// How the product is to be used, in the pharmacist's own words, when the
+  /// workbook records it.
+  ///
+  /// Counsel for the customer, not a printed instruction: like [cautions], it
+  /// is shown on the card and next to the warning banner, never on its own.
+  final String? dosageInfo;
+
+  /// The catalogue grouping the workbook places the line in, such as
+  /// "First Aid & Topicals".
+  final String? category;
+
+  /// Warnings and red flags, in the pharmacist's own words, when recorded.
+  ///
+  /// Shown beside the dosage so a customer reading the one sees the other.
+  final String? cautions;
+
+  /// The legacy two-value age split, kept for older records.
+  ///
+  /// Newer lines carry [ageGuidance]; where both are recorded the more
+  /// detailed one drives filtering. [AgeGroup.both] is the default so an
+  /// unrecorded line stays visible to every filter, never hidden.
+  final AgeGroup ageGroup;
+
+  /// The four per-age ratings for this line, or null when not recorded.
+  ///
+  /// Null is the honest reading of an older row: [isForAge] falls back to the
+  /// recorded [ageGroup] rather than declaring the line suitable for everyone.
+  final AgeGuidance? ageGuidance;
+
+  /// Whether this line should be offered to a customer in [group].
+  ///
+  /// Per-age ratings win when present; a line with only the legacy [ageGroup]
+  /// is offered when the group matches, or the line is marked [AgeGroup.both].
+  /// `AgeGroup.both` on the request side means no constraint, so every line
+  /// shows -- "All" is a filter with nothing to remove.
+  bool isForAge(AgeGroup group) {
+    if (group == AgeGroup.both) return true;
+    final guidance = ageGuidance;
+    if (guidance != null) return guidance.isForGroup(group);
+    return ageGroup == group || ageGroup == AgeGroup.both;
+  }
 
   /// At or below this, an item is called out as running low.
   ///
@@ -244,6 +302,12 @@ class MedicineModel {
         // A plain `yyyy-MM-dd` string rather than a Timestamp: a shelf expiry is
         // a date with no time of day, and a timestamp would invent one.
         'expiryDate': _formatDate(expiryDate),
+        'requiresRx': requiresRx,
+        'category': category,
+        'dosageInfo': dosageInfo,
+        'cautions': cautions,
+        'ageGroup': ageGroup.name,
+        'ageGuidance': ageGuidance?.toMap(),
       };
 
   /// Reads a document written by [toFirestore] or by the importer.
@@ -271,6 +335,12 @@ class MedicineModel {
       ],
       genericKey: data['genericKey'] as String?,
       expiryDate: _readDate(data['expiryDate']),
+      requiresRx: data['requiresRx'] == true,
+      category: data['category'] as String?,
+      dosageInfo: data['dosageInfo'] as String?,
+      cautions: data['cautions'] as String?,
+      ageGroup: _readAgeGroup(data['ageGroup']),
+      ageGuidance: AgeGuidance.tryParse(data['ageGuidance']),
     );
   }
 
@@ -286,6 +356,18 @@ class MedicineModel {
     num id => id.toInt().toString(),
     _ => null,
   };
+
+  /// The recorded legacy age group, or [AgeGroup.both] when the field is
+  /// missing or names no such value. `both` is the honest default: an unreadable
+  /// rating must not hide the line from a filter.
+  static AgeGroup _readAgeGroup(Object? value) {
+    if (value is String) {
+      for (final group in AgeGroup.values) {
+        if (group.name == value) return group;
+      }
+    }
+    return AgeGroup.both;
+  }
 
   /// A whole number, or null when [value] is not one.
   static int? _readIntOrNull(Object? value) => switch (value) {
@@ -363,6 +445,12 @@ class MedicineModel {
     List<String>? aliases,
     Object? genericKey = _keep,
     Object? expiryDate = _keep,
+    bool? requiresRx,
+    Object? dosageInfo = _keep,
+    Object? category = _keep,
+    Object? cautions = _keep,
+    AgeGroup? ageGroup,
+    Object? ageGuidance = _keep,
   }) {
     return MedicineModel(
       name: name ?? this.name,
@@ -380,6 +468,16 @@ class MedicineModel {
       aliases: aliases ?? this.aliases,
       genericKey: identical(genericKey, _keep) ? this.genericKey : genericKey as String?,
       expiryDate: identical(expiryDate, _keep) ? this.expiryDate : expiryDate as DateTime?,
+      requiresRx: requiresRx ?? this.requiresRx,
+      dosageInfo: identical(dosageInfo, _keep)
+          ? this.dosageInfo
+          : dosageInfo as String?,
+      category: identical(category, _keep) ? this.category : category as String?,
+      cautions: identical(cautions, _keep) ? this.cautions : cautions as String?,
+      ageGroup: ageGroup ?? this.ageGroup,
+      ageGuidance: identical(ageGuidance, _keep)
+          ? this.ageGuidance
+          : ageGuidance as AgeGuidance?,
     );
   }
 

@@ -13,8 +13,11 @@ import '../widgets/offline_mode_banner.dart';
 /// [NavigationBar] below every tab: each branch keeps its own navigator, so a
 /// tab's stack and scroll position survive switching to another tab and back.
 ///
-/// Three destinations: Home, Medicine and Orders. Inventory and Reports are
-/// admin-only and live in the admin workspace, outside the shell.
+/// Three destinations, the committed staff bar: New Sale, Symptom Finder and
+/// Scan SKU. The standalone catalogue and order screens are still routed, but
+/// they are pushed as pages now, so they no longer need a tab of their own.
+/// Inventory and Reports are admin-only and live in the admin workspace,
+/// outside the shell.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -26,19 +29,19 @@ class AppShell extends StatelessWidget {
   /// [StatefulNavigationShell.goBranch] takes an index, not a route name.
   static const List<NavigationDestination> destinations = [
     NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home),
-      label: 'Home',
+      icon: Icon(Icons.storefront_outlined),
+      selectedIcon: Icon(Icons.storefront),
+      label: 'New Sale',
     ),
     NavigationDestination(
-      icon: Icon(Icons.medication_outlined),
-      selectedIcon: Icon(Icons.medication),
-      label: 'Medicine',
+      icon: Icon(Icons.medical_services_outlined),
+      selectedIcon: Icon(Icons.medical_services),
+      label: 'Symptom Finder',
     ),
     NavigationDestination(
-      icon: Icon(Icons.receipt_long_outlined),
-      selectedIcon: Icon(Icons.receipt_long),
-      label: 'Orders',
+      icon: Icon(Icons.qr_code_scanner_outlined),
+      selectedIcon: Icon(Icons.qr_code_scanner),
+      label: 'Scan SKU',
     ),
   ];
 
@@ -65,6 +68,11 @@ class AppShell extends StatelessWidget {
           ),
           NavigationBar(
             selectedIndex: navigationShell.currentIndex,
+            // The committed bar is white with a teal pill behind the
+            // selected destination, independent of the app theme so the
+            // staff POS keeps that look in dark mode too.
+            backgroundColor: Colors.white,
+            indicatorColor: const Color(0xFFCBF1EC),
             // Tapping the already-active tab returns it to its root, so a user
             // who drilled into a sub-screen is not stranded there.
             onDestinationSelected: (index) => navigationShell.goBranch(
