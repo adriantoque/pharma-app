@@ -251,7 +251,9 @@ void main() {
       expect(repo.orders.single.status, OrderStatus.new_);
     });
 
-    testWidgets('Other needs typed text before Reject enables', (tester) async {
+    testWidgets('Other opens its own popup and needs typed text', (
+      tester,
+    ) async {
       final repo = FakeOrderHistoryRepository([newOrder]);
 
       await pumpOrders(tester, repo);
@@ -266,22 +268,33 @@ void main() {
       await tester.tap(find.text('Other'));
       await tester.pumpAndSettle();
 
-      // The free-text field is showing but empty, so Reject stays disabled.
-      expect(find.byKey(RejectOrderDialog.otherFieldKey), findsOneWidget);
+      // A dedicated typing popup, not a field grown inside the reason dialog.
+      expect(find.text('Other reason'), findsOneWidget);
       expect(
         tester
             .widget<FilledButton>(
-              find.byKey(RejectOrderDialog.confirmKey),
+              find.byKey(RejectOrderDialog.otherReasonSaveKey),
             )
             .onPressed,
         isNull,
       );
 
       await tester.enterText(
-        find.byKey(RejectOrderDialog.otherFieldKey),
+        find.byKey(RejectOrderDialog.otherReasonFieldKey),
         'Box damaged',
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(RejectOrderDialog.otherReasonSaveKey));
+      await tester.pumpAndSettle();
+
+      // Back on the reason dialog, the typed reason is now picked, so Reject
+      // is enabled and records it.
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(RejectOrderDialog.confirmKey))
+            .onPressed,
+        isNotNull,
+      );
       await tester.tap(find.byKey(RejectOrderDialog.confirmKey));
       await tester.pumpAndSettle();
 
