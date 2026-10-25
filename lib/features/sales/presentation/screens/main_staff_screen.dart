@@ -149,64 +149,6 @@ void _addToOrder(
 /// Shows a dialog to select the quantity of [medicine] to add to the order.
 /// The dialog includes a stepper to adjust the amount, and confirms the
 /// selection before adding to the cart.
-Widget _buildQuantityDialogContent(
-  BuildContext dialogContext,
-  OrderProvider order,
-  MedicineModel medicine,
-  Function(int) onQuantitySelected,
-) {
-  final maxQuantity = OrderProvider.capFor(medicine);
-  int selectedQuantity = 1;
-
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        medicine.name,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        'Maximum available: $maxQuantity',
-        style: TextStyle(color: Colors.red.shade600, fontSize: 12),
-      ),
-      const SizedBox(height: 16),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove),
-            onPressed: () {
-              if (selectedQuantity > 1) {
-                selectedQuantity--;
-                onQuantitySelected(selectedQuantity);
-              }
-            },
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(selectedQuantity.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              if (selectedQuantity < maxQuantity) {
-                selectedQuantity++;
-                onQuantitySelected(selectedQuantity);
-              }
-            },
-          ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      Text(
-        'Select quantity to add (1-$maxQuantity)',
-        style: const TextStyle(fontSize: 12),
-      ),
-    ],
-  );
-}
-
 void _showQuantityDialog(
   BuildContext context,
   OrderProvider order,
@@ -214,44 +156,113 @@ void _showQuantityDialog(
 ) {
   showDialog(
     context: context,
-    builder: (dialogContext) => AlertDialog(
+    builder: (dialogContext) =>
+        _AddToCartDialog(order: order, medicine: medicine),
+  );
+}
+
+/// The "Add to Cart" dialog: a stepper plus Cancel / Add actions.
+///
+/// Stepping (+/-) only mutates local state through setState, so the number on
+/// screen updates and the dialog stays open; only the Add action commits the
+/// line to the order, confirms with a snackbar and pops the dialog.
+class _AddToCartDialog extends StatefulWidget {
+  const _AddToCartDialog({required this.order, required this.medicine});
+
+  final OrderProvider order;
+  final MedicineModel medicine;
+
+  @override
+  State<_AddToCartDialog> createState() => _AddToCartDialogState();
+}
+
+class _AddToCartDialogState extends State<_AddToCartDialog> {
+  late int _selectedQuantity = OrderProvider.minQuantity;
+
+  int get _maxQuantity => OrderProvider.capFor(widget.medicine);
+
+  void _commit() {
+    widget.order.add(widget.medicine, _selectedQuantity);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text('${widget.medicine.name} added to cart ($_selectedQuantity)'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final medicine = widget.medicine;
+
+    return AlertDialog(
       title: const Text('Add to Cart'),
-      content: _buildQuantityDialogContent(
-        dialogContext,
-        order,
-        medicine,
-        (quantity) {
-          order.add(medicine, quantity);
-          ScaffoldMessenger.of(dialogContext).showSnackBar(
-            SnackBar(
-              content: Text('${medicine.name} added to cart ($quantity)'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          Navigator.pop(dialogContext);
-        },
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            medicine.name,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Maximum available: $_maxQuantity',
+            style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove),
+                onPressed: () {
+                  if (_selectedQuantity > OrderProvider.minQuantity) {
+                    setState(() {
+                      _selectedQuantity--;
+                    });
+                  }
+                },
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '$_selectedQuantity',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () {
+                  if (_selectedQuantity < _maxQuantity) {
+                    setState(() {
+                      _selectedQuantity++;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Select quantity to add (1-$_maxQuantity)',
+            style: const TextStyle(fontSize: 12),
+          ),
+        ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: () {
-            order.add(medicine, 1);
-            ScaffoldMessenger.of(dialogContext).showSnackBar(
-              SnackBar(
-                content: Text('${medicine.name} added to cart (1)'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-            Navigator.pop(dialogContext);
-          },
-          child: const Text('Add'),
-        ),
+        ElevatedButton(onPressed: _commit, child: const Text('Add')),
       ],
-    ),
-  );
+    );
+  }
 }
 
 /// TAB 1: NEW SALE -- search, the demographic segmented control, the category
