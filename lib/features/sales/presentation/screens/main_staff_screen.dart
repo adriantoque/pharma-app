@@ -56,11 +56,6 @@ AppBar _posAppBar(BuildContext context) {
     ),
     actions: [
       IconButton(
-        tooltip: 'Order history',
-        icon: const Icon(Icons.receipt_long_outlined),
-        onPressed: () => context.pushNamed('orders-history'),
-      ),
-      IconButton(
         tooltip: 'Profile',
         icon: const Icon(Icons.account_circle_outlined),
         onPressed: () => context.pushNamed('home-profile'),
@@ -79,6 +74,9 @@ AppBar _posAppBar(BuildContext context) {
             child: Text('Notifications'),
           ),
           PopupMenuItem(value: 'medicines', child: Text('Medicine list')),
+          PopupMenuItem(value: 'order-history', child: Text('Order history')),
+
+
         ],
       ),
       const SizedBox(width: 4),
