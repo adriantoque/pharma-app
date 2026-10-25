@@ -198,6 +198,11 @@ class _CartScreenState extends State<CartScreen> {
               icon: const Icon(Icons.delete_sweep_outlined),
               onPressed: _confirmClear,
             ),
+          IconButton(
+            tooltip: 'Orders',
+            icon: const Icon(Icons.receipt_long_outlined),
+            onPressed: () => context.pushNamed('orders'),
+          ),
         ],
       ),
       body: lines.isEmpty
