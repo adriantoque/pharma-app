@@ -144,12 +144,112 @@ void _addToOrder(
     return;
   }
 
-  order.add(medicine, 1);
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text('${medicine.name} added to cart'),
-      duration: const Duration(seconds: 1),
-      behavior: SnackBarBehavior.floating,
+  _showQuantityDialog(context, order, medicine);  }
+
+/// Shows a dialog to select the quantity of [medicine] to add to the order.
+/// The dialog includes a stepper to adjust the amount, and confirms the
+/// selection before adding to the cart.
+Widget _buildQuantityDialogContent(
+  BuildContext dialogContext,
+  OrderProvider order,
+  MedicineModel medicine,
+  Function(int) onQuantitySelected,
+) {
+  final maxQuantity = OrderProvider.capFor(medicine);
+  int selectedQuantity = 1;
+
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        medicine.name,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'Maximum available: $maxQuantity',
+        style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+      ),
+      const SizedBox(height: 16),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.remove),
+            onPressed: () {
+              if (selectedQuantity > 1) {
+                selectedQuantity--;
+                onQuantitySelected(selectedQuantity);
+              }
+            },
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(selectedQuantity.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              if (selectedQuantity < maxQuantity) {
+                selectedQuantity++;
+                onQuantitySelected(selectedQuantity);
+              }
+            },
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      Text(
+        'Select quantity to add (1-$maxQuantity)',
+        style: const TextStyle(fontSize: 12),
+      ),
+    ],
+  );
+}
+
+void _showQuantityDialog(
+  BuildContext context,
+  OrderProvider order,
+  MedicineModel medicine,
+) {
+  showDialog(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Add to Cart'),
+      content: _buildQuantityDialogContent(
+        dialogContext,
+        order,
+        medicine,
+        (quantity) {
+          order.add(medicine, quantity);
+          ScaffoldMessenger.of(dialogContext).showSnackBar(
+            SnackBar(
+              content: Text('${medicine.name} added to cart ($quantity)'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.pop(dialogContext);
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            order.add(medicine, 1);
+            ScaffoldMessenger.of(dialogContext).showSnackBar(
+              SnackBar(
+                content: Text('${medicine.name} added to cart (1)'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            Navigator.pop(dialogContext);
+          },
+          child: const Text('Add'),
+        ),
+      ],
     ),
   );
 }
