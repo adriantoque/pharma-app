@@ -6,6 +6,7 @@ import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
 import 'package:pharmaguide/features/scan/presentation/screens/scan_screen.dart';
+import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,7 @@ Future<OrderProvider> pumpScan(
   WidgetTester tester, {
   FakePrescriptionCamera? camera,
   FakePrescriptionRecognizer? recognizer,
+  MedicineRepository? repository,
   Size surface = const Size(360, 720),
 }) async {
   tester.view.physicalSize = surface;
@@ -38,7 +40,7 @@ Future<OrderProvider> pumpScan(
       child: MaterialApp(
         theme: buildAppTheme(Brightness.light),
         home: ScanScreen(
-          repository: const StaticMedicineRepository(),
+          repository: repository ?? const StaticMedicineRepository(),
           camera: camera ?? FakePrescriptionCamera(),
           recognizer: recognizer ?? FakePrescriptionRecognizer(),
         ),
@@ -55,6 +57,14 @@ final scanButton = find.byKey(const Key('scanButton'));
 final pickPhotoButton = find.byKey(const Key('pickPhotoButton'));
 final retryCameraButton = find.byKey(const Key('retryCameraButton'));
 final retryReadingButton = find.byKey(const Key('retryReadingButton'));
+
+/// The live preview, which is what grows and shrinks as the result takes the
+/// screen. The fake camera paints it one particular colour, so the colour is
+/// the handle rather than a key the production widget would only carry for
+/// the tests' sake.
+final previewBox = find.byWidgetPredicate(
+  (widget) => widget is ColoredBox && widget.color == const Color(0xFF103B21),
+);
 
 void main() {
   group('the camera', () {
@@ -344,6 +354,122 @@ void main() {
     });
   });
 
+  group('the scan result', () {
+    testWidgets('a successful read collapses the preview and heads it', (
+      tester,
+    ) async {
+      final recognizer = FakePrescriptionRecognizer(
+        readings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpScan(tester, recognizer: recognizer);
+
+      // The full preview, before anything was read.
+      expect(tester.getSize(previewBox).height, 300);
+
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      // The preview is a strip now, and the result opens with its counts.
+      expect(find.text('Scan result · 1 line · 1 match'), findsOneWidget);
+      expect(tester.getSize(previewBox).height, 140);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsOneWidget);
+      expect(find.byKey(const Key('addBioflu Tablet')), findsOneWidget);
+    });
+
+    testWidgets('Scan again hands the room back to the camera', (tester) async {
+      final recognizer = FakePrescriptionRecognizer(
+        readings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpScan(tester, recognizer: recognizer);
+
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Scan result · 1 line · 1 match'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('scanAgainButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Scan result · 1 line · 1 match'), findsNothing);
+      expect(tester.getSize(previewBox).height, 300);
+      // Hidden, not thrown away: the reading is still in state.
+      expect(
+        find.text('Results hidden — tap Scan it to read a new photo.'),
+        findsOneWidget,
+      );
+      expect(recognizer.recognizeCalls, hasLength(1));
+    });
+
+    testWidgets('a photo that names nothing keeps the preview up', (
+      tester,
+    ) async {
+      final recognizer = FakePrescriptionRecognizer(); // no readings at all
+      await pumpScan(tester, recognizer: recognizer);
+
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      // Nothing was read, so there is no result to hand the room to.
+      expect(tester.getSize(previewBox).height, 300);
+      expect(find.textContaining('Scan result'), findsNothing);
+      expect(find.textContaining('Nothing read yet.'), findsOneWidget);
+    });
+
+    testWidgets('the info dialog quotes a number, not a fixed word', (
+      tester,
+    ) async {
+      final recognizer = FakePrescriptionRecognizer(
+        readings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpScan(tester, recognizer: recognizer);
+
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('detailsBioflu Tablet')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining(RegExp('Match confidence: [0-9]+%')),
+        findsOneWidget,
+      );
+      expect(find.text('Match confidence: high'), findsNothing);
+    });
+
+    testWidgets('says how many are already in the order', (tester) async {
+      final recognizer = FakePrescriptionRecognizer(
+        readings: readingsOf('Bioflu Tablet'),
+      );
+      final order = await pumpScan(tester, recognizer: recognizer);
+
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('in cart'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('addBioflu Tablet')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add to order'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('×1 in cart'), findsOneWidget);
+      expect(order.itemCount, 1);
+    });
+
+    testWidgets('a line that needs a prescription says so', (tester) async {
+      final recognizer = FakePrescriptionRecognizer(
+        readings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpScan(
+        tester,
+        recognizer: recognizer,
+        repository: const _RxCatalogue(),
+      );
+
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rx required'), findsOneWidget);
+    });
+  });
+
   testWidgets('the tab releases the camera and recognizer it was given', (
     tester,
   ) async {
@@ -357,4 +483,29 @@ void main() {
     expect(camera.disposed, isTrue);
     expect(recognizer.disposed, isTrue);
   });
+}
+
+/// A one-line catalogue whose only product needs a prescription.
+///
+/// The static list records no Rx line, so the badge needs a catalogue of its
+/// own rather than an assertion waiting on data that is not there yet.
+class _RxCatalogue implements MedicineRepository {
+  const _RxCatalogue();
+
+  static final List<MedicineModel> _items = [
+    const MedicineModel(
+      productId: '19',
+      name: 'Bioflu Tablet',
+      priceCentavos: 800,
+      stock: 20,
+      requiresRx: true,
+    ),
+  ];
+
+  @override
+  List<MedicineModel> all() => _items;
+
+  @override
+  List<MedicineModel> search(String query) =>
+      query.trim().isEmpty ? all() : _items.where((m) => m.matches(query)).toList();
 }

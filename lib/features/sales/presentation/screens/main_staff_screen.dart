@@ -548,10 +548,9 @@ class SkuScannerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Roughly half the screen, clamped so it stays useful on a short phone and
-    // does not swallow a tablet.
+    // A bigger preview for the camera, showing more of the prescription.
     final previewHeight =
-        (MediaQuery.sizeOf(context).height * 0.45).clamp(240.0, 420.0).toDouble();
+        (MediaQuery.sizeOf(context).height * 0.60).clamp(300.0, 600.0).toDouble();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),

@@ -94,12 +94,26 @@ class _ScanScreenState extends State<ScanScreen> {
     widget.repository ?? context.read<MedicineProvider>(),
   );
 
+  /// How tall the preview stays while the results own the screen: enough to
+  /// recognise what is still being framed, little enough to leave the matches
+  /// the room they were missing when the preview took three fifths of it.
+  static const double _collapsedPreviewHeight = 140;
+
   /// Null until the camera has been asked about, so the pane can say "opening"
   /// without a spinner that would never stop.
   bool? _cameraReady;
   String? _cameraError;
   bool _isReading = false;
   String? _error;
+
+  /// Whether the last read's results are taking the screen.
+  ///
+  /// A scan is the moment the user wants room to read, so a successful read
+  /// collapses the preview to a strip and hands the space to the results;
+  /// "Scan again" hands it back so the next photo can be framed. The readings
+  /// themselves stay in state either way, so nothing already read is thrown
+  /// away by changing the layout.
+  bool _showResults = false;
 
   /// Whether the last failure was the missing model rather than the photo.
   ///
@@ -213,6 +227,9 @@ class _ScanScreenState extends State<ScanScreen> {
         _readings = [for (final line in readings) line.text];
         _suggestions = _matcher.suggest(readings);
         _isReading = false;
+        // Nothing read means nothing to give the room to, so the preview
+        // stays where it is rather than collapsing onto an empty result.
+        _showResults = readings.isNotEmpty;
       });
     } on PrescriptionRecognitionException catch (error) {
       if (!mounted) return;
@@ -244,6 +261,12 @@ class _ScanScreenState extends State<ScanScreen> {
     _setReading(index, text);
   }
 
+  /// Hands the screen back to the camera so the next photo can be framed.
+  ///
+  /// The readings stay in state: only the layout changes, and a later
+  /// successful scan simply replaces them.
+  void _scanAgain() => setState(() => _showResults = false);
+
   /// Adds a suggestion to the order behind the same quantity sheet the search
   /// rows use, so the stock ceiling is enforced in one place.
   Future<void> _add(MedicineModel medicine) async {
@@ -258,6 +281,66 @@ class _ScanScreenState extends State<ScanScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Added $quantity × ${medicine.name}')),
+    );
+  }
+
+  /// Shows medicine details in a dialog when the user taps the info button on
+  /// a suggestion.
+  ///
+  /// The confidence quoted here is the matcher's own number, not a fixed word:
+  /// the row beside it prints the percentage, and a dialog that called every
+  /// match "high" would contradict a row saying 61%.
+  void _showMedicineDetails(PrescriptionSuggestion suggestion) {
+    final medicine = suggestion.medicine;
+    final theme = Theme.of(context);
+    final (stockLabel, stockState) = medicine.stockLine;
+    Color stockColor;
+    if (stockState == StockState.outOfStock || stockState == StockState.low) {
+      stockColor = theme.colorScheme.error;
+    } else if (stockState == StockState.unknown) {
+      stockColor = theme.colorScheme.outline;
+    } else {
+      stockColor = theme.colorScheme.onSurfaceVariant;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(medicine.name),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Match confidence: '
+                '${(suggestion.confidence * 100).round()}%',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Stock: $stockLabel',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: stockColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (medicine.dosageInfo case final dosage?)
+                Text('Dosage: $dosage',
+                  style: theme.textTheme.bodySmall),
+              const SizedBox(height: 8),
+              if (medicine.ageGuidance case final age?)
+                Text('Age guidance: ${age.kids}',
+                  style: theme.textTheme.bodySmall),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -293,8 +376,11 @@ class _ScanScreenState extends State<ScanScreen> {
             readings: _readings,
             suggestions: _suggestions,
             isReading: _isReading,
+            showResults: _showResults,
             onEdit: _editReading,
             onAdd: _add,
+            onScanAgain: _scanAgain,
+            onDetails: _showMedicineDetails,
           ),
         ),
       ],
@@ -321,9 +407,11 @@ class _ScanScreenState extends State<ScanScreen> {
       // An embedded host (the Scan SKU tab) asks for a big preview as a
       // fraction of the screen; the pushed camera route keeps 300/160.
       final requested = widget.previewHeight;
-      final previewHeight = requested == null
+      final fullHeight = requested == null
           ? (_error == null ? 300.0 : 160.0)
           : (_error == null ? requested : requested * 0.55);
+      final previewHeight =
+          _showResults ? _collapsedPreviewHeight : fullHeight;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(
@@ -575,23 +663,49 @@ class _ErrorCard extends StatelessWidget {
 
 /// One card per printed line: what the recognizer made of it, and the medicines
 /// that reading could name.
+///
+/// Above the cards sits the header that turns a scan into one event: how much
+/// was read, how much of it matched, and the way back to the full preview.
 class _Results extends StatelessWidget {
   const _Results({
     required this.readings,
     required this.suggestions,
     required this.isReading,
+    required this.showResults,
     required this.onEdit,
     required this.onAdd,
+    required this.onScanAgain,
+    required this.onDetails,
   });
 
   final List<String> readings;
   final List<PrescriptionSuggestion> suggestions;
   final bool isReading;
+
+  /// Whether the results are meant to be on screen at all.
+  ///
+  /// False while the camera has the room, so an older result is not shown
+  /// under a preview that has already been framed for the next photo.
+  final bool showResults;
+
   final void Function(int index) onEdit;
   final void Function(MedicineModel medicine) onAdd;
+  final VoidCallback onScanAgain;
+  final void Function(PrescriptionSuggestion suggestion) onDetails;
+
+  static const String _nothingRead =
+      'Nothing read yet. Point the camera at printed text and tap Scan it.';
 
   @override
   Widget build(BuildContext context) {
+    if (!showResults) {
+      return _Empty(
+        message: readings.isEmpty
+            ? _nothingRead
+            : 'Results hidden — tap Scan it to read a new photo.',
+      );
+    }
+
     final lines = [
       for (var i = 0; i < readings.length; i++)
         _LineResult(
@@ -604,22 +718,78 @@ class _Results extends StatelessWidget {
           ],
           onEdit: () => onEdit(i),
           onAdd: onAdd,
+          onDetails: onDetails,
         ),
     ];
 
     if (lines.isEmpty) {
-      return const _Empty(
-        message:
-            'Nothing read yet. Point the camera at printed text and tap '
-            'Scan it.',
-      );
+      return const _Empty(message: _nothingRead);
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      itemCount: lines.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) => lines[index],
+    return Column(
+      children: [
+        _ResultHeader(
+          lineCount: readings.length,
+          matchCount: suggestions.length,
+          onScanAgain: onScanAgain,
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            itemCount: lines.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) => lines[index],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What one scan produced, in numbers, and the way back to the big preview.
+///
+/// The counts are the whole point of the header: "3 lines · 2 matches" says
+/// at a glance whether the photo was read and whether anything came of it,
+/// which is the question the cards below only answer one card at a time.
+class _ResultHeader extends StatelessWidget {
+  const _ResultHeader({
+    required this.lineCount,
+    required this.matchCount,
+    required this.onScanAgain,
+  });
+
+  final int lineCount;
+  final int matchCount;
+  final VoidCallback onScanAgain;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final lines = lineCount == 1 ? '1 line' : '$lineCount lines';
+    final matches = matchCount == 1 ? '1 match' : '$matchCount matches';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Scan result · $lines · $matches',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const Key('scanAgainButton'),
+            onPressed: onScanAgain,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.brandGreen,
+            ),
+            child: const Text('Scan again'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -632,6 +802,7 @@ class _LineResult extends StatelessWidget {
     required this.suggestions,
     required this.onEdit,
     required this.onAdd,
+    required this.onDetails,
   });
 
   /// The line this card belongs to, or -1 for the search results.
@@ -641,6 +812,7 @@ class _LineResult extends StatelessWidget {
   final List<PrescriptionSuggestion> suggestions;
   final VoidCallback onEdit;
   final void Function(MedicineModel medicine) onAdd;
+  final void Function(PrescriptionSuggestion suggestion) onDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -699,18 +871,28 @@ class _LineResult extends StatelessWidget {
               _SuggestionRow(
                 suggestion: suggestion,
                 onAdd: () => onAdd(suggestion.medicine),
+                onDetailsPress: () => onDetails(suggestion),
               ),
         ],
       ),
     );
   }
-}
-
+}/// One matched medicine under the line that named it.
+///
+/// The chips carry the facts worth knowing before tapping Add: what is on the
+/// shelf, how sure the match is, whether a prescription is needed, and how
+/// many are already in the order. The Add and info buttons keep their places
+/// and their keys, so the row answers to everything that already finds it.
 class _SuggestionRow extends StatelessWidget {
-  const _SuggestionRow({required this.suggestion, required this.onAdd});
+  const _SuggestionRow({
+    required this.suggestion,
+    required this.onAdd,
+    required this.onDetailsPress,
+  });
 
   final PrescriptionSuggestion suggestion;
   final VoidCallback onAdd;
+  final VoidCallback onDetailsPress;
 
   @override
   Widget build(BuildContext context) {
@@ -719,47 +901,76 @@ class _SuggestionRow extends StatelessWidget {
     // Label and severity come back together from the model so a healthy count
     // can never be rendered in the error colour.
     final (stockLabel, stockState) = medicine.stockLine;
+    final stockColor = switch (stockState) {
+      // Matched to the search row: a shortage is called out, an uncounted item
+      // is merely muted, so a whole scan full of imported-but-uncounted
+      // products does not read as an inventory alert.
+      StockState.outOfStock || StockState.low => theme.colorScheme.error,
+      StockState.unknown => theme.colorScheme.outline,
+      StockState.available => theme.colorScheme.onSurfaceVariant,
+    };
+    final inCart = context.watch<OrderProvider>().quantityOf(medicine);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  medicine.name,
-                  maxLines: 2,
-                  style: theme.textTheme.bodyMedium,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        medicine.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      medicine.formattedPrice,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '$stockLabel · '
-                  '${(suggestion.confidence * 100).round()}% match',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    // Matched to the search row: a shortage is called out, an
-                    // uncounted item is merely muted, so a whole scan full of
-                    // imported-but-uncounted products does not read as an
-                    // inventory alert.
-                    color: switch (stockState) {
-                      StockState.outOfStock ||
-                      StockState.low => theme.colorScheme.error,
-                      StockState.unknown => theme.colorScheme.outline,
-                      StockState.available =>
-                        theme.colorScheme.onSurfaceVariant,
-                    },
-                  ),
+                const SizedBox(height: 2),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      stockLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: stockColor,
+                      ),
+                    ),
+                    Text(
+                      '${(suggestion.confidence * 100).round()}% match',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (medicine.requiresRx) _rxPill(theme),
+                    if (inCart > 0)
+                      Text(
+                        '×$inCart in cart',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            medicine.formattedPrice,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(width: 8),
@@ -769,7 +980,34 @@ class _SuggestionRow extends StatelessWidget {
             icon: const Icon(Icons.add),
             tooltip: 'Add ${medicine.name}',
           ),
+          IconButton.outlined(
+            key: Key('details${medicine.name}'),
+            onPressed: onDetailsPress,
+            icon: const Icon(Icons.info_outlined),
+            tooltip: 'Medicine details',
+          ),
         ],
+      ),
+    );
+  }
+
+  /// The prescription badge, in the surface colours this screen already uses
+  /// for its error and camera cards rather than the product card's hardcoded
+  /// reds: the scan tab is themed, and a pill that ignored the theme would be
+  /// the one thing on the card that did not fit.
+  static Widget _rxPill(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'Rx required',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onErrorContainer,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
