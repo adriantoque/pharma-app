@@ -33,7 +33,15 @@ import '../../domain/prescription_recognizer.dart';
 /// what lets this whole flow run in a widget test: the real ones are platform
 /// channels, and the tests use fakes that return canned readings.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key, this.repository, this.recognizer, this.camera});
+  const ScanScreen({
+    super.key,
+    this.repository,
+    this.recognizer,
+    this.camera,
+    this.embedded = false,
+    this.previewHeight,
+    this.introMessage = 'Frame the printed prescription, then scan it',
+  });
 
   /// The catalogue a scanned line is matched against.
   ///
@@ -50,6 +58,19 @@ class ScanScreen extends StatefulWidget {
   /// The camera and gallery picker, injected by the tests. Left null in the
   /// app, where the state builds the real platform-backed one.
   final PrescriptionCamera? camera;
+
+  /// Whether to render without this screen's own Scaffold and AppBar.
+  ///
+  /// The Scan SKU tab already supplies the POS chrome, so it embeds the scanner
+  /// inline rather than pushing a second screen with a second app bar.
+  final bool embedded;
+
+  /// A fixed preview height for an embedded host. Null keeps this screen's own
+  /// 300/160 logic, which the pushed camera route still uses.
+  final double? previewHeight;
+
+  /// The one-line instruction above the camera.
+  final String introMessage;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -243,43 +264,48 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     final canScanOnPlatform = _recognizer.isSupported && _camera.isSupported;
+    final body = Column(
+      children: [
+        _Intro(message: widget.introMessage),
+        if (canScanOnPlatform) ...[
+          _cameraSection(),
+          _CameraControls(
+            cameraReady: _cameraReady == true,
+            isReading: _isReading,
+            onScan: _scan,
+            onPick: _pickFromGallery,
+          ),
+          if (_error case final error?)
+            _ErrorCard(
+              message: error,
+              needsConnection: _errorNeedsConnection,
+              onRetry: _scan,
+            ),
+        ] else
+          const _Notice(
+            icon: Icons.camera_outlined,
+            message:
+                'Camera text recognition is not available on this '
+                'platform. Search for a medicine below instead.',
+          ),
+        Expanded(
+          child: _Results(
+            readings: _readings,
+            suggestions: _suggestions,
+            isReading: _isReading,
+            onEdit: _editReading,
+            onAdd: _add,
+          ),
+        ),
+      ],
+    );
+
+    // Embedded in a host that already has chrome (the Scan SKU tab).
+    if (widget.embedded) return body;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Scan')),
-      body: Column(
-        children: [
-          const _Intro(),
-          if (canScanOnPlatform) ...[
-            _cameraSection(),
-            _CameraControls(
-              cameraReady: _cameraReady == true,
-              isReading: _isReading,
-              onScan: _scan,
-              onPick: _pickFromGallery,
-            ),
-            if (_error case final error?)
-              _ErrorCard(
-                message: error,
-                needsConnection: _errorNeedsConnection,
-                onRetry: _scan,
-              ),
-          ] else
-            const _Notice(
-              icon: Icons.camera_outlined,
-              message:
-                  'Camera text recognition is not available on this '
-                  'platform. Search for a medicine below instead.',
-            ),
-          Expanded(
-            child: _Results(
-              readings: _readings,
-              suggestions: _suggestions,
-              isReading: _isReading,
-              onEdit: _editReading,
-              onAdd: _add,
-            ),
-          ),
-        ],
-      ),
+      body: body,
     );
   }
 
@@ -291,7 +317,13 @@ class _ScanScreenState extends State<ScanScreen> {
       // cannot act on while it is up, and on a short phone the two together
       // overflow the column. Reclaim the preview's height only when there is
       // something more important underneath it.
-      final previewHeight = _error == null ? 300.0 : 160.0;
+      //
+      // An embedded host (the Scan SKU tab) asks for a big preview as a
+      // fraction of the screen; the pushed camera route keeps 300/160.
+      final requested = widget.previewHeight;
+      final previewHeight = requested == null
+          ? (_error == null ? 300.0 : 160.0)
+          : (_error == null ? requested : requested * 0.55);
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(
@@ -321,7 +353,9 @@ class _ScanScreenState extends State<ScanScreen> {
 }
 
 class _Intro extends StatelessWidget {
-  const _Intro();
+  const _Intro({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +366,7 @@ class _Intro extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
-          'Frame the printed prescription, then scan it',
+          message,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -576,8 +610,8 @@ class _Results extends StatelessWidget {
     if (lines.isEmpty) {
       return const _Empty(
         message:
-            'Nothing read yet. Point the camera at a printed prescription '
-            'and tap Scan it.',
+            'Nothing read yet. Point the camera at printed text and tap '
+            'Scan it.',
       );
     }
 

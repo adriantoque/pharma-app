@@ -371,7 +371,10 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await tester.tap(tab('Scan SKU'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 2);
-      expect(find.text('Position Barcode inside Frame'), findsOneWidget);
+      expect(
+        find.text('Frame the printed medicine name, then scan it'),
+        findsOneWidget,
+      );
 
       await tester.tap(tab('New Sale'));
       await tester.pumpAndSettle();
@@ -398,7 +401,10 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
 
       await tester.tap(tab('Scan SKU'));
       await tester.pumpAndSettle();
-      expect(find.text('Position Barcode inside Frame'), findsOneWidget);
+      expect(
+        find.text('Frame the printed medicine name, then scan it'),
+        findsOneWidget,
+      );
       expect(selectedIndex(), 2);
 
       // The regression this guards: inserting or removing a branch shifts every
@@ -464,8 +470,8 @@ testWidgets('a home action opens a child page and back returns home', (
       await tester.pumpAndSettle();
       expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
 
-      // The Scan SKU tab keeps its camera flow as a nested route as well, so
-      // opening the camera scanner must not switch tabs either.
+      // The Scan SKU tab hosts the scanner inline now, so switching to it must
+      // select its branch and show the tab's own instruction.
       await tester.tap(
         find.descendant(
           of: find.byType(NavigationBar),
@@ -473,13 +479,14 @@ testWidgets('a home action opens a child page and back returns home', (
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Scan with camera'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(AppBar, 'Scan'), findsOneWidget);
+      expect(
+        find.text('Frame the printed medicine name, then scan it'),
+        findsOneWidget,
+      );
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         2,
-        reason: 'pushing a child page must not switch away from Scan SKU',
+        reason: 'switching to Scan SKU must select its branch',
       );
     });
   });

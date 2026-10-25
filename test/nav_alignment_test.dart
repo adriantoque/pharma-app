@@ -97,7 +97,10 @@ void main() {
         label: 'Symptoms',
         marker: find.text('Patient Demographic & Symptoms'),
       ),
-      (label: 'Scan SKU', marker: find.text('Position Barcode inside Frame')),
+      (
+        label: 'Scan SKU',
+        marker: find.text('Frame the printed medicine name, then scan it'),
+      ),
       // The cart starts empty in this suite, so the committed empty state is
       // the marker the Cart branch is showing the real cart screen.
       (label: 'Cart', marker: find.text('Your cart is empty.')),

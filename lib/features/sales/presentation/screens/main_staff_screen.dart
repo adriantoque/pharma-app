@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/age_guidance.dart';
 import '../../../search/data/models/medicine_model.dart';
+import '../../../scan/presentation/screens/scan_screen.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../symptom_guide/data/repositories/symptom_repository.dart';
 import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
@@ -536,165 +537,29 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
   }
 }
 
-/// TAB 3: SCAN SKU -- the scanner frame, a manual SKU entry, quick chips.
-class SkuScannerScreen extends StatefulWidget {
+/// TAB 3: SCAN SKU -- the live text scanner, with its matches below.
+///
+/// The camera reads printed text (medicine names on a label or prescription),
+/// not barcodes: the catalogue is matched on names, and the OCR model is the
+/// text recognizer. The preview takes roughly half the screen and the matches
+/// scroll underneath it.
+class SkuScannerScreen extends StatelessWidget {
   const SkuScannerScreen({super.key});
 
   @override
-  State<SkuScannerScreen> createState() => _SkuScannerScreenState();
-}
-
-class _SkuScannerScreenState extends State<SkuScannerScreen> {
-  final TextEditingController _skuController = TextEditingController();
-  final FocusNode _skuFocus = FocusNode();
-
-  @override
-  void dispose() {
-    _skuController.dispose();
-    _skuFocus.dispose();
-    super.dispose();
-  }
-
-  /// Turns a typed or "scanned" SKU into a line on the order: first by
-  /// product ID, then by exact name. An unknown SKU is reported rather than
-  /// guessed at -- the design's demo fell back to the first product, which
-  /// would silently ring up the wrong item.
-  void _scanSku(String sku) {
-    final order = context.read<OrderProvider>();
-    final catalogue = context.read<MedicineProvider>().all();
-    final needle = sku.trim().toLowerCase();
-
-    MedicineModel? match;
-    for (final medicine in catalogue) {
-      if (medicine.productId?.toLowerCase() == needle ||
-          medicine.name.toLowerCase() == needle) {
-        match = medicine;
-        break;
-      }
-    }
-
-    if (match == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No product for SKU "$sku"'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    _addToOrder(context, order, match);
-    _skuController.clear();
-    _skuFocus.requestFocus();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final catalogue = context.watch<MedicineProvider>().all();
+    // Roughly half the screen, clamped so it stays useful on a short phone and
+    // does not swallow a tablet.
+    final previewHeight =
+        (MediaQuery.sizeOf(context).height * 0.45).clamp(240.0, 420.0).toDouble();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: _posAppBar(context),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Container(
-              height: 220,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.qr_code_scanner,
-                        color: Colors.white54,
-                        size: 64,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Position Barcode inside Frame',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                  Container(height: 2, width: 200, color: Colors.redAccent),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // The app has a real camera scanner behind this same route, so the
-            // committed preview frame keeps its manual entry and gains one
-            // button into the camera flow.
-            OutlinedButton.icon(
-              onPressed: () => context.pushNamed('scan-sku-camera'),
-              icon: const Icon(Icons.photo_camera_outlined),
-              label: const Text('Scan with camera'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _skuController,
-              focusNode: _skuFocus,
-              onSubmitted: (value) {
-                if (value.trim().isNotEmpty) _scanSku(value);
-              },
-              decoration: InputDecoration(
-                labelText: 'Manual SKU / Barcode Entry',
-                hintText: 'e.g. MED-1001',
-                suffixIcon: IconButton(
-                  tooltip: 'Add to cart',
-                  icon: const Icon(Icons.add_shopping_cart),
-                  onPressed: () {
-                    if (_skuController.text.trim().isNotEmpty) {
-                      _scanSku(_skuController.text);
-                    }
-                  },
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Quick Scan Samples (Tap to Scan)',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final medicine in catalogue)
-                        ActionChip(
-                          avatar: const Icon(Icons.qr_code, size: 16),
-                          label: Text(
-                            '${medicine.name}'
-                            ' (${medicine.productId ?? medicine.packageType ?? 'no SKU'})',
-                          ),
-                          onPressed: () =>
-                              _scanSku(medicine.productId ?? medicine.name),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      body: ScanScreen(
+        embedded: true,
+        previewHeight: previewHeight,
+        introMessage: 'Frame the printed medicine name, then scan it',
       ),
     );
   }
