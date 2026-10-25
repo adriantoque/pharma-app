@@ -133,7 +133,7 @@ class _CartScreenState extends State<CartScreen> {
       if (proceed) {
         unawaited(confirmAndCompleteSale(context, _payment));
       } else {
-        context.goNamed('new-sale');
+        context.goNamed('home');
       }
       return;
     }

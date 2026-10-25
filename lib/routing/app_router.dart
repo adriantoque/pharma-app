@@ -20,7 +20,6 @@ import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/scan/presentation/screens/scan_screen.dart';
 import '../features/finder/presentation/screens/finder_screen.dart';
 import '../features/sales/presentation/screens/main_staff_screen.dart';
-import '../features/sales/presentation/screens/new_sale_screen.dart';
 import '../features/symptom_guide/presentation/screens/symptom_search_screen.dart';
 import '../features/symptom_guide/presentation/screens/symptom_detail_screen.dart';
 import '../features/sales/domain/payment_method.dart';
@@ -81,7 +80,6 @@ abstract final class AppRoutes {
   static const String homeProfile = '/home/profile';
   static const String homeProfileAppearance = '/home/profile/appearance';
   static const String homeNotifications = '/home/notifications';
-  static const String newSale = '/new-sale';
 }
 
 /// Creates the router for the whole app.
@@ -291,27 +289,10 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                   ),
                 ],
               ),
-              // New Sale sits beside Home in the same branch so the Home tab
-              // stays selected during a sale. Its cart is nested inside it
-              // because the cart is part of the sale.
-              GoRoute(
-                path: AppRoutes.newSale,
-                name: 'new-sale',
-                builder: (context, state) => const NewSaleScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'cart',
-                    name: 'new-sale-cart',
-                    builder: (context, state) {
-                      final payment =
-                          state.extra as PaymentMethod? ??
-                          PaymentMethod.cashOnHand;
-                      return CartScreen(initialPayment: payment);
-                    },
-                  ),
-                ],
-              ),
-            ],
+              // The Home tab is the first branch, displaying the New Sale catalog
+              // with filtering tabs. The cart is nested under Home because it
+              // is part of the sale flow.
+              ],
           ),
           // The Symptoms tab: symptom-driven recommendations from the
           // bundled catalogue, in the committed finder layout.

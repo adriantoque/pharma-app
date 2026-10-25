@@ -90,7 +90,7 @@ class DashboardScreen extends StatelessWidget {
               Expanded(
                 flex: 6,
                 child: _CartButton(
-                  onTap: () => context.goNamed('new-sale'),
+                  onTap: () => context.goNamed('home'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -99,7 +99,7 @@ class DashboardScreen extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.add,
                   label: 'New order',
-                  onTap: () => context.goNamed('new-sale'),
+                  onTap: () => context.goNamed('home'),
                 ),
               ),
             ],

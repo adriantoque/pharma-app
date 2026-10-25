@@ -108,13 +108,4 @@ const List<FeatureEntry> featureCatalogue = [
     parent: 'Orders',
     iconKey: 'orders',
   ),
-  FeatureEntry(
-    id: 'new_order',
-    title: 'New Order',
-    subtitle: 'Ring up a transaction',
-    routePath: FeatureRoutes.newSale,
-    aliases: ['sell', 'checkout', 'transaction', 'counter', 'pos'],
-    parent: 'Orders',
-    iconKey: 'sale',
-  ),
 ];
