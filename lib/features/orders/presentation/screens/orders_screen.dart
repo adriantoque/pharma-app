@@ -9,6 +9,7 @@ import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_history_repository.dart';
 import '../providers/orders_provider.dart';
+import '../widgets/reject_order_dialog.dart';
 
 /// The Orders tab: new orders waiting for a decision.
 ///
@@ -204,36 +205,22 @@ class _PendingOrderCardState extends State<_PendingOrderCard> {
 
     final orders = context.read<OrdersProvider>();
 
-    final confirmed = await showDialog<bool>(
+    // Ask why first: the reason is written with the rejection, and a cancel
+    // leaves the order pending.
+    final reason = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Reject this order?'),
-        content: Text('Order #${order.id} will be removed from the list.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          OutlinedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: AppColors.brandGreenSurface,
-              foregroundColor: AppColors.brandGreen,
-              side: const BorderSide(
-                color: AppColors.brandGreenSurfaceBorder,
-              ),
-            ),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
+      builder: (_) => RejectOrderDialog(orderId: order.id),
     );
-    if (confirmed != true) {
+    if (reason == null) {
       if (mounted) setState(() => _busy = false);
       return;
     }
 
-    await orders.updateOrderStatus(order.id, OrderStatus.rejected);
+    await orders.updateOrderStatus(
+      order.id,
+      OrderStatus.rejected,
+      rejectionReason: reason,
+    );
     if (mounted) setState(() => _busy = false);
   }
 

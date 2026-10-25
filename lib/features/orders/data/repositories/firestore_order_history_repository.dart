@@ -44,10 +44,22 @@ class FirestoreOrderHistoryRepository
   }
 
   @override
-  Future<void> updateStatus(String id, OrderStatus status) async {
-    await _collection.doc(id).update({
+  Future<void> updateStatus(
+    String id,
+    OrderStatus status, {
+    String? rejectionReason,
+  }) async {
+    final updates = <String, dynamic>{
       'status': OrderStatusCodec.statusToString(status),
-    });
+    };
+    // Only a rejection keeps a reason, and clearing it on approve stops an
+    // order that was once rejected from carrying the old explanation.
+    if (status == OrderStatus.rejected) {
+      updates['rejectionReason'] = rejectionReason;
+    } else {
+      updates['rejectionReason'] = FieldValue.delete();
+    }
+    await _collection.doc(id).update(updates);
   }
 
   @override
@@ -64,6 +76,7 @@ class FirestoreOrderHistoryRepository
       data['status'] as String? ?? 'new',
     );
     final totalCentavos = data['totalCentavos'] as int? ?? 0;
+    final rejectionReason = data['rejectionReason'] as String?;
 
     return OrderHistory(
       id: doc.id,
@@ -71,6 +84,7 @@ class FirestoreOrderHistoryRepository
       status: status,
       items: lines,
       totalCentavos: totalCentavos,
+      rejectionReason: rejectionReason,
     );
   }
 

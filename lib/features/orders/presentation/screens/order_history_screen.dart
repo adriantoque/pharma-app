@@ -383,6 +383,10 @@ class _HistoryCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (order.hasRejectionReason) ...[
+                  const SizedBox(height: 16),
+                  _RejectionReason(reason: order.rejectionReason!),
+                ],
               ],
             ),
           ),
@@ -437,6 +441,63 @@ class _StatusBadge extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: textColor,
         ),
+      ),
+    );
+  }
+}
+
+/// The reason recorded when an order was rejected.
+///
+/// Kept on the order itself, so it survives a reload and reads the same on
+/// every device -- the decision is part of the order, not a transient notice.
+class _RejectionReason extends StatelessWidget {
+  const _RejectionReason({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colours = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colours.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 18,
+            color: colours.onErrorContainer,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Reason for rejection',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colours.onErrorContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  reason,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colours.onErrorContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

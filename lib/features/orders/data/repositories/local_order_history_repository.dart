@@ -54,10 +54,17 @@ class LocalOrderHistoryRepository
   }
 
   @override
-  Future<void> updateStatus(String id, OrderStatus status) async {
+  Future<void> updateStatus(
+    String id,
+    OrderStatus status, {
+    String? rejectionReason,
+  }) async {
     final order = _orders[id];
     if (order == null) return;
-    _orders[id] = order.copyWith(status: status);
+    _orders[id] = order.copyWith(
+      status: status,
+      rejectionReason: rejectionReason,
+    );
     _emit();
   }
 

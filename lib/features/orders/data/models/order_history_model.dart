@@ -26,6 +26,7 @@ class OrderHistory {
     required this.status,
     required this.items,
     required this.totalCentavos,
+    this.rejectionReason,
   });
 
   /// Unique identifier for the order.
@@ -42,6 +43,18 @@ class OrderHistory {
 
   /// Total in centavos.
   final int totalCentavos;
+
+  /// Why a rejected order was rejected, as picked or typed by the cashier.
+  ///
+  /// Null unless [status] is [OrderStatus.rejected] and a reason was recorded.
+  /// It is stored with the order so the Order History screen can explain the
+  /// decision instead of showing a bare "Rejected" badge.
+  final String? rejectionReason;
+
+  /// Whether this is a rejection with a reason worth showing.
+  bool get hasRejectionReason =>
+      status == OrderStatus.rejected &&
+      (rejectionReason?.trim().isNotEmpty ?? false);
 
   /// Total formatted as currency string.
   String get formattedTotal => formatCentavos(totalCentavos);
@@ -160,6 +173,7 @@ class OrderHistory {
     OrderStatus? status,
     List<OrderLineModel>? items,
     int? totalCentavos,
+    String? rejectionReason,
   }) {
     return OrderHistory(
       id: id ?? this.id,
@@ -167,6 +181,7 @@ class OrderHistory {
       status: status ?? this.status,
       items: items ?? this.items,
       totalCentavos: totalCentavos ?? this.totalCentavos,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 
@@ -178,15 +193,18 @@ class OrderHistory {
           other.time == time &&
           other.status == status &&
           other.items == items &&
-          other.totalCentavos == totalCentavos;
+          other.totalCentavos == totalCentavos &&
+          other.rejectionReason == rejectionReason;
 
   @override
-  int get hashCode => Object.hash(id, time, status, items, totalCentavos);
+  int get hashCode =>
+      Object.hash(id, time, status, items, totalCentavos, rejectionReason);
 
   @override
   String toString() =>
       'OrderHistory(id: $id, time: $time, status: $status, '
-      'items: ${items.length}, total: $totalCentavos)';
+      'items: ${items.length}, total: $totalCentavos, '
+      'reason: $rejectionReason)';
 }
 
 /// Converts between [OrderStatus] and the string stored in Firestore.

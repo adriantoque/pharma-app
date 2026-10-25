@@ -48,10 +48,20 @@ class FakeOrderHistoryRepository implements OrderHistoryRepository {
   }
 
   @override
-  Future<void> updateStatus(String id, OrderStatus status) async {
+  Future<void> updateStatus(
+    String id,
+    OrderStatus status, {
+    String? rejectionReason,
+  }) async {
     _orders = [
       for (final order in _orders)
-        if (order.id == id) order.copyWith(status: status) else order,
+        if (order.id == id)
+          order.copyWith(
+            status: status,
+            rejectionReason: rejectionReason,
+          )
+        else
+          order,
     ];
     _emit();
   }

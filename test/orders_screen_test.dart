@@ -8,6 +8,7 @@ import 'package:pharmaguide/features/orders/data/repositories/order_history_repo
 import 'package:pharmaguide/features/orders/presentation/providers/orders_provider.dart';
 import 'package:pharmaguide/features/orders/presentation/screens/order_history_screen.dart';
 import 'package:pharmaguide/features/orders/presentation/screens/orders_screen.dart';
+import 'package:pharmaguide/features/orders/presentation/widgets/reject_order_dialog.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
 import 'package:provider/provider.dart';
@@ -196,9 +197,7 @@ void main() {
       expect(store.operations, contains('setStock cefalexin -> 199'));
     });
 
-    testWidgets('rejecting asks for confirmation, then removes the order', (
-      tester,
-    ) async {
+    testWidgets('rejecting asks for a reason, then records it', (tester) async {
       final repo = FakeOrderHistoryRepository([newOrder]);
 
       await pumpOrders(tester, repo);
@@ -210,20 +209,85 @@ void main() {
       await tester.tap(find.text('Reject'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Reject this order?'), findsOneWidget);
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.widgetWithText(OutlinedButton, 'Reject'),
-        ),
+      // The reason dialog opens with its confirm disabled: a reason is
+      // required, so nothing can be rejected without one.
+      expect(find.text('Reject order'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(RejectOrderDialog.confirmKey),
+            )
+            .onPressed,
+        isNull,
       );
+
+      await tester.tap(find.text('Out of stock'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(RejectOrderDialog.confirmKey));
       await tester.pumpAndSettle();
 
       expect(find.text('Order #1'), findsNothing);
+      final rejected = repo.orders.firstWhere((o) => o.id == '1');
+      expect(rejected.status, OrderStatus.rejected);
+      expect(rejected.rejectionReason, 'Out of stock');
+    });
+
+    testWidgets('cancelling the reason dialog leaves the order pending', (
+      tester,
+    ) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      await pumpOrders(tester, repo);
+
+      await tester.tap(find.text('Order #1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reject'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Order #1'), findsOneWidget);
+      expect(repo.orders.single.status, OrderStatus.new_);
+    });
+
+    testWidgets('Other needs typed text before Reject enables', (tester) async {
+      final repo = FakeOrderHistoryRepository([newOrder]);
+
+      await pumpOrders(tester, repo);
+
+      await tester.tap(find.text('Order #1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reject'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Other'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Other'));
+      await tester.pumpAndSettle();
+
+      // The free-text field is showing but empty, so Reject stays disabled.
+      expect(find.byKey(RejectOrderDialog.otherFieldKey), findsOneWidget);
       expect(
-        repo.orders.firstWhere((o) => o.id == '1').status,
-        OrderStatus.rejected,
+        tester
+            .widget<FilledButton>(
+              find.byKey(RejectOrderDialog.confirmKey),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.enterText(
+        find.byKey(RejectOrderDialog.otherFieldKey),
+        'Box damaged',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(RejectOrderDialog.confirmKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        repo.orders.firstWhere((o) => o.id == '1').rejectionReason,
+        'Box damaged',
       );
     });
 

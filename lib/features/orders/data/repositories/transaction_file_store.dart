@@ -76,6 +76,7 @@ class TransactionFileStore implements OrderHistoryRepository, DisposableStore {
       status: status,
       items: lines,
       totalCentavos: totalCentavos,
+      rejectionReason: data['rejectionReason'] as String?,
     );
   }
 
@@ -113,6 +114,7 @@ class TransactionFileStore implements OrderHistoryRepository, DisposableStore {
         'status': OrderStatusCodec.statusToString(order.status),
         'lines': OrderLineCodec.listToMaps(order.items),
         'totalCentavos': order.totalCentavos,
+        'rejectionReason': order.rejectionReason,
         'createdAt': null,
       };
 
@@ -126,10 +128,13 @@ class TransactionFileStore implements OrderHistoryRepository, DisposableStore {
     final orders = await _read();
     final index = orders.indexWhere((o) => o.id == id);
     if (index == -1) return;
-    // The stored order keeps only status and lines: a rejection reason lives
-    // nowhere else in this store, so approving has nothing to clear beyond
-    // replacing the status itself.
-    final updated = orders[index].copyWith(status: status);
+    // Only approved orders ever reach this store, so a rejection reason is
+    // always null here. It is threaded through anyway so the stored shape stays
+    // the same as a Firestore order document.
+    final updated = orders[index].copyWith(
+      status: status,
+      rejectionReason: rejectionReason,
+    );
     orders[index] = updated;
     final prefs = await _prefsFuture;
     try {

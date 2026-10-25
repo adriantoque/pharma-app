@@ -11,7 +11,15 @@ abstract class OrderHistoryRepository {
   Future<void> save(OrderHistory order);
 
   /// Updates the status of an existing order.
-  Future<void> updateStatus(String id, OrderStatus status);
+  ///
+  /// [rejectionReason] is recorded with an [OrderStatus.rejected] order so the
+  /// Order History screen can explain the decision. It is ignored for the other
+  /// statuses, and implementations clear any stale value on approve.
+  Future<void> updateStatus(
+    String id,
+    OrderStatus status, {
+    String? rejectionReason,
+  });
 
   /// Deletes an order from history.
   Future<void> delete(String id);

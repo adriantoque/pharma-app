@@ -25,13 +25,24 @@ class OrdersProvider extends ChangeNotifier {
 
   /// Moves an order to [status].
   ///
+  /// [rejectionReason] accompanies an [OrderStatus.rejected] order so the
+  /// decision can be explained in history; the other statuses ignore it.
+  ///
   /// The repository emits the change on the stream the screen already listens
   /// to, so the list updates itself and no reload is needed here. A failure is
   /// logged rather than surfaced: the screen has no place to show it, and the
   /// order simply stays pending for the next attempt.
-  Future<void> updateOrderStatus(String id, OrderStatus status) async {
+  Future<void> updateOrderStatus(
+    String id,
+    OrderStatus status, {
+    String? rejectionReason,
+  }) async {
     try {
-      await _history.updateStatus(id, status);
+      await _history.updateStatus(
+        id,
+        status,
+        rejectionReason: rejectionReason,
+      );
     } catch (e) {
       debugPrint('Failed to update order $id: $e');
     }
