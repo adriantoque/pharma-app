@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -26,6 +29,62 @@ class CartResult {
   final PaymentMethod payment;
 }
 
+/// The shared "Confirm Sale" dialogue, then committing the order to
+/// [OrderProvider] and landing on Orders.
+///
+/// Two exits complete the sale on behalf of the user -- the sale flow, whose
+/// cart hands back a [CartResult] that `NewSaleScreen` acts on, and the Cart
+/// tab, which has no caller to act for it. Both must run the same dialogue,
+/// the same save and the same failure notice, so they live here once.
+///
+/// Returns whether the sale was completed and saved.
+Future<bool> confirmAndCompleteSale(
+  BuildContext context,
+  PaymentMethod payment,
+) async {
+  final order = context.read<OrderProvider>();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Confirm Sale'),
+      content: Text('Complete this sale with ${payment.label}?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: AppColors.brandGreenSurface,
+            foregroundColor: AppColors.brandGreen,
+            side: const BorderSide(
+              color: AppColors.brandGreenSurfaceBorder,
+            ),
+          ),
+          child: const Text('Continue'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true || !context.mounted) return false;
+
+  final success = order.complete();
+  if (success) {
+    context.go('/orders');
+    return true;
+  }
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Could not complete sale. Please try again.'),
+      backgroundColor: Colors.red,
+    ),
+  );
+  return false;
+}
+
 /// The full-screen cart.
 ///
 /// A page rather than a bottom sheet because a cart with twenty lines is a
@@ -33,15 +92,30 @@ class CartResult {
 /// makes the dismiss gesture a guessing game. Here the item list scrolls, the
 /// checkout footer stays pinned, and the back arrow does what back arrows do.
 ///
-/// The screen does not touch [OrderProvider] to *complete* the sale -- that
-/// stays on the sale screen. Its only job is to build the cart and hand back
-/// what the user decided.
+/// Two ways out, selected by [saleFlow], because the same screen serves both
+/// cart entries the app has:
+///
+/// - **Sale flow** (`saleFlow: true`, the pushed `new-sale-cart` route): the
+///   screen only builds the cart and pops a [CartResult] -- the sale screen
+///   shows the confirmation and completes the sale when it hears Proceed.
+/// - **Cart tab** (`saleFlow: false`, the `/cart` branch of the staff bar):
+///   no caller is waiting for a result, so Proceed runs
+///   [confirmAndCompleteSale] here, and back returns to the New Sale tab.
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key, required this.initialPayment});
+  const CartScreen({
+    super.key,
+    required this.initialPayment,
+    this.saleFlow = true,
+  });
 
   /// The payment method that was selected when the cart was opened. The user
   /// can change it here; the final value goes back through [CartResult].
   final PaymentMethod initialPayment;
+
+  /// Whether this instance is part of the sale flow, whose cart is opened
+  /// via `pushNamed` and asks for a [CartResult]. `false` is the Cart-tab
+  /// variant, which cannot hand a result to anyone.
+  final bool saleFlow;
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -50,9 +124,19 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   late PaymentMethod _payment = widget.initialPayment;
 
-  /// Pops with a result that carries whatever the user selected, so the sale
-  /// screen stays in step even when Proceed was never tapped.
+  /// Leaves the cart: popping with a result that carries whatever the user
+  /// selected in the sale flow, so that screen stays in step even when
+  /// Proceed was never tapped; on the tab there is no listener, so Proceed
+  /// completes the sale here and back returns to the sale screen.
   void _pop({required bool proceed}) {
+    if (!widget.saleFlow) {
+      if (proceed) {
+        unawaited(confirmAndCompleteSale(context, _payment));
+      } else {
+        context.goNamed('new-sale');
+      }
+      return;
+    }
     Navigator.of(context).pop(
       CartResult(proceed: proceed, payment: _payment),
     );

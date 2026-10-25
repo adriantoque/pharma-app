@@ -49,7 +49,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
-        // New Sale, Symptom Finder and Scan SKU all read these, so tapping
+        // New Sale, Symptoms and Scan SKU all read these, so tapping
         // those destinations without them throws instead of failing a useful
         // assertion.
         child: MultiProvider(
@@ -94,10 +94,13 @@ void main() {
         marker: find.widgetWithText(AppBar, 'PharmaStaff POS'),
       ),
       (
-        label: 'Symptom Finder',
+        label: 'Symptoms',
         marker: find.text('Patient Demographic & Symptoms'),
       ),
       (label: 'Scan SKU', marker: find.text('Position Barcode inside Frame')),
+      // The cart starts empty in this suite, so the committed empty state is
+      // the marker the Cart branch is showing the real cart screen.
+      (label: 'Cart', marker: find.text('Your cart is empty.')),
     ];
 
     // Catches a bar whose labels were reordered without the branches following.
@@ -142,10 +145,10 @@ void main() {
 
     // Material 3 caps NavigationBar at five destinations, so this test is also
     // the canary for a sixth tab needing a different layout. The staff bar is
-    // at three, exactly as committed: New Sale, Symptom Finder and Scan SKU.
-    // The standalone catalogue and order screens are pushed as pages now, and
-    // Inventory and Reports are admin-only, outside the shell.
-    expect(AppShell.destinations, hasLength(3));
+    // at four: New Sale, Symptoms, Scan SKU and Cart. The standalone
+    // catalogue and order screens are pushed as pages now, and Inventory and
+    // Reports are admin-only, outside the shell.
+    expect(AppShell.destinations, hasLength(4));
     expect(tester.takeException(), isNull);
   });
 }

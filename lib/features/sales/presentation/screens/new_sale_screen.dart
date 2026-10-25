@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
@@ -40,47 +41,12 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     super.dispose();
   }
 
+  /// The sale-flow exit: the cart hands back a [CartResult] and this screen
+  /// confirms it. The confirmation, save and failure notice are the shared
+  /// [confirmAndCompleteSale] -- the Cart tab runs the identical steps on its
+  /// own.
   void _showProceedDialog() {
-    final order = context.read<OrderProvider>();
-    final paymentLabel = _paymentMethod.label;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Sale'),
-        content: Text('Complete this sale with $paymentLabel?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              final success = order.complete();
-              if (success) {
-                context.go('/orders');
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Could not complete sale. Please try again.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: OutlinedButton.styleFrom(
-              backgroundColor: AppColors.brandGreenSurface,
-              foregroundColor: AppColors.brandGreen,
-              side: const BorderSide(
-                color: AppColors.brandGreenSurfaceBorder,
-              ),
-            ),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
+    unawaited(confirmAndCompleteSale(context, _paymentMethod));
   }
 
   /// Opens the cart screen and applies whatever the user came back with.

@@ -363,7 +363,7 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       int selectedIndex() =>
           tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 
-      await tester.tap(tab('Symptom Finder'));
+      await tester.tap(tab('Symptoms'));
       await tester.pumpAndSettle();
       expect(selectedIndex(), 1);
       expect(find.text('Patient Demographic & Symptoms'), findsOneWidget);
@@ -403,13 +403,13 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
 
       // The regression this guards: inserting or removing a branch shifts every
       // later one, so the bar would highlight one tab while showing another.
-      await tester.tap(tab('Symptom Finder'));
+      await tester.tap(tab('Symptoms'));
       await tester.pumpAndSettle();
       expect(find.text('Patient Demographic & Symptoms'), findsOneWidget);
       expect(selectedIndex(), 1);
     });
 
-    testWidgets('the bar shows three destinations in order on a 360dp phone', (
+    testWidgets('the bar shows four destinations in order on a 360dp phone', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(360, 720);
@@ -423,13 +423,13 @@ testWidgets('the bottom bar switches between the tabs', (tester) async {
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
 
-      // Three slots across 360dp is 120dp each, and "Symptom Finder" is the
-      // longest label, so this proves the bar does not clip on the narrowest
-      // screen the app is expected to run on.
-      expect(AppShell.destinations, hasLength(3));
+      // Four slots across 360dp is 90dp each, and "Symptoms" plus
+      // "Symptom Finder"'s runner-up labels all fit, so this proves the bar
+      // does not clip on the narrowest screen the app is expected to run on.
+      expect(AppShell.destinations, hasLength(4));
       expect(
         AppShell.destinations.map((d) => d.label),
-        ['New Sale', 'Symptom Finder', 'Scan SKU'],
+        ['New Sale', 'Symptoms', 'Scan SKU', 'Cart'],
       );
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -508,7 +508,11 @@ testWidgets('a home action opens a child page and back returns home', (
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
       final centreline = width / 2;
 
-      for (final label in AppShell.destinations.map((d) => d.label)) {
+      for (final label
+          in AppShell.destinations.map((d) => d.label).where((label) => label != 'Cart')) {
+        // The Cart tab shows the cart screen itself, not the POS shell --
+        // the suite below covers the word-mark only where the POS app bar
+        // is actually in charge.
         await tester.tap(
           find.descendant(
             of: find.byType(NavigationBar),

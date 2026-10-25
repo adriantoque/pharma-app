@@ -45,6 +45,11 @@ abstract final class AppRoutes {
   static const String symptomFinder = '/symptom-finder';
   static const String scanSku = '/scan-sku';
 
+  /// The fourth staff-bar tab: the same cart the sale flow pushes, as a
+  /// destination of its own. No sale screen is waiting behind it, so
+  /// [CartScreen] switches its exits accordingly (no result contract).
+  static const String cart = '/cart';
+
   /// Documentation only: declared as a relative child of `scanSku`, so the
   /// route that resolves is `/scan-sku/camera`.
   static const String scanSkuCamera = '/scan-sku/camera';
@@ -225,7 +230,7 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         // Branch order must match AppShell.destinations exactly:
-        // 0 New Sale, 1 Symptom Finder, 2 Scan SKU.
+        // 0 New Sale, 1 Symptoms, 2 Scan SKU, 3 Cart.
         branches: [
           StatefulShellBranch(
             routes: [
@@ -308,7 +313,7 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
               ),
             ],
           ),
-          // The Symptom Finder tab: symptom-driven recommendations from the
+          // The Symptoms tab: symptom-driven recommendations from the
           // bundled catalogue, in the committed finder layout.
           StatefulShellBranch(
             routes: [
@@ -337,11 +342,28 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
               ),
             ],
           ),
+          // The Cart tab: the same cart screen the sale flow pushes, as a
+          // destination of its own. There is no sale screen waiting for a
+          // result here, so the tab variant completes the order itself and
+          // back returns to the New Sale tab. The sale-flow cart stays
+          // nested above because it is part of that flow.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.cart,
+                name: 'cart',
+                builder: (context, state) => const CartScreen(
+                  initialPayment: PaymentMethod.cashOnHand,
+                  saleFlow: false,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
 
       // The standalone catalogue and order screens, kept routable but out of
-      // the committed three-destination bar. Pushed as full pages over the
+      // the committed four-destination bar. Pushed as full pages over the
       // shell, so the bar stays put underneath and back returns to it.
       GoRoute(
         path: AppRoutes.medicines,

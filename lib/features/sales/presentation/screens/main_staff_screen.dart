@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/utils/currency.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/age_guidance.dart';
 import '../../../search/data/models/medicine_model.dart';
@@ -12,11 +11,10 @@ import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
 
 /// The staff POS front view, restored from the `dashboard_screenv2` design.
 ///
-/// One shell, three tabs -- New Sale, Symptom Finder and Scan SKU -- behind a
-/// shared app bar with an added-to-cart badge and a cart sheet in the
-/// committed subtotal / tax / total layout. Instead of the design's
-/// throw-away demo models, everything reads the real providers: the catalogue
-/// from [MedicineProvider], the basket from [OrderProvider] and the symptom
+/// One shell, three tabs -- New Sale, Symptoms and Scan SKU -- behind a
+/// shared app bar, with the cart reachable through the Cart tab in the staff
+/// bar. Everything reads the real providers: the catalogue from
+/// [MedicineProvider], the basket from [OrderProvider] and the symptom
 /// recommendations from the bundled [StaticSymptomRepository].
 ///
 /// The visual rules (colours, paddings, widget shapes and wording) are the
@@ -29,20 +27,19 @@ import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
 const Color _posPrimary = Color(0xFF0284C7);
 
 /// The app bar shared by all three tabs: the pharmacy word-mark, the routes
-/// out of the POS (history, profile, the management screens) and the cart.
+/// out of the POS (history, profile, the management screens). The cart has
+/// its own destination in the staff bar now.
 ///
 /// The committed design keeps its word-mark row leading-aligned, so the
 /// theme's centerTitle is deliberately off here.
-AppBar _posAppBar(BuildContext context, OrderProvider order) {
-  final cartCount = order.itemCount;
-
+AppBar _posAppBar(BuildContext context) {
   return AppBar(
     backgroundColor: Theme.of(context).colorScheme.surface,
     surfaceTintColor: Colors.transparent,
     centerTitle: false,
     // The word-mark scales down rather than overflowing on narrow phones:
-    // with four actions the title row has little room on a 360dp screen, and
-    // a hard overflow there would be worse than a slightly smaller mark.
+    // with three actions the title row has little room on a 360dp screen,
+    // and a hard overflow there would be worse than a slightly smaller mark.
     title: const FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
@@ -62,42 +59,6 @@ AppBar _posAppBar(BuildContext context, OrderProvider order) {
         tooltip: 'Order history',
         icon: const Icon(Icons.receipt_long_outlined),
         onPressed: () => context.pushNamed('orders-history'),
-      ),
-      const SizedBox(width: 8),
-      Stack(
-        alignment: Alignment.center,
-        children: [
-          IconButton(
-            tooltip: 'Current cart',
-            icon: const Icon(Icons.shopping_cart_outlined),
-            onPressed: () => _showCartSheet(context, order),
-          ),
-          if (cartCount > 0)
-            Positioned(
-              right: 8,
-              top: 8,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.redAccent,
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 16,
-                  minHeight: 16,
-                ),
-                child: Text(
-                  '$cartCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-        ],
       ),
       IconButton(
         tooltip: 'Profile',
@@ -272,12 +233,11 @@ class NewSaleCatalogScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final order = context.watch<OrderProvider>();
     final provider = context.watch<MedicineProvider>();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: _posAppBar(context, order),
+      appBar: _posAppBar(context),
       body: switch ((provider.error, provider.isLoading, provider.all())) {
         (final String message, _, _) => Center(
           child: Padding(
@@ -478,7 +438,7 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: _posAppBar(context, order),
+      appBar: _posAppBar(context),
       body: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -632,12 +592,11 @@ class _SkuScannerScreenState extends State<SkuScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final order = context.watch<OrderProvider>();
     final catalogue = context.watch<MedicineProvider>().all();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: _posAppBar(context, order),
+      appBar: _posAppBar(context),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -895,225 +854,3 @@ class _PosProductCard extends StatelessWidget {
   }
 }
 
-/// The committed cart bottom sheet: entries with +/- steppers, the subtotal,
-/// the 5% tax line, the grand total and the Complete Sale button.
-void _showCartSheet(BuildContext context, OrderProvider order) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (sheetContext) {
-      return StatefulBuilder(
-        builder: (context, setSheetState) {
-          // Watched rather than copied, so the sheet is rebuilt by the same
-          // change that moves the badge in the app bar behind it.
-          final watched = context.watch<OrderProvider>();
-          final lines = watched.lines;
-          final subtotal = watched.totalCentavos;
-          final tax = subtotal ~/ 20;
-          final grandTotal = subtotal + tax;
-          final amountPaid = formatCentavos(grandTotal);
-
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.85,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Current Cart (${lines.length})',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () => context.pushNamed('orders-history'),
-                      icon: const Icon(Icons.receipt_long, size: 18),
-                      label: const Text('History'),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                if (lines.isEmpty)
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Cart is empty',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: lines.length,
-                      separatorBuilder: (_, _) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final line = lines[index];
-                        final medicine = line.medicine;
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            medicine.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            '${medicine.formattedPrice} x ${line.quantity}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline),
-                                onPressed: () {
-                                  watched.setQuantity(
-                                    medicine,
-                                    line.quantity - 1,
-                                  );
-                                  setSheetState(() {});
-                                },
-                              ),
-                              Text(
-                                '${line.quantity}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline),
-                                onPressed: () {
-                                  watched.setQuantity(
-                                    medicine,
-                                    line.quantity + 1,
-                                  );
-                                  setSheetState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                if (lines.isNotEmpty) ...[
-                  const Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Subtotal'),
-                      Text(formatCentavos(subtotal)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Tax (5%)'),
-                      Text(formatCentavos(tax)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Total',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        formatCentavos(grandTotal),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _posPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _posPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        final completed = watched.complete();
-                        Navigator.pop(context);
-                        if (!completed) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            const SnackBar(
-                              content: Text('Could not save the order.'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                          return;
-                        }
-                        _showCheckoutSuccessDialog(sheetContext, amountPaid);
-                      },
-                      child: const Text(
-                        'Complete Sale',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-/// The committed "Transaction Successful!" dialog. The order itself is saved
-/// at the goods subtotal; [amountPaid] is what the sheet showed, tax included.
-void _showCheckoutSuccessDialog(BuildContext context, String amountPaid) {
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Icon(Icons.check_circle, color: Colors.green, size: 48),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Transaction Successful!',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          Text('Amount Paid: $amountPaid'),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('New Sale'),
-        ),
-      ],
-    ),
-  );
-}

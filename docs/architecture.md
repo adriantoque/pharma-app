@@ -43,14 +43,14 @@ lib/
       show_csv_export_dialog.dart  Shared CSV dialog (Inventory + Expiring meds)
 
   routing/
-    app_router.dart           GoRouter, auth redirect, three staff tabs +
+    app_router.dart           GoRouter, auth redirect, four staff tabs +
                               admin workspace, finder, legacy redirects
 
   features/
     auth/         sign in, sign up, Google, role login, deliberate offline mode
     search/       the price list: model, stores, offline sync, provider, row UI
     orders/       order draft + order history, two providers
-    sales/        the New Sale tab and its cart bottom sheet
+    sales/        the New Sale tab and the cart (sale-flow page + tab)
     symptom_guide/ curated symptom catalogue, the Symptom Finder tab
     scan/         camera -> ML Kit OCR -> catalogue matching
     finder/       the screen finder: search a screen, jump to its route
@@ -257,13 +257,16 @@ Two decisions worth naming:
 
 ## 4. Navigation
 
-`StatefulShellRoute.indexedStack` with **three staff branches**: New Sale,
-Symptom Finder, and Scan SKU, in that order. Each branch keeps its own
+`StatefulShellRoute.indexedStack` with **four staff branches**: New Sale,
+Symptoms, Scan SKU and Cart, in that order. Each branch keeps its own
 navigator, so a tab's stack and scroll position survive a round trip to another
 tab. Everything else the counter needs (Orders, history, Medicines, Expiring
 meds, Notifications, Profile) is nested under the New Sale branch, so the back
-arrow always returns to the shelf. The cart is not a route at all: it is a
-bottom sheet opened from the sale screen's app bar.
+arrow always returns to the shelf.
+
+Cart exists twice on purpose: as a branch of its own (branch 3), and as the
+`new-sale-cart` page nested inside the sale flow. Both show the same
+`CartScreen`; only how they exit differs (below).
 
 ```mermaid
 graph TD
@@ -271,7 +274,9 @@ graph TD
   staff["/staff-login /admin-login<br/>RoleLoginScreen"]
   shell["AppShell<br/>NavigationBar"]
 
-  sale["/sale  (branch 0)<br/>NewSaleScreen + cart sheet"]
+  sale["/sale  (branch 0)<br/>NewSaleScreen"]
+  cartFlow["/sale/cart  (nested page)<br/>CartScreen (sale flow)"]
+  cartTab["/cart  (branch 3)<br/>CartScreen (tab)"]
   orders["/sale/orders<br/>OrdersScreen"]
   history["/sale/orders/history<br/>OrderHistoryScreen"]
   medicines["/sale/medicines<br/>MedicineScreen"]
@@ -279,7 +284,7 @@ graph TD
   notifications["/sale/notifications<br/>NotificationsScreen"]
   profile["/sale/profile<br/>ProfileScreen + appearance + about"]
 
-  symptoms["/symptoms  (branch 1)<br/>SymptomFinderScreen"]
+  symptoms["/symptoms  (branch 1, bar label: Symptoms)<br/>SymptomFinderScreen"]
   scan["/scan  (branch 2)<br/>ScanScreen"]
 
   admin["/admin<br/>AdminHomeScreen"]
@@ -293,7 +298,10 @@ graph TD
   shell --> sale
   shell --> symptoms
   shell --> scan
+  shell --> cartTab
   finder --> shell
+  sale --> cartFlow
+  cartFlow --> orders
   sale --> orders
   orders --> history
   sale --> medicines
@@ -308,10 +316,12 @@ graph TD
   `/sale`.
 - The sale children are *relative* routes (`'orders'`, `'medicines'` …), so the
   bottom bar keeps New Sale selected while they push.
-- The cart lives as `showCartSheet` inside
-  `lib/features/sales/presentation/screens/cart_sheet.dart`. It hands back a
-  `CartResult(proceed, payment)` when it closes; finishing the sale stays on
-  the sale screen.
+- **The two carts.** The sale-flow one (`new-sale-cart`) is opened with
+  `pushNamed` and hands back a `CartResult(proceed, payment)`; finishing the
+  sale stays on the sale screen. The tab one (`/cart`, `saleFlow: false`)
+  completes the sale itself through the shared `confirmAndCompleteSale` and
+  lands on Orders, and back returns to the New Sale tab. The bar's Cart
+  destination carries the live item-count badge.
 - `FinderScreen` (`/finder`) is a route-aware index: each entry carries the
   destination route it points to, and tapping one `context.go`s there.
 - Legacy paths (`/home`, `/inventory`, `/reports`, `/medicines`, `/orders`)
