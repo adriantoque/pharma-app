@@ -5,10 +5,12 @@ import 'prescription_recognizer.dart';
 
 /// The camera the Scan tab captures a prescription with.
 ///
-/// The interface exists so the Scan tab can be driven in a widget test: the
-/// real implementation wraps the `camera` and `image_picker` plugins, neither
-/// of which exists under the test binding, and a fake that returns canned
-/// results is cheaper and more precise than mocking their channels.
+/// Beyond capture and preview, the interface carries the two things the live
+/// scanner needs from the device: a steady torch for dim counters, and the
+/// preview itself as a stream of frames the recognizer can read. Both arrive
+/// defaulted rather than abstract — a fake answers false and never has to grow
+/// members it does not use, and the tab treats false as a downgrade to the
+/// deliberate photo flow instead of an error.
 abstract class PrescriptionCamera {
   /// Whether this platform has a camera and a way to pick a photo at all.
   ///
@@ -44,6 +46,39 @@ abstract class PrescriptionCamera {
   /// the user changed their mind. Throws [PrescriptionRecognitionException]
   /// when the pick failed.
   Future<Uint8List?> pickFromGallery();
+
+  /// Whether the preview torch can be toggled at all.
+  bool get supportsTorch => false;
+
+  /// Lights the preview with the flash LED on or off.
+  ///
+  /// Safe to call before [initialize]. Throws
+  /// [PrescriptionRecognitionException] when the device refused — a camera
+  /// that can fire its flash for a photo but not hold a steady light.
+  Future<void> setTorch(bool enabled) async {
+    throw PrescriptionRecognitionException('The camera has no torch here.');
+  }
+
+  /// Whether the preview can be streamed as readable frames at all.
+  bool get supportsLiveFrames => false;
+
+  /// Starts feeding [onFrame] the preview, frame by frame — the raw material
+  /// of the live scanner.
+  ///
+  /// Frames arrive at whatever cadence the device chose; pacing them is up to
+  /// the reader, which queues at most one at a time anyway. Deliberate capture
+  /// remains valid the whole time: an implementation pauses its own stream
+  /// around a [takePicture] and resumes without anything being asked twice.
+  /// Throws [PrescriptionRecognitionException] when streaming could not start.
+  /// Only valid while [isReady].
+  Future<void> startLiveFrames(
+    void Function(PrescriptionFrame frame) onFrame,
+  ) async {
+    throw PrescriptionRecognitionException('Live frames are not supported.');
+  }
+
+  /// Stops the frame stream. Safe to call when it was never started.
+  Future<void> stopLiveFrames() async {}
 
   /// Releases the camera. Safe to call more than once.
   Future<void> dispose();

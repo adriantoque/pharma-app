@@ -5,17 +5,38 @@ import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
 
 /// Controllable fake used by the scan widget tests, standing in for ML Kit's
 /// platform recognizer so the tests never depend on a downloaded model.
-class FakePrescriptionRecognizer implements PrescriptionRecognizer {
+class FakePrescriptionRecognizer extends PrescriptionRecognizer {
   FakePrescriptionRecognizer({
     this.isSupported = true,
     this.recognizeError,
     this.blockRecognize = false,
     List<RecognizedLine>? readings,
-  }) : readings = readings ?? const [];
+    this.supportsFrameRecognition = false,
+    this.frameError,
+    List<RecognizedLine>? frameReadings,
+  }) : readings = readings ?? const [],
+       frameReadings = frameReadings ?? readings ?? const [];
 
   /// Stands in for the real capability check; false simulates the web.
   @override
   bool isSupported;
+
+  /// Whether the fake can read a preview frame. Defaults to false — the same
+  /// verdict the shared default gives — so only tests that stage the live
+  /// flow turn it on.
+  @override
+  bool get supportsFrames => supportsFrameRecognition;
+  bool supportsFrameRecognition;
+
+  /// When set, [recognizeFrame] throws this instead of reading.
+  Object? frameError;
+
+  /// Lines handed back by [recognizeFrame]. Defaults to [readings], so a
+  /// streaming test and a deliberate test can share one expectation set.
+  List<RecognizedLine> frameReadings;
+
+  /// How many frames [recognizeFrame] was handed.
+  int frameCalls = 0;
 
   /// Lines handed back by [recognize].
   List<RecognizedLine> readings;
@@ -56,6 +77,21 @@ class FakePrescriptionRecognizer implements PrescriptionRecognizer {
     final gate = _recognizeGate;
     _recognizeGate = null;
     if (gate != null && !gate.isCompleted) gate.complete();
+  }
+
+  /// Changes the readings every streamed frame will produce: the mechanism a
+  /// stability test uses to break the gate's run of agreement.
+  void reframe(List<RecognizedLine> newReadings) {
+    frameReadings = newReadings;
+  }
+
+  /// The frame path of [recognize]: same canned answer, countable, and able to
+  /// fail through [frameError] the way the deliberate path does.
+  @override
+  Future<List<RecognizedLine>> recognizeFrame(PrescriptionFrame frame) async {
+    frameCalls++;
+    if (frameError != null) throw frameError!;
+    return frameReadings;
   }
 
   @override

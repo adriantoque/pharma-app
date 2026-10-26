@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:pharmaguide/features/scan/domain/prescription_camera.dart';
+import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
 
 /// A fake [PrescriptionCamera] for widget tests.
 ///
@@ -12,13 +13,14 @@ import 'package:pharmaguide/features/scan/domain/prescription_camera.dart';
 ///
 /// The preview is a placeholder rather than a camera feed; nothing under test
 /// reads pixels from it.
-class FakePrescriptionCamera implements PrescriptionCamera {
+class FakePrescriptionCamera extends PrescriptionCamera {
   FakePrescriptionCamera({
     this.isSupported = true,
     this.initializeError,
     this.takePictureError,
     this.pictureBytes,
     this.galleryBytes,
+    this.supportsLive = false,
   });
 
   /// Stands in for the real capability check; false simulates the web.
@@ -38,6 +40,32 @@ class FakePrescriptionCamera implements PrescriptionCamera {
   /// What [pickFromGallery] returns. Null means the user backed out of the
   /// picker, which is a path worth covering on its own.
   final Uint8List? galleryBytes;
+
+  /// Whether the fake stages the live-frame capability at all.
+  ///
+  /// False — the default — keeps a fake meaning "this device cannot stream",
+  /// which is what every pre-existing test was written against. True hands
+  /// the screen a [frameSink] to push frames into by hand.
+  final bool supportsLive;
+
+  /// Where tests push preview frames. Null until a stream was started, so a
+  /// test can also assert that nothing was ever asked to run live.
+  void Function(PrescriptionFrame frame)? frameSink;
+
+  @override
+  bool get supportsLiveFrames => supportsLive;
+
+  @override
+  Future<void> startLiveFrames(
+    void Function(PrescriptionFrame frame) onFrame,
+  ) async {
+    frameSink = onFrame;
+  }
+
+  @override
+  Future<void> stopLiveFrames() async {
+    frameSink = null;
+  }
 
   /// Whether [dispose] has run, so a test can assert the tab let go.
   bool disposed = false;

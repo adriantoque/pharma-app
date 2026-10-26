@@ -76,8 +76,11 @@ void main() {
       expect(find.text('Scan it'), findsOneWidget);
       expect(
         find.byTooltip('Pick a prescription from the gallery'),
-        findsOneWidget,
+        findsNothing,
       );
+      // The gallery pick is a labelled button now: a tooltip unreachable on
+      // touch was not a promise the control could keep.
+      expect(find.text('From photos'), findsOneWidget);
       // The gate is gone now that the preview is up.
       expect(find.text('Opening the camera…'), findsNothing);
       expect(find.text('No preview'), findsNothing);
@@ -483,6 +486,117 @@ void main() {
     expect(camera.disposed, isTrue);
     expect(recognizer.disposed, isTrue);
   });
+
+  group('the committed sheet', () {
+    testWidgets('a steady read opens it on its own and adds nothing', (
+      tester,
+    ) async {
+      final camera = FakePrescriptionCamera(supportsLive: true);
+      final recognizer = FakePrescriptionRecognizer(
+        supportsFrameRecognition: true,
+        frameReadings: readingsOf('Bioflu Tablet'),
+      );
+      final staged = await pumpLiveScan(
+        tester,
+        camera: camera,
+        recognizer: recognizer,
+      );
+
+      await deliverFrames(tester, camera, 3);
+      await tester.pumpAndSettle();
+
+      // The read committed itself into the sheet, with the header counting it
+      // like the deliberate flow would.
+      expect(recognizer.frameCalls, 3);
+      expect(find.textContaining('Scan result ·'), findsOneWidget);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsOneWidget);
+      // Nothing entered the order on its own: the sheet is a review, not a
+      // sale, and the stock-ceiling add stays behind its own button.
+      expect(staged.order.isEmpty, isTrue);
+
+      // The gate restarts after a commit: a couple of frames cannot re-commit
+      // the sheet over the user's hand while they read it.
+      await deliverFrames(tester, camera, 2);
+      await tester.pumpAndSettle();
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsOneWidget);
+    });
+
+    testWidgets('an unsteady read never opens it', (tester) async {
+      final camera = FakePrescriptionCamera(supportsLive: true);
+      final recognizer = FakePrescriptionRecognizer(
+        supportsFrameRecognition: true,
+        frameReadings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpLiveScan(tester, camera: camera, recognizer: recognizer);
+
+      // Two agreeable, then a change, then agreement again: no three-in-a-row
+      // anywhere, so the sheet stays shut while the camera keeps streaming.
+      await deliverFrames(tester, camera, 2);
+      await tester.pumpAndSettle();
+      recognizer.reframe(readingsOf('Kremil-S Tablet'));
+      await deliverFrames(tester, camera, 1);
+      await tester.pumpAndSettle();
+      recognizer.reframe(readingsOf('Bioflu Tablet'));
+      await deliverFrames(tester, camera, 1);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Scan result ·'), findsNothing);
+      expect(camera.frameSink, isNotNull);
+    });
+
+    testWidgets('Done hands the screen back to the live feed', (tester) async {
+      final camera = FakePrescriptionCamera(supportsLive: true);
+      final recognizer = FakePrescriptionRecognizer(
+        supportsFrameRecognition: true,
+        frameReadings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpLiveScan(tester, camera: camera, recognizer: recognizer);
+
+      await deliverFrames(tester, camera, 3);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Scan result ·'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('commitSheetClose')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Scan result ·'), findsNothing);
+      expect(find.text('Line 1: "Bioflu Tablet"'), findsNothing);
+    });
+
+    testWidgets('a deliberate scan takes the room an auto-commit held', (
+      tester,
+    ) async {
+      final camera = FakePrescriptionCamera(
+        supportsLive: true,
+        pictureBytes: Uint8List(64),
+      );
+      final recognizer = FakePrescriptionRecognizer(
+        supportsFrameRecognition: true,
+        frameReadings: readingsOf('Bioflu Tablet'),
+      );
+      await pumpLiveScan(tester, camera: camera, recognizer: recognizer);
+
+      await deliverFrames(tester, camera, 3);
+      await tester.pumpAndSettle();
+
+      // The sheet covers the deliberate controls while it is up — that is the
+      // point of it: the committed reading is being reviewed, and a second
+      // full-width button hiding behind the sheet would be a second moment.
+      // Closing it hands the room back, and the deliberate read takes over.
+      // Both recognized paths are reframed: the deliberate one reads through
+      // `recognize`, the streamed one through `recognizeFrame`, and the test
+      // wants whichever answers to now name a different medicine.
+      recognizer.readings = readingsOf('Kremil-S Tablet');
+      recognizer.reframe(readingsOf('Kremil-S Tablet'));
+      await tester.tap(find.byKey(const Key('commitSheetClose')));
+      await tester.pumpAndSettle();
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Line 1: "Kremil-S Tablet"'), findsOneWidget);
+      expect(find.textContaining('Scan result ·'), findsOneWidget);
+    });
+  });
 }
 
 /// A one-line catalogue whose only product needs a prescription.
@@ -509,3 +623,65 @@ class _RxCatalogue implements MedicineRepository {
   List<MedicineModel> search(String query) =>
       query.trim().isEmpty ? all() : _items.where((m) => m.matches(query)).toList();
 }
+
+/// One dummy preview frame. The fake recognizer ignores the pixels, so only
+/// the shape matters — a valid prescription frame with known geometry.
+PrescriptionFrame aFrame() => PrescriptionFrame(
+  bytes: Uint8List(8),
+  width: 8,
+  height: 8,
+  bytesPerRow: 8,
+  rotationDegrees: 90,
+);
+
+/// Stage 2: the committed sheet. The fakes stream frames by hand, letting the
+/// tests control exactly how many agreeable reads the gate sees — timing that
+/// a real camera would deliver by itself.
+///
+/// Same shape as [pumpScan], with the fakes built to stream: a live-capable
+/// camera and a frame-capable recognizer. The catalogue stays injected so the
+/// matched suggestions are exactly [StaticMedicineRepository.seen] above.
+Future<({FakePrescriptionCamera camera, OrderProvider order})> pumpLiveScan(
+  WidgetTester tester, {
+  required FakePrescriptionCamera camera,
+  required FakePrescriptionRecognizer recognizer,
+  MedicineRepository? repository,
+}) async {
+  tester.view.physicalSize = const Size(360, 720);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
+  final order = OrderProvider();
+  addTearDown(order.dispose);
+
+  await tester.pumpWidget(
+    ChangeNotifierProvider<OrderProvider>.value(
+      value: order,
+      child: MaterialApp(
+        theme: buildAppTheme(Brightness.light),
+        home: ScanScreen(
+          repository: repository ?? const StaticMedicineRepository(),
+          camera: camera,
+          recognizer: recognizer,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return (camera: camera, order: order);
+}
+
+/// Pushes [count] agreeable frames through the fake's sink, one `pump` each so
+/// the single-flight queue drains between reads — the sequencing the real
+/// camera wrapper's throttle gives for free.
+Future<void> deliverFrames(
+  WidgetTester tester,
+  FakePrescriptionCamera camera,
+  int count,
+) async {
+  for (var i = 0; i < count; i++) {
+    camera.frameSink!(aFrame());
+    await tester.pump(const Duration(milliseconds: 30));
+  }
+}
+

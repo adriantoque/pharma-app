@@ -15,6 +15,40 @@ class RecognizedLine {
   final String text;
 }
 
+/// One raw frame from the camera preview, already in the pixel layout the
+/// recognizer on that platform consumes directly.
+///
+/// The camera wrapper does the platform's work — an Android frame is handed
+/// over as NV21, an iOS one as BGRA — so the recognizer has nothing to do but
+/// pass the bytes to ML Kit. Frames bypass the file round-trip a photo needs,
+/// which is what makes reading them continuously cheap enough to be worth it.
+@immutable
+class PrescriptionFrame {
+  const PrescriptionFrame({
+    required this.bytes,
+    required this.width,
+    required this.height,
+    required this.bytesPerRow,
+    required this.rotationDegrees,
+  });
+
+  /// The frame's pixels: NV21 on Android, BGRA on iOS.
+  final Uint8List bytes;
+
+  /// Frame dimensions, in pixels.
+  final int width;
+  final int height;
+
+  /// The row stride, in bytes. NV21 packs its rows at exactly [width]; a BGRA
+  /// buffer can carry row padding the recognizer has to be told about.
+  final int bytesPerRow;
+
+  /// How the sensor sits in the device relative to the upright picture, in
+  /// degrees. The recognizer reports it to ML Kit so a streamed frame is read
+  /// the right way up regardless of how the phone was held.
+  final int rotationDegrees;
+}
+
 /// Reads a photograph of a prescription, one line at a time.
 ///
 /// The interface exists so the Scan tab can be driven in a widget test. The
@@ -32,6 +66,28 @@ abstract class PrescriptionRecognizer {
   /// on the interface is what stops the widget from having to know what a
   /// platform is.
   bool get isSupported;
+
+  /// Whether [recognizeFrame] has a real implementation here.
+  ///
+  /// The Scan tab downgrades to the deliberate photo flow when it is false
+  /// rather than streaming frames the recognizer could never read. A fake
+  /// without an override answers false, which is exactly what it should mean:
+  /// tests keep driving photos and nothing starts running in the background.
+  bool get supportsFrames => false;
+
+  /// Reads one line of text out of a preview frame, straight from its pixels.
+  ///
+  /// Thrown as-is by the default body rather than being abstract, so the
+  /// recognizers that do not stream carry no obligation, and a caller that
+  /// overrides [supportsFrames] check still fails recognisably rather than
+  /// ever reading silence. Throws [PrescriptionRecognitionException] the way
+  /// [recognize] does.
+  Future<List<RecognizedLine>> recognizeFrame(PrescriptionFrame frame) async {
+    throw PrescriptionRecognitionException(
+      'Frame recognition is not supported on this recognizer.',
+      isUnsupportedPlatform: true,
+    );
+  }
 
   /// Reads every line the picture contains, returning one entry per line in
   /// the order they appear.
