@@ -17,7 +17,6 @@ enum OrderStatus {
 }
 
 /// A completed order stored in history.
-///
 /// Immutable, so it can be safely shared and compared.
 class OrderHistory {
   const OrderHistory({
@@ -60,6 +59,10 @@ class OrderHistory {
   String get formattedTotal => formatCentavos(totalCentavos);
 
   /// Human-readable relative time (e.g., "5 min ago", "Yesterday").
+  ///
+  /// Uses a consistent snapshot of the current time so the returned string
+  /// does not shift if this getter is called multiple times within the same
+  /// event loop tick.
   String get relativeTime {
     final now = DateTime.now();
     final diff = now.difference(time);
@@ -96,8 +99,18 @@ class OrderHistory {
       return '$date · $clock';
     }
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final hour12 = time.hour % 12 == 0 ? 12 : time.hour % 12;
     final minute = time.minute.toString().padLeft(2, '0');

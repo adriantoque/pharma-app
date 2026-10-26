@@ -69,9 +69,9 @@ class SaleModel {
   /// the whole point of a report is that it matches the paper.
   final num quantity;
 
-  final int priceCentavos;
+  final num priceCentavos;
 
-  final int totalCentavos;
+  final num totalCentavos;
 
   /// The sheet this came from, for tracing a figure back to its source.
   final String sourceSheet;
@@ -83,12 +83,12 @@ class SaleModel {
     return SaleModel(
       date: _parseDate(json['date']),
       kind: SaleKind.parse(json['kind']),
-      rawName: json['rawName'] as String? ?? '',
-      key: json['key'] as String? ?? '',
-      quantity: (json['quantity'] as num?) ?? 0,
-      priceCentavos: (json['priceCentavos'] as num?)?.round() ?? 0,
-      totalCentavos: (json['totalCentavos'] as num?)?.round() ?? 0,
-      sourceSheet: json['sourceSheet'] as String? ?? '',
+      rawName: _safeString(json['rawName'], defaultValue: ''),
+      key: _safeString(json['key'], defaultValue: ''),
+      quantity: _safeNum(json['quantity'], defaultValue: 0),
+      priceCentavos: _safeNum(json['priceCentavos'], defaultValue: 0),
+      totalCentavos: _safeNum(json['totalCentavos'], defaultValue: 0),
+      sourceSheet: _safeString(json['sourceSheet'], defaultValue: ''),
     );
   }
 
@@ -97,18 +97,42 @@ class SaleModel {
   /// and is excluded from the date range by [isOnARealDate] rather than quietly
   /// widening the range to 1970.
   static DateTime _parseDate(Object? value) {
-    if (value is! String) return DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is! String) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
     final parts = value.split(RegExp('[T ]')).first.split('-');
-    if (parts.length != 3) return DateTime.fromMillisecondsSinceEpoch(0);
+    if (parts.length != 3) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
     final year = int.tryParse(parts[0]);
     final month = int.tryParse(parts[1]);
     final day = int.tryParse(parts[2]);
-    if (year == null || month == null || day == null || month < 1 || month > 12) {
+    if (year == null ||
+        month == null ||
+        day == null ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > 31) {
       return DateTime.fromMillisecondsSinceEpoch(0);
     }
     return DateTime(year, month, day);
   }
 
+  /// A helper that safely extracts a [String] from a map, providing a default
+  /// when the value is null or missing.
+  static String _safeString(dynamic value, {required String defaultValue}) {
+    if (value is! String) return defaultValue;
+    return value;
+  }
+
+  /// A helper that safely extracts a [num] from a map, providing a default when
+  /// the value is null or missing.
+  static num _safeNum(dynamic value, {required num defaultValue}) {
+    if (value is! num) return defaultValue;
+    return value;
+  }
+
   /// Whether this line has a date that was actually in the workbook.
   bool get isOnARealDate => date.year > 1970;
-}
+}

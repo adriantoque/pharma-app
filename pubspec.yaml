@@ -54,6 +54,7 @@ dependencies:
   connectivity_plus: ^7.3.1
   shared_preferences: ^2.5.5
   package_info_plus: ^10.2.2
+  matcher: ^0.12.20
 
 dev_dependencies:
   flutter_test:
@@ -84,6 +85,7 @@ dev_dependencies:
   # Firestore refuse one write so the store's refusal-versus-transport-failure
   # split can be tested. A direct dependency because the test imports it.
   mock_exceptions: ^0.8.2
+  test: ^1.31.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

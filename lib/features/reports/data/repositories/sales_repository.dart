@@ -15,7 +15,7 @@ class SalesSummary {
   });
 
   final num units;
-  final int totalCentavos;
+  final num totalCentavos;
 
   /// Distinct calendar days in the period that have at least one sale.
   ///
@@ -54,7 +54,7 @@ class ProductSales {
   final String displayName;
 
   final num units;
-  final int totalCentavos;
+  final num totalCentavos;
 
   /// How many separate sales lines this covers, which is not the same as
   /// [units]: a line can be a single unit or fifty.
@@ -166,7 +166,7 @@ class SalesRepository {
   }) {
     final days = <DateTime>{};
     var units = 0.0;
-    var centavos = 0;
+    var centavos = 0.0;
     for (final sale in lines) {
       if (kind != null && sale.kind != kind) continue;
       if (sale.isOnARealDate) days.add(sale.day);
@@ -220,7 +220,7 @@ class SalesRepository {
 class _Accumulator {
   final Map<String, int> _spellings = {};
   num _units = 0;
-  int _centavos = 0;
+  num _centavos = 0;
   int _occurrences = 0;
 
   void add(SaleModel sale) {

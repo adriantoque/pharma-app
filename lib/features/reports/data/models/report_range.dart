@@ -13,7 +13,8 @@ enum ReportRange {
       1 => ReportRange.today,
       7 => ReportRange.week,
       30 => ReportRange.month,
-      _ => ReportRange.week,
+      _ => throw ArgumentError('Unsupported days value: $days. '
+          'Use 1 for today, 7 for week, or 30 for month.'),
     };
   }
-}
+}
