@@ -619,12 +619,14 @@ class _ScanScreenState extends State<ScanScreen> {
         _Intro(message: widget.introMessage),
         if (canScanOnPlatform) ...[
           _cameraSection(),
-          _CameraControls(
-            cameraReady: _cameraReady == true,
-            isReading: _isReading,
-            onScan: _scan,
-            onPick: _pickFromGallery,
-          ),
+          if (_showResults)
+            _ResultsBelowCamera(
+              readings: _readings,
+              suggestions: _suggestions,
+              onReset: _scanAgain,
+              onEdit: _editReading,
+              onDetails: _showMedicineDetails,
+            ),
           if (_error case final error?)
             _ErrorCard(
               message: error,
@@ -1418,6 +1420,78 @@ class _Results extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Results shown below the camera widget after a scan, listing the scanned
+/// medicines with options to reset, edit, or view details.
+class _ResultsBelowCamera extends StatelessWidget {
+  const _ResultsBelowCamera({
+    required this.readings,
+    required this.suggestions,
+    required this.onReset,
+    required this.onEdit,
+    required this.onDetails,
+  });
+
+  final List<String> readings;
+  final List<PrescriptionSuggestion> suggestions;
+  final VoidCallback onReset;
+  final void Function(int index) onEdit;
+  final void Function(PrescriptionSuggestion suggestion) onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasReadings = readings.where((r) => r.isNotEmpty).length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasReadings > 0)
+            Text(
+              '$hasReadings medicines found',
+              style: theme.textTheme.bodyMedium,
+            ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemCount: readings.length,
+              itemBuilder: (context, index) {
+                final reading = readings[index];
+                final matches = suggestions.where((s) => s.lineIndex == index).toList();
+                return ListTile(
+                  title: Text(
+                    reading.isNotEmpty ? reading : 'Line ${index + 1}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  trailing: matches.isNotEmpty
+                      ? Tooltip(
+                          message: 'Add ${matches.first.medicine.name}',
+                          child: IconButton(
+                            icon: const Icon(Icons.add_circle_outline, size: 18),
+                            onPressed: () => onDetails(matches.first),
+                          ),
+                        )
+                      : null,
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: onReset,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.brandGreen,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
     );
   }
 }
