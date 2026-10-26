@@ -98,7 +98,7 @@ class _ScanScreenState extends State<ScanScreen> {
   /// against the same matcher, which is the same list the suggestions already
   /// came from.
   late final PrescriptionMatcher _matcher = PrescriptionMatcher(
-    widget.repository ?? context.read<MedicineProvider>(),
+    widget.repository ?? const StaticMedicineRepository(),
   );
 
   /// How tall the preview stays while the results own the screen: enough to
