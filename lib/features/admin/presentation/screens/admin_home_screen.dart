@@ -2,124 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../auth/data/models/user_model.dart';
-import '../../../auth/domain/user_role.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/audit_repository.dart';
-import '../../data/repositories/user_repository.dart';
 import '../../domain/audit_event.dart';
 import '../widgets/activity_row.dart';
+import '../widgets/low_stock_widget.dart';
+import '../widgets/revenue_chart_widget.dart';
+import '../../../reports/presentation/providers/reports_provider.dart';
 
-/// The Admin workspace: the only screen an administrator sees.
-///
-/// An admin is held here by the router's redirect and never reaches the
-/// staff shell, so there is no "back to app" arrow -- there is nowhere to
-/// go back to. The AppBar menu carries sign-out, which is the one way out of
-/// the workspace short of closing the app.
-///
-/// A dashboard rather than a menu: an admin who opens this screen should be
-/// able to see the shape of the team at a glance and the last few things that
-/// happened, without tapping into each section first. The destinations are
-/// still here, under the numbers they act on.
-class AdminHomeScreen extends StatelessWidget {
-  const AdminHomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        // No leading widget on purpose. An admin is pinned to this subtree;
-        // an arrow back to the staff app would open a door the redirect
-        // would immediately slam shut.
-        automaticallyImplyLeading: false,
-        title: const Text('Admin'),
-        centerTitle: true,
-        actions: [
-          PopupMenuButton<_AdminMenuAction>(
-            tooltip: 'More',
-            onSelected: (action) => switch (action) {
-              _AdminMenuAction.signOut => _confirmSignOut(context),
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _AdminMenuAction.signOut,
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20),
-                    SizedBox(width: 8),
-                    Text('Sign out'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: const [
-          _GreetingCard(),
-          SizedBox(height: 16),
-          _StatsRow(),
-          SizedBox(height: 24),
-          _SectionHeader(title: 'Quick actions'),
-          SizedBox(height: 8),
-          _QuickActions(),
-          SizedBox(height: 24),
-          _RecentActivitySection(),
-        ],
-      ),
-    );
-  }
-
-  /// Confirms and performs sign-out.
-  ///
-  /// The router's redirect sends the user to the login screen the moment the
-  /// auth state flips, so nothing navigates here.
-  Future<void> _confirmSignOut(BuildContext context) async {
-    final auth = context.read<AuthProvider>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You will need to sign in again to continue.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final success = await auth.logout();
-    if (!success && auth.error != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(auth.error ?? 'An unknown error occurred')),
-      );
-    }
-  }
-}
-
-enum _AdminMenuAction { signOut }
-
-// ---------------------------------------------------------------------------
-// Greeting
-// ---------------------------------------------------------------------------
-
-/// "Welcome back, Maria Santos".
-///
-/// Reads the signed-in name from [AuthProvider] and falls back to
-/// "Administrator" when the profile has none -- a service account created
-/// directly in the Firebase Console has no `displayName`.
+/// Card showing admin greeting with welcome message.
 class _GreetingCard extends StatelessWidget {
   const _GreetingCard();
 
@@ -178,67 +69,215 @@ class _GreetingCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Stats
-// ---------------------------------------------------------------------------
-
-/// Two live figures: how many people are on the team, and how many of them
-/// can administer it.
+/// The Admin workspace: the only screen an administrator sees.
+/// An admin is held here by the router's redirect and never reaches the
+/// staff shell, so there is no "back to app" arrow -- there is nowhere to
+/// go back to. The AppBar menu carries sign-out, which is the one way out
+/// of the workspace short of closing the app.
 ///
-/// A [StreamBuilder] rather than a provider of its own: the numbers come from
-/// one collection that is already streamed elsewhere, and a whole
-/// `ChangeNotifier` to relay two counts would be a subscription to keep alive
-/// for no benefit.
-class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+/// A dashboard rather than a menu: an admin who opens this screen should be
+/// able to see the shape of the team at a glance and the last few things that
+/// happened, without tapping into each section first. The destinations are
+/// still here, under the numbers they act on.
+class AdminHomeScreen extends StatefulWidget {
+  const AdminHomeScreen({super.key});
+
+  @override
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
+}
+
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // The dashboard shows figures from the same provider the Reports screen
+    // reads, so it has to ask for them itself: an admin who never opens
+    // Reports would otherwise see a permanent zero. Post-frame because the
+    // load notifies listeners, and notifying during the first build is an
+    // error.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ReportsProvider>().initialize();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final repository = context.read<UserRepository>();
+    // watch, not read: the summary cards, chart and low-stock list all repaint
+    // when a load lands.
+    final reports = context.watch<ReportsProvider>();
 
-    return StreamBuilder<List<UserModel>>(
-      stream: repository.watchAll(),
-      builder: (context, snapshot) {
-        final users = snapshot.data ?? const <UserModel>[];
-        final activeUsers = users.where((u) => u.active).length;
-        final activeAdmins = users
-            .where((u) => u.active && u.role == UserRole.admin)
-            .length;
+    return Scaffold(
+      appBar: AppBar(
+        // No leading widget on purpose. An admin is pinned to this subtree;
+        // an arrow back to the staff app would open a door the redirect
+        // would immediately slam shut.
+        automaticallyImplyLeading: false,
+        title: const Text('Admin'),
+        centerTitle: true,
+        actions: [
+          PopupMenuButton<_AdminMenuAction>(
+            tooltip: 'More',
+            onSelected: (action) => switch (action) {
+              _AdminMenuAction.signOut => _confirmSignOut(context),
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _AdminMenuAction.signOut,
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 8),
+                    Text('Sign out'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _GreetingCard(),
 
-        return Row(
-          children: [
-            Expanded(
-              child: _StatTile(
-                icon: Icons.people_outline,
-                value: '$activeUsers',
-                label: 'Active user${activeUsers == 1 ? '' : 's'}',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatTile(
-                icon: Icons.shield_outlined,
-                value: '$activeAdmins',
-                label: activeAdmins == 1 ? 'Admin' : 'Admins',
-              ),
-            ),
-          ],
-        );
-      },
+          const SizedBox(height: 16),
+
+          // Summary cards row
+          _SummaryCards(reports: reports),
+
+          const SizedBox(height: 24),
+
+          // Revenue trend
+          _SectionHeader(title: 'Sales trend'),
+          const SizedBox(height: 8),
+          const RevenueGrowthChart(),
+
+          const SizedBox(height: 24),
+
+          // Quick actions (without Manage users)
+          _SectionHeader(title: 'Quick actions'),
+          const SizedBox(height: 8),
+          _QuickActions(),
+
+          const SizedBox(height: 24),
+
+          // Low stock alerts
+          _SectionHeader(title: 'Low stock alerts'),
+          const SizedBox(height: 8),
+          _LowStockSection(reports: reports),
+
+          const SizedBox(height: 24),
+
+          // Recent activity
+          _RecentActivitySection(),
+        ],
+      ),
     );
+  }
+
+  /// Confirms and performs sign-out.
+  /// The router's redirect sends the user to the login screen the moment the
+  /// auth state flips, so nothing navigates here.
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('You will need to sign in again to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    // The dialog is a route of its own; the screen can be gone by the time it
+    // closes.
+    if (!context.mounted) return;
+
+    final auth = context.read<AuthProvider>();
+    final success = await auth.logout();
+    if (!success && auth.error != null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(auth.error ?? 'An unknown error occurred')),
+      );
+    }
   }
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
+// ---------------------------------------------------------------------------
+// Summary cards row
+// ---------------------------------------------------------------------------
 
+/// Row of summary cards: Sales, Inventory.
+class _SummaryCards extends StatelessWidget {
+  final ReportsProvider reports;
+
+  const _SummaryCards({required this.reports});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        // Sales card
+        Expanded(
+          child: _SummaryCard(
+            icon: Icons.bar_chart,
+            label: 'Sales',
+            value: _formatCurrency(context, reports.salesReport?.totalRevenue ?? 0),
+            onTap: () => context.pushNamed('admin-reports'),
+            color: scheme.primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Inventory card
+        Expanded(
+          child: _SummaryCard(
+            icon: Icons.inventory,
+            label: 'Low stock',
+            value: reports.lowStockAlerts.length.toString(),
+            onTap: () => context.pushNamed('admin-inventory'),
+            color: scheme.secondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatCurrency(BuildContext context, int amount) {
+    final pesos = amount / 100;
+    return '₱${pesos.toStringAsFixed(2)}';
+  }
+}
+
+/// A summary statistic card.
+class _SummaryCard extends StatelessWidget {
   final IconData icon;
-  final String value;
   final String label;
+  final String value;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _SummaryCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -246,31 +285,50 @@ class _StatTile extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: scheme.primary),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+              // A fixed gap, not a Spacer: the cards sit in a Row inside the
+              // dashboard's scrolling ListView, so their height is unbounded
+              // and a flex child would ask for space that does not exist.
+              const SizedBox(height: 12),
+              Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -278,9 +336,26 @@ class _StatTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Quick actions
+// Low stock section
 // ---------------------------------------------------------------------------
 
+/// Section displaying low stock alerts from the reports provider.
+class _LowStockSection extends StatelessWidget {
+  final ReportsProvider reports;
+
+  const _LowStockSection({required this.reports});
+
+  @override
+  Widget build(BuildContext context) {
+    return LowStockWidget(lowStockAlerts: reports.lowStockAlerts);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick actions (without Manage users)
+// ---------------------------------------------------------------------------
+
+/// Quick action tiles for the admin dashboard (without Manage users).
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
@@ -288,13 +363,6 @@ class _QuickActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _ActionTile(
-          icon: Icons.people_outline,
-          title: 'Manage users',
-          subtitle: 'Add, edit, deactivate accounts',
-          onTap: () => context.pushNamed('admin-users'),
-        ),
-        const SizedBox(height: 12),
         _ActionTile(
           icon: Icons.bar_chart_outlined,
           title: 'Reports',
@@ -329,9 +397,8 @@ class _QuickActions extends StatelessWidget {
 }
 
 /// One destination row.
-///
-/// This has a "coming soon" state: the tile visuals indicate completion status
-/// while the tap still surfaces appropriate feedback.
+/// Has a "coming soon" state: the tile visuals indicate completion status
+/// while the tap always runs.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
@@ -345,9 +412,6 @@ class _ActionTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-
-  /// Draws the tile with muted appearance when coming soon, full colors when
-  /// the destination is available. The tap always runs.
   final bool comingSoon;
 
   @override
@@ -455,7 +519,6 @@ class _ActionTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// The last three audit entries, with a "See all" link.
-///
 /// Shows three and not five so the section reads as a preview rather than a
 /// list -- the full log is a screen of its own (the Activity log), and this
 /// section is a pointer to it.
@@ -559,8 +622,18 @@ class _SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(title, style: theme.textTheme.titleMedium),
         ),
-        ?trailing,
+        // trailing is placed to the right if provided
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          trailing!,
+        ],
       ],
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Menu actions
+// ---------------------------------------------------------------------------
+
+enum _AdminMenuAction { signOut }

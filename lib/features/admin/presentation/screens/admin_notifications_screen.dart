@@ -48,14 +48,6 @@ class AdminNotificationsScreen extends StatelessWidget {
         category: AlertCategory.user,
         effectiveRoute: '/admin/users',
       ),
-      _Notification(
-        id: '3',
-        title: 'Order Completed',
-        message: 'Order #12345 has been successfully completed',
-        timestamp: '3 days ago',
-        category: AlertCategory.orders,
-        effectiveRoute: '/orders',
-      ),
     ];
   }
 }
@@ -82,7 +74,7 @@ class _Notification {
   });
 }
 
-enum AlertCategory { stock, user, orders }
+enum AlertCategory { stock, user }
 
 // ---------------------------------------------------------------------------
 // Body
@@ -150,8 +142,6 @@ class _NotificationTile extends StatelessWidget {
         return Icon(Icons.inventory, color: Theme.of(ctx).colorScheme.error);
       case AlertCategory.user:
         return Icon(Icons.person_add, color: Theme.of(ctx).colorScheme.primary);
-      case AlertCategory.orders:
-        return Icon(Icons.shopping_cart, color: Theme.of(ctx).colorScheme.secondary);
     }
   }
 }

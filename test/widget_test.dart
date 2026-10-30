@@ -6,6 +6,8 @@ import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/core/theme/theme_mode_provider.dart';
 import 'package:pharmaguide/features/auth/data/models/user_model.dart';
+import 'package:pharmaguide/features/auth/data/repositories/offline_pin.dart';
+import 'package:pharmaguide/features/auth/data/repositories/offline_session.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/dashboard/presentation/providers/notification_provider.dart';
 import 'package:pharmaguide/features/dashboard/presentation/providers/notification_repository.dart';
@@ -295,6 +297,113 @@ void main() {
       expect(find.text('Welcome to'), findsOneWidget);
     });
 
+    testWidgets('a restored offline session with a PIN lands on the PIN pad', (
+      tester,
+    ) async {
+      // Tall enough for the whole pad, whose last row sits below 600px.
+      tester.view.physicalSize = const Size(500, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // Assigned to the shared handle: the tree's MedicineProvider is built
+      // from it, and tearDown owns its disposal.
+      provider = AuthProvider(
+        repository,
+        offlineSession: InMemoryOfflineSession(true),
+        pinStore: InMemoryOfflinePinStore('4821'),
+      );
+      final auth = provider!;
+      await auth.ready;
+
+      await pumpApp(tester, auth);
+      await tester.pumpAndSettle();
+
+      // The flag restores offline mode, but the pad stands in front of it.
+      expect(find.text('Enter your offline PIN'), findsOneWidget);
+      expect(find.text('Welcome to'), findsNothing);
+
+      for (final digit in ['4', '8', '2', '1']) {
+        await tester.tap(find.byKey(Key('pinKey$digit')));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      // The right PIN opens the session; the redirect does the rest.
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
+    });
+
+    // Regression: pushing the unlock pad from the landing screen used to be
+    // redirected straight back to /login, so "Continue Offline" did nothing on
+    // an install that already had a PIN.
+    testWidgets('Continue Offline reaches the pad and the PIN opens the session', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(500, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      provider = AuthProvider(
+        repository,
+        offlineSession: InMemoryOfflineSession(),
+        pinStore: InMemoryOfflinePinStore('4821'),
+      );
+      final auth = provider!;
+      await auth.ready;
+
+      await pumpApp(tester, auth);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'Continue Offline'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter your offline PIN'), findsOneWidget);
+      // The pad is not a session: nothing has started yet.
+      expect(auth.status, AuthStatus.unauthenticated);
+
+      for (final digit in ['4', '8', '2', '1']) {
+        await tester.tap(find.byKey(Key('pinKey$digit')));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      expect(auth.status, AuthStatus.offline);
+      expect(auth.offlineUnlocked, isTrue);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
+    });
+
+    testWidgets('Sign in instead from a pushed pad returns to the landing', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(500, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      provider = AuthProvider(
+        repository,
+        offlineSession: InMemoryOfflineSession(),
+        pinStore: InMemoryOfflinePinStore('4821'),
+      );
+      final auth = provider!;
+      await auth.ready;
+
+      await pumpApp(tester, auth);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'Continue Offline'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Enter your offline PIN'), findsOneWidget);
+
+      await tester.tap(find.text('Sign in instead'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Welcome to'), findsOneWidget);
+      expect(auth.status, AuthStatus.unauthenticated);
+    });
+
     testWidgets('an authenticated user lands on the home tab', (
       tester,
     ) async {
@@ -337,6 +446,13 @@ void main() {
         find.widgetWithText(OutlinedButton, 'Sign out'),
         200,
       );
+      // `scrollUntilVisible` stops as soon as the button exists, which can be
+      // while it is still clipped at the fold (the Security section added a
+      // tile below the business one). Bring it fully into view before tapping.
+      await tester.ensureVisible(
+        find.widgetWithText(OutlinedButton, 'Sign out'),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(OutlinedButton, 'Sign out'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Sign out'));
@@ -581,11 +697,11 @@ testWidgets('a home action opens a child page and back returns home', (
       expect(find.text('Welcome to'), findsOneWidget);
       expect(find.text("Wilma\nPharmacy's"), findsOneWidget);
       expect(
-        find.widgetWithText(FilledButton, 'Sign in as Admin'),
+        find.widgetWithText(FilledButton, 'Login'),
         findsOneWidget,
       );
       expect(
-        find.widgetWithText(OutlinedButton, 'Sign in as Staff'),
+        find.widgetWithText(OutlinedButton, 'Sign Up'),
         findsOneWidget,
       );
       expect(
@@ -593,9 +709,8 @@ testWidgets('a home action opens a child page and back returns home', (
         findsOneWidget,
       );
 
-      // The role doors push their own pages; the legacy sheet is reached from
-      // the fallback link.
-      await tester.tap(find.widgetWithText(TextButton, 'Other sign-in options'));
+      // Login opens the shared sheet directly; there is no role picker.
+      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
       await tester.pumpAndSettle();
 
       // Login mode signs in with a username, not an email.
@@ -611,7 +726,7 @@ testWidgets('a home action opens a child page and back returns home', (
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Other sign-in options'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
@@ -630,7 +745,7 @@ testWidgets('a home action opens a child page and back returns home', (
 
       await pumpApp(tester, auth);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Other sign-in options'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Login'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
@@ -641,6 +756,45 @@ testWidgets('a home action opens a child page and back returns home', (
       expect(find.text('Username'), findsNothing);
       expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
       expect(repository.loginAttempts, 1);
+    });
+
+    testWidgets('sign up opens the sheet in signup mode', (tester) async {
+      final auth = createProvider();
+      await auth.ready;
+
+      await pumpApp(tester, auth);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Sign Up'));
+      await tester.pumpAndSettle();
+
+      // Signup asks for a name and a real email; login asks for a username.
+      expect(find.text('Full name'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('Password'), findsOneWidget);
+      expect(find.text('Username'), findsNothing);
+    });
+
+    testWidgets('a completed signup creates the account and opens home', (
+      tester,
+    ) async {
+      final auth = createProvider();
+      await auth.ready;
+
+      await pumpApp(tester, auth);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Sign Up'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'New User');
+      await tester.enterText(find.byType(TextFormField).at(1), 'new@b.com');
+      await tester.enterText(find.byType(TextFormField).at(2), 'secret');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Signup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Full name'), findsNothing);
+      expect(find.widgetWithText(AppBar, 'PharmaStaff POS'), findsOneWidget);
+      expect(repository.signupAttempts, 1);
+      expect(repository.loginAttempts, 0);
     });
   });
 }

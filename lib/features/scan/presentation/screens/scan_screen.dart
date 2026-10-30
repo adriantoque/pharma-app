@@ -444,23 +444,6 @@ class _ScanScreenState extends State<ScanScreen> {
     await _readBytes(bytes);
   }
 
-  /// Lets the user choose a photo of the prescription instead of using the
-  /// camera. Works even when the camera was refused.
-  Future<void> _pickFromGallery() async {
-    if (_isReading) return;
-
-    final Uint8List? bytes;
-    try {
-      bytes = await _camera.pickFromGallery();
-    } on PrescriptionRecognitionException catch (error) {
-      if (!mounted) return;
-      _reportError(error);
-      return;
-    }
-    if (bytes == null) return; // the user backed out of the picker
-    await _readBytes(bytes);
-  }
-
   Future<void> _readBytes(Uint8List bytes) async {
     setState(() {
       _isReading = true;
@@ -619,6 +602,13 @@ class _ScanScreenState extends State<ScanScreen> {
         _Intro(message: widget.introMessage),
         if (canScanOnPlatform) ...[
           _cameraSection(),
+          // The deliberate trigger. Rendered even when the camera was refused,
+          // where it is disabled: the gate above it explains why.
+          _CameraControls(
+            cameraReady: _cameraReady == true,
+            isReading: _isReading,
+            onScan: _scan,
+          ),
           if (_showResults)
             _ResultsBelowCamera(
               readings: _readings,
@@ -1137,59 +1127,42 @@ class _LiveChip extends StatelessWidget {
   }
 }
 
-/// Scan and pick a photo in one row under the preview.
-class _CameraControls extends StatelessWidget {  const _CameraControls({
+/// The deliberate scan trigger, under the preview.
+class _CameraControls extends StatelessWidget {
+  const _CameraControls({
     required this.cameraReady,
     required this.isReading,
     required this.onScan,
-    required this.onPick,
   });
 
   final bool cameraReady;
   final bool isReading;
   final VoidCallback onScan;
-  final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
     final canUseCamera = cameraReady && !isReading;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          // Expanded so the labelled gallery button beside it can never push
-          // the row off a narrow screen: the deliberate trigger shrinks before
-          // anything overflows.
-          Expanded(
-            child: OutlinedButton.icon(
-              key: const Key('scanButton'),
-              onPressed: canUseCamera ? onScan : null,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.brandGreenSurface,
-                foregroundColor: AppColors.brandGreen,
-                side: const BorderSide(
-                  color: AppColors.brandGreenSurfaceBorder,
-                ),
-              ),
-              icon: const Icon(Icons.camera_alt),
-              label: Text(isReading ? 'Reading…' : 'Scan it'),
-            ),
+      child: OutlinedButton.icon(
+        key: const Key('scanButton'),
+        onPressed: canUseCamera ? onScan : null,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(44),
+          backgroundColor: AppColors.brandGreenSurface,
+          foregroundColor: AppColors.brandGreen,
+          side: const BorderSide(
+            color: AppColors.brandGreenSurfaceBorder,
           ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            key: const Key('pickPhotoButton'),
-            onPressed: isReading ? null : onPick,
-            icon: const Icon(Icons.photo_library_outlined, size: 18),
-            label: const Text('From photos'),
-          ),
-        ],
+        ),
+        icon: const Icon(Icons.camera_alt),
+        label: Text(isReading ? 'Reading…' : 'Scan it'),
       ),
     );
   }
 }
 
 /// Why the preview is not showing: the camera was refused, missing, or broke.
-/// Picking a photo from the gallery is still open to the user.
 class _CameraGate extends StatelessWidget {
   const _CameraGate({required this.message, required this.onRetry});
 
@@ -1457,10 +1430,13 @@ class _ResultsBelowCamera extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
           const SizedBox(height: 8),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              itemCount: readings.length,
+          // Sized to its contents: this block is a non-flex child of the
+          // screen's Column, so an Expanded here has no height to divide.
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            itemCount: readings.length,
               itemBuilder: (context, index) {
                 final reading = readings[index];
                 final matches = suggestions.where((s) => s.lineIndex == index).toList();
@@ -1479,8 +1455,7 @@ class _ResultsBelowCamera extends StatelessWidget {
                         )
                       : null,
                 );
-              },
-            ),
+            },
           ),
           const SizedBox(height: 8),
           OutlinedButton(

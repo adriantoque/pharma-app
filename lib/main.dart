@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
+import 'features/auth/data/repositories/offline_pin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
@@ -157,6 +159,19 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
                 ),
           ),
         ),
+        // The PIN in front of offline mode. Hashed before it is written; see
+        // StoredOfflinePinStore for what that does and does not buy.
+        Provider<OfflinePinStore>(
+          create: (_) => StoredOfflinePinStore(
+            readStorage: () async => (await SharedPreferences.getInstance())
+                .getString('offlinePin'),
+            writeStorage: (value) async =>
+                (await SharedPreferences.getInstance()).setString(
+                  'offlinePin',
+                  value ?? '',
+                ),
+          ),
+        ),
         Provider<RoleStore>(
           create: (_) => StoredRoleStore(
             readStorage: () async => (await SharedPreferences.getInstance())
@@ -173,6 +188,7 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
             ctx.read<AuthRepository>(),
             offlineSession: ctx.read<OfflineSession>(),
             roleStore: ctx.read<RoleStore>(),
+            pinStore: ctx.read<OfflinePinStore>(),
           ),
         ),
         // Above the router, so the price list outlives a tab switch. Built from a

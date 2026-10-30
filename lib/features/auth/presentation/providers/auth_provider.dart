@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/demo_auth_repository.dart';
+import '../../data/repositories/offline_pin.dart';
 import '../../data/repositories/offline_session.dart';
 import '../../domain/user_role.dart';
 
@@ -17,8 +18,10 @@ class AuthProvider extends ChangeNotifier {
     this._repository, {
     OfflineSession? offlineSession,
     RoleStore? roleStore,
+    OfflinePinStore? pinStore,
   })  : _offlineSession = offlineSession ?? InMemoryOfflineSession(),
-        _roleStore = roleStore ?? InMemoryRoleStore() {
+        _roleStore = roleStore ?? InMemoryRoleStore(),
+        _pinStore = pinStore ?? InMemoryOfflinePinStore() {
     _authSubscription = _repository.authStateChanges.listen(_onAuthStateChanged);
     _ready = _verifySession();
   }
@@ -35,6 +38,7 @@ class AuthProvider extends ChangeNotifier {
   final AuthRepository _repository;
   final OfflineSession _offlineSession;
   final RoleStore _roleStore;
+  final OfflinePinStore _pinStore;
   StreamSubscription<UserModel?>? _authSubscription;
   late final Future<void> _ready;
 
@@ -44,6 +48,19 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _requestInFlight = false;
   String? _error;
+
+  /// Whether the offline session has been let past the PIN pad.
+  ///
+  /// True except on a cold start that restored an offline session with a PIN
+  /// on file: the tablet boots to the pad instead of the price list, and only a
+  /// correct PIN moves this back to true.
+  bool _offlineUnlocked = true;
+
+  /// Wrong PIN entries since the last success or cooldown, and the moment the
+  /// keypad comes back. Deliberately in memory: a persisted counter that
+  /// survives a restart would keep an honest user out for good.
+  int _failedPinAttempts = 0;
+  DateTime? _pinCooldownUntil;
 
   /// Set in [dispose]. Notifying a disposed ChangeNotifier throws, and an
   /// async auth callback can still land after the tree has torn the provider
@@ -59,6 +76,36 @@ class AuthProvider extends ChangeNotifier {
   /// What the signed-in account may do. Null while no role has been resolved
   /// yet, which is not the same as [UserRole.guest]: a role that has not been
   /// read is not a role that forbids everything.
+  /// How many consecutive wrong PINs are allowed before a cooldown.
+  static const int maxPinAttempts = 5;
+
+  /// How long the keypad stays disabled after [maxPinAttempts] wrong PINs.
+  static const Duration pinCooldown = Duration(seconds: 30);
+
+  /// Whether an offline session still needs its PIN entered.
+  bool get offlineLocked => _status == AuthStatus.offline && !_offlineUnlocked;
+
+  /// Whether the offline session has been unlocked (always true for online).
+  bool get offlineUnlocked => _offlineUnlocked;
+
+  /// Wrong entries in the current run, for the "N tries left" line.
+  int get failedPinAttempts => _failedPinAttempts;
+
+  /// Time left before the keypad accepts entries again.
+  Duration get pinCooldownRemaining {
+    final until = _pinCooldownUntil;
+    if (until == null) return Duration.zero;
+    final remaining = until.difference(DateTime.now());
+    if (remaining.isNegative) {
+      _pinCooldownUntil = null;
+      return Duration.zero;
+    }
+    return remaining;
+  }
+
+  /// Whether a PIN has been set on this install.
+  Future<bool> get hasOfflinePin => _pinStore.hasPin();
+
   bool get isAdmin => _role == UserRole.admin;
   bool get isStaff => _role == UserRole.staff;
   bool get isGuest => _role == UserRole.guest;
@@ -126,6 +173,9 @@ class AuthProvider extends ChangeNotifier {
       _role = await _roleStore.read() ?? UserRole.guest;
       _user = offlineUser;
       _status = AuthStatus.offline;
+      // A restored offline session with a PIN on file boots locked: the flag
+      // says which mode the tablet was left in, not who is holding it.
+      _offlineUnlocked = !await _pinStore.hasPin();
       _safeNotify();
       return;
     }
@@ -214,6 +264,10 @@ class AuthProvider extends ChangeNotifier {
     _user = offlineUser;
     _role = UserRole.guest;
     _error = null;
+    // The caller has either just set a PIN or just proved it knows it, so the
+    // session it is opening is unlocked by construction.
+    _offlineUnlocked = true;
+    _resetPinAttempts();
     _safeNotify();
   }
 
@@ -224,7 +278,71 @@ class AuthProvider extends ChangeNotifier {
     _user = null;
     _role = null;
     _error = null;
+    _offlineUnlocked = true;
+    _resetPinAttempts();
     _safeNotify();
+  }
+
+  /// Sets (or replaces) the PIN that guards offline mode.
+  ///
+  /// Called by the create flow before the offline session starts, so it also
+  /// clears the failed-attempt state: the person who just chose the PIN is not
+  /// someone the pad should distrust.
+  Future<void> setOfflinePin(String pin) async {
+    if (!isValidOfflinePin(pin)) {
+      throw ArgumentError.value(pin, 'pin', 'must be four digits');
+    }
+    await _pinStore.save(pin);
+    _offlineUnlocked = true;
+    _resetPinAttempts();
+    _error = null;
+    _safeNotify();
+  }
+
+  /// Tries [pin] against the stored one.
+  ///
+  /// Returns false for a wrong PIN, during a cooldown, and when no PIN is
+  /// stored — the last case because an install with no PIN has nothing to
+  /// unlock and should go through the create flow instead.
+  Future<bool> unlockOffline(String pin) async {
+    if (pinCooldownRemaining > Duration.zero) return false;
+
+    final ok = await _pinStore.matches(pin);
+    if (ok) {
+      _offlineUnlocked = true;
+      _error = null;
+      _resetPinAttempts();
+      _safeNotify();
+      return true;
+    }
+
+    _failedPinAttempts++;
+    if (_failedPinAttempts >= maxPinAttempts) {
+      _pinCooldownUntil = DateTime.now().add(pinCooldown);
+      _failedPinAttempts = 0;
+    }
+    _error = 'Wrong PIN.';
+    _safeNotify();
+    return false;
+  }
+
+  /// Locks the offline session without ending it, for a caller that wants the
+  /// pad back (an idle timeout, say) while keeping the mode and role.
+  void lockOffline() {
+    if (_status != AuthStatus.offline || !_offlineUnlocked) return;
+    _offlineUnlocked = false;
+    _safeNotify();
+  }
+
+  /// Forgets the PIN, so the next offline entry sets a new one.
+  Future<void> clearOfflinePin() async {
+    await _pinStore.clear();
+    _safeNotify();
+  }
+
+  void _resetPinAttempts() {
+    _failedPinAttempts = 0;
+    _pinCooldownUntil = null;
   }
 
   Future<bool> logout() async {

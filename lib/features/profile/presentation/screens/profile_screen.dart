@@ -111,6 +111,8 @@ class ProfileScreen extends StatelessWidget {
                 SizedBox(height: 24),
                 _BusinessSection(),
                 SizedBox(height: 24),
+                _SecuritySection(),
+                SizedBox(height: 24),
                 _SupportSection(),
                 SizedBox(height: 32),
                 _SignOutButton(),
@@ -241,6 +243,74 @@ class _BusinessSection extends StatelessWidget {
           onTap: () => context.pushNamed('home-profile-appearance'),
         ),
       ],
+    );
+  }
+}
+
+class _SecuritySection extends StatelessWidget {
+  const _SecuritySection();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _Section(
+      title: 'Security',
+      children: [_OfflinePinTile()],
+    );
+  }
+}
+
+/// Opens the PIN pad used to set (or replace) the offline-mode PIN.
+///
+/// The trailing line says whether this install currently has one, and reloads
+/// when the pad pops back with a saved result. Deliberately available to every
+/// role that can see the profile: the PIN belongs to the tablet, not the
+/// account, and it is also the way a person who forgot it gets back in.
+class _OfflinePinTile extends StatefulWidget {
+  const _OfflinePinTile();
+
+  @override
+  State<_OfflinePinTile> createState() => _OfflinePinTileState();
+}
+
+class _OfflinePinTileState extends State<_OfflinePinTile> {
+  /// Null while the first read is in flight, so the tile shows a spinner-free
+  /// chevron rather than claiming there is no PIN for a frame.
+  bool? _hasPin;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final hasPin = await context.read<AuthProvider>().hasOfflinePin;
+    if (!mounted) return;
+    setState(() => _hasPin = hasPin);
+  }
+
+  Future<void> _open() async {
+    final saved = await context.pushNamed<bool>(
+      'home-profile-offline-pin',
+    );
+    if (!mounted) return;
+    if (saved != true) return;
+
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Offline PIN saved.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPin = _hasPin;
+    return _NavTile(
+      icon: Icons.dialpad,
+      label: 'Offline PIN',
+      trailingText: hasPin == null ? null : (hasPin ? 'Set' : 'Not set'),
+      onTap: _open,
     );
   }
 }

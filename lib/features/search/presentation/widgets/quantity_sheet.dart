@@ -27,7 +27,7 @@ Future<int?> showQuantitySheet(
     return Future<int?>.value();
   }
 
-  return showModalBottomSheet<int>(
+    return showModalBottomSheet<int>(
     context: context,
     // The sheet is taller than a default sheet on a short screen, and the
     // keyboard would cover the confirm button without this.
@@ -35,6 +35,7 @@ Future<int?> showQuantitySheet(
     useSafeArea: true,
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+    useRootNavigator: true,
     builder: (context) => _QuantitySheet(medicine: medicine),
   );
 }

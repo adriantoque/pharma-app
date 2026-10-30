@@ -40,10 +40,13 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
   fl_chart: ^0.68.0
+  # Hashes the offline PIN before it reaches storage. Already on the dependency
+  # graph through Firebase; declared here because the app imports it directly.
+  crypto: ^3.0.7
   # The Scan tab reads a printed prescription with the camera: `camera` shows a
-  # live preview and captures a frame, `image_picker` offers a photo from the
-  # gallery as an alternative source, and ML Kit's on-device text recognition
-  # turns the picture into lines of text. The Latin OCR model is not in the APK;
+  # live preview and captures a frame, and ML Kit's on-device text recognition
+  # turns the picture into lines of text. `image_picker` below belongs to
+  # Inventory's CSV import, not to Scan. The Latin OCR model is not in the APK;
   # Google Play Services downloads it on first use and it works offline
   # afterwards. Android and iOS only; on web the feature reports itself
   # unavailable rather than failing.

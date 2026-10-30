@@ -54,7 +54,6 @@ Future<OrderProvider> pumpScan(
 /// The single scan button. The controls are a library-private widget, so there
 /// is no type to find -- the key is the only handle.
 final scanButton = find.byKey(const Key('scanButton'));
-final pickPhotoButton = find.byKey(const Key('pickPhotoButton'));
 final retryCameraButton = find.byKey(const Key('retryCameraButton'));
 final retryReadingButton = find.byKey(const Key('retryReadingButton'));
 
@@ -68,19 +67,12 @@ final previewBox = find.byWidgetPredicate(
 
 void main() {
   group('the camera', () {
-    testWidgets('opens and offers both ways in', (tester) async {
+    testWidgets('opens with a scan button', (tester) async {
       final camera = FakePrescriptionCamera();
       await pumpScan(tester, camera: camera);
 
       expect(camera.initializeCalls, 1);
       expect(find.text('Scan it'), findsOneWidget);
-      expect(
-        find.byTooltip('Pick a prescription from the gallery'),
-        findsNothing,
-      );
-      // The gallery pick is a labelled button now: a tooltip unreachable on
-      // touch was not a promise the control could keep.
-      expect(find.text('From photos'), findsOneWidget);
       // The gate is gone now that the preview is up.
       expect(find.text('Opening the camera…'), findsNothing);
       expect(find.text('No preview'), findsNothing);
@@ -143,7 +135,6 @@ void main() {
         findsOneWidget,
       );
       expect(scanButton, findsNothing);
-      expect(pickPhotoButton, findsNothing);
     });
   });
 
@@ -279,38 +270,6 @@ void main() {
       );
       expect(find.textContaining('Waiting for a connection'), findsNothing);
       expect(find.text('Retry'), findsOneWidget);
-    });
-  });
-
-  group('the gallery fallback', () {
-    testWidgets('reads a picked photo', (tester) async {
-      final camera = FakePrescriptionCamera(galleryBytes: Uint8List(64));
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Kremil-S Tablet'),
-      );
-      await pumpScan(tester, camera: camera, recognizer: recognizer);
-
-      await tester.tap(pickPhotoButton);
-      await tester.pumpAndSettle();
-
-      expect(recognizer.recognizeCalls, hasLength(1));
-      expect(find.text('Line 1: "Kremil-S Tablet"'), findsOneWidget);
-    });
-
-    testWidgets('backing out changes nothing and does not crash', (
-      tester,
-    ) async {
-      final camera = FakePrescriptionCamera(galleryBytes: null);
-      final recognizer = FakePrescriptionRecognizer(
-        readings: readingsOf('Kremil-S Tablet'),
-      );
-      await pumpScan(tester, camera: camera, recognizer: recognizer);
-
-      await tester.tap(pickPhotoButton);
-      await tester.pumpAndSettle();
-
-      expect(recognizer.recognizeCalls, isEmpty);
-      expect(find.textContaining('Nothing read yet.'), findsOneWidget);
     });
   });
 

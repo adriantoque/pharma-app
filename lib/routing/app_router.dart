@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/navigation/app_shell.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/auth_landing_screen.dart';
+import '../features/auth/presentation/screens/offline_pin_screen.dart';
 import '../features/auth/presentation/screens/role_login_screen.dart';
 import '../features/auth/domain/user_role.dart';
 import '../features/dashboard/presentation/screens/expiring_meds_screen.dart';
@@ -34,6 +35,11 @@ abstract final class AppRoutes {
   static const String login = '/login';
   static const String adminLogin = '/admin-login';
   static const String staffLogin = '/staff-login';
+
+  /// The PIN pad that unlocks a restored offline session, and the one that
+  /// creates a PIN before the first offline session starts.
+  static const String offlineLock = '/offline-lock';
+  static const String offlinePin = '/offline-pin';
   static const String home = '/home';
   static const String medicines = '/medicines';
   static const String orders = '/orders';
@@ -79,6 +85,9 @@ abstract final class AppRoutes {
   static const String homeSymptomDetail = '/home/symptom-guide/:symptomId';
   static const String homeProfile = '/home/profile';
   static const String homeProfileAppearance = '/home/profile/appearance';
+
+  /// Set or replace the offline PIN from the profile.
+  static const String homeProfileOfflinePin = '/home/profile/offline-pin';
   static const String homeNotifications = '/home/notifications';
 }
 
@@ -110,13 +119,22 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
       final atAuthScreen =
           location == AppRoutes.login ||
           location == AppRoutes.adminLogin ||
-          location == AppRoutes.staffLogin;
+          location == AppRoutes.staffLogin ||
+          location == AppRoutes.offlineLock ||
+          location == AppRoutes.offlinePin;
+      final atOfflineLock = location == AppRoutes.offlineLock;
       final atAdmin =
           location == AppRoutes.admin ||
           location.startsWith('${AppRoutes.admin}/');
 
       switch (auth.status) {
         case AuthStatus.unauthenticated:
+          // Both PIN pages stay reachable while signed out: the create page is
+          // where "Continue Offline" starts on a fresh install, and the unlock
+          // page is how a tablet that already has a PIN gets back into offline
+          // mode. Neither is a session yet -- entering the right PIN is what
+          // starts one (see OfflinePinScreen), and this switch then sees
+          // AuthStatus.offline and moves the app on.
           return atAuthScreen ? null : AppRoutes.login;
 
         case AuthStatus.authenticated:
@@ -132,6 +150,11 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
           return null;
 
         case AuthStatus.offline:
+          // A restored session with a PIN on file waits at the pad. Nothing
+          // else, including the login screens, is reachable until it opens.
+          if (!auth.offlineUnlocked) {
+            return atOfflineLock ? null : AppRoutes.offlineLock;
+          }
           // Guest mode: no admin access, and the auth screens are out of
           // reach once a session has started.
           if (atAdmin || atAuthScreen) return AppRoutes.home;
@@ -158,6 +181,18 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
         name: 'staff-login',
         builder: (context, state) =>
             const RoleLoginScreen(role: UserRole.staff),
+      ),
+      GoRoute(
+        path: AppRoutes.offlineLock,
+        name: 'offline-lock',
+        builder: (context, state) =>
+            const OfflinePinScreen(mode: OfflinePinMode.unlock),
+      ),
+      GoRoute(
+        path: AppRoutes.offlinePin,
+        name: 'offline-pin',
+        builder: (context, state) =>
+            const OfflinePinScreen(mode: OfflinePinMode.create),
       ),
       GoRoute(
         path: AppRoutes.finder,
@@ -261,6 +296,17 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
                         path: 'appearance',
                         name: 'home-profile-appearance',
                         builder: (context, state) => const AppearanceScreen(),
+                      ),
+                      // Same pad as the first-run flow, in update mode: it
+                      // stores the PIN and pops back with `true` so the profile
+                      // can refresh its "Set / Not set" line.
+                      GoRoute(
+                        path: 'offline-pin',
+                        name: 'home-profile-offline-pin',
+                        builder: (context, state) => OfflinePinScreen(
+                          mode: OfflinePinMode.update,
+                          onSaved: () => context.pop(true),
+                        ),
                       ),
                       GoRoute(
                         path: 'about',

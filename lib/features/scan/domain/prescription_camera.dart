@@ -12,7 +12,7 @@ import 'prescription_recognizer.dart';
 /// members it does not use, and the tab treats false as a downgrade to the
 /// deliberate photo flow instead of an error.
 abstract class PrescriptionCamera {
-  /// Whether this platform has a camera and a way to pick a photo at all.
+  /// Whether this platform has a camera at all.
   ///
   /// Web can show a camera preview but has no ML Kit behind it, so the whole
   /// Scan feature reports it as unsupported rather than starting previews that
@@ -38,14 +38,6 @@ abstract class PrescriptionCamera {
   /// Returns the picture as encoded image bytes. Throws
   /// [PrescriptionRecognitionException] when the capture failed.
   Future<Uint8List> takePicture();
-
-  /// Lets the user pick a photo of a prescription from their library.
-  ///
-  /// Works even when the camera never started — a denied permission or a
-  /// missing back camera must not take the fallback away. Returns null when
-  /// the user changed their mind. Throws [PrescriptionRecognitionException]
-  /// when the pick failed.
-  Future<Uint8List?> pickFromGallery();
 
   /// Whether the preview torch can be toggled at all.
   bool get supportsTorch => false;

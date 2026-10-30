@@ -19,33 +19,37 @@ abstract final class _LandingColors {
 
 /// The first screen, for a signed-out app.
 ///
-/// Three doors, each leading somewhere different. Admin and Staff are full
-/// pages pushed on top of this one, so the back arrow returns here; Offline
-/// is a single tap that lands on the regular app with no server behind it.
+/// Two doors out of the signed-out state: Login and Sign Up, both opening the
+/// shared [AuthBottomSheet] in the matching mode. A third tap -- Continue
+/// Offline -- lands on the regular app with no server behind it.
 ///
-/// The sign-in sheet still exists -- reachable from a fallback link -- for
-/// anyone who reaches this screen mid-session and needs to sign in without
-/// choosing a door first. Its route through the shared sheet is unchanged.
+/// There is no role picker here. Which workspace a person reaches is decided
+/// after the backend answers: the profile in `users/{uid}` carries the role,
+/// and the router's redirect sends an admin to the admin workspace and staff
+/// to the shell. Asking for the role up front only duplicated that check.
 class AuthLandingScreen extends StatelessWidget {
   const AuthLandingScreen({super.key});
 
-  void _openSheet(BuildContext context) {
+  void _openSheet(BuildContext context, AuthSheetMode mode) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      builder: (context) => const AuthBottomSheet(mode: AuthSheetMode.login),
+      builder: (context) => AuthBottomSheet(mode: mode),
     );
   }
 
   Future<void> _continueOffline(BuildContext context) async {
     final auth = context.read<AuthProvider>();
-    // Navigation is left entirely to the router's redirect, exactly as a
-    // successful sign-in does: entering offline mode flips AuthStatus, and
-    // the redirect sends the user to the home tab on its own.
-    await auth.enterOfflineMode();
+    final hasPin = await auth.hasOfflinePin;
+    if (!context.mounted) return;
+    // Offline mode starts only once the PIN is set or proven, so the pad is
+    // pushed first and its own success path calls enterOfflineMode. The
+    // router's redirect then lands the user on the home tab, exactly as a
+    // successful sign-in does.
+    context.pushNamed(hasPin ? 'offline-lock' : 'offline-pin');
   }
 
   @override
@@ -106,37 +110,29 @@ class AuthLandingScreen extends StatelessWidget {
                       ),
                       const Spacer(),
                       _RoleButton(
-                        icon: Icons.admin_panel_settings_outlined,
-                        label: 'Sign in as Admin',
+                        icon: Icons.login,
+                        label: 'Login',
                         enabled: !isBusy,
                         filled: true,
-                        onPressed: () => context.pushNamed('admin-login'),
+                        onPressed: () =>
+                            _openSheet(context, AuthSheetMode.login),
                       ),
                       const SizedBox(height: 12),
                       _RoleButton(
-                        icon: Icons.badge_outlined,
-                        label: 'Sign in as Staff',
+                        icon: Icons.person_add_alt_1_outlined,
+                        label: 'Sign Up',
                         enabled: !isBusy,
                         filled: false,
-                        onPressed: () => context.pushNamed('staff-login'),
+                        onPressed: () =>
+                            _openSheet(context, AuthSheetMode.signup),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 20),
                       _RoleButton(
                         icon: Icons.cloud_off_outlined,
                         label: 'Continue Offline',
                         enabled: !isBusy,
                         filled: false,
                         onPressed: () => _continueOffline(context),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: isBusy ? null : () => _openSheet(context),
-                        child: Text(
-                          'Other sign-in options',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -152,8 +148,8 @@ class AuthLandingScreen extends StatelessWidget {
 
 /// One of the landing buttons.
 ///
-/// Filled for the primary role and outlined for the rest, so the eye lands on
-/// "Sign in as Admin" first without the other two looking disabled.
+/// Filled for the primary action and outlined for the rest, so the eye lands on
+/// Login first without the others looking disabled.
 class _RoleButton extends StatelessWidget {
   const _RoleButton({
     required this.icon,

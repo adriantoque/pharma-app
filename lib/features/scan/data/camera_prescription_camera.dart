@@ -5,13 +5,11 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show Widget;
-import 'package:image_picker/image_picker.dart';
 
 import '../domain/prescription_camera.dart';
 import '../domain/prescription_recognizer.dart';
 
-/// The real camera: live preview and capture through the `camera` plugin, and a
-/// gallery fallback through `image_picker`.
+/// The real camera: live preview and capture through the `camera` plugin.
 ///
 /// It also carries the device side of the live scanner: the preview torch for
 /// dim counters, and the preview as a throttled stream of frames already in the
@@ -308,34 +306,6 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   /// How the sensor sits in the device — what the recognizer must be told so
   /// a held-vertically phone reads text the right way up.
   int get _rotation => _back?.sensorOrientation ?? 0;
-
-  /// Works even when the camera never started: a denied permission or a missing
-  /// back camera must not take the fallback away.
-  @override
-  Future<Uint8List?> pickFromGallery() async {
-    _checkUsable();
-    final picker = ImagePicker();
-    try {
-      final picture = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1600,
-        imageQuality: 92,
-      );
-      if (picture == null) return null;
-      return await picture.readAsBytes();
-    } on MissingPluginException {
-      throw PrescriptionRecognitionException(
-        'Picking a photo is not available on this platform.',
-        isUnsupportedPlatform: true,
-      );
-    } on PlatformException catch (error) {
-      final message = error.code == 'photo_access_denied'
-          ? 'Photos are switched off for PharmaGuide. Allow them in Settings to '
-                'pick a prescription.'
-          : 'The photo could not be read. (${error.code})';
-      throw PrescriptionRecognitionException(message);
-    }
-  }
 
   @override
   Future<void> dispose() async {

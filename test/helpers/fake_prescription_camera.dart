@@ -6,9 +6,9 @@ import 'package:pharmaguide/features/scan/domain/prescription_recognizer.dart';
 
 /// A fake [PrescriptionCamera] for widget tests.
 ///
-/// The real implementation wraps the `camera` and `image_picker` plugins,
-/// neither of which exists under the test binding, so it reaches for a platform
-/// channel that is not there. This fake hands back canned bytes instead, and
+/// The real implementation wraps the `camera` plugin, which does not exist
+/// under the test binding, so it reaches for a platform channel that is not
+/// there. This fake hands back canned bytes instead, and
 /// can be told to fail the same way a real device would.
 ///
 /// The preview is a placeholder rather than a camera feed; nothing under test
@@ -19,7 +19,6 @@ class FakePrescriptionCamera extends PrescriptionCamera {
     this.initializeError,
     this.takePictureError,
     this.pictureBytes,
-    this.galleryBytes,
     this.supportsLive = false,
   });
 
@@ -36,10 +35,6 @@ class FakePrescriptionCamera extends PrescriptionCamera {
   /// What [takePicture] returns. Only has to be non-empty, because the fake
   /// recognizer ignores the bytes entirely.
   final Uint8List? pictureBytes;
-
-  /// What [pickFromGallery] returns. Null means the user backed out of the
-  /// picker, which is a path worth covering on its own.
-  final Uint8List? galleryBytes;
 
   /// Whether the fake stages the live-frame capability at all.
   ///
@@ -109,9 +104,6 @@ class FakePrescriptionCamera extends PrescriptionCamera {
     if (takePictureError != null) throw takePictureError!;
     return pictureBytes ?? Uint8List(64);
   }
-
-  @override
-  Future<Uint8List?> pickFromGallery() async => galleryBytes;
 
   @override
   Future<void> dispose() async {
