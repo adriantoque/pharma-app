@@ -7,6 +7,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_history_repository.dart';
 import '../providers/order_history_provider.dart';
+import '../widgets/order_receipt.dart';
 
 /// The Orders tab's history: approved and rejected orders, searchable.
 ///
@@ -306,8 +307,11 @@ class _HistoryCard extends StatelessWidget {
         side: BorderSide(color: theme.colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: ExpansionTile(
-        key: PageStorageKey(order.id),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExpansionTile(
+            key: PageStorageKey(order.id),
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: order.statusBackgroundColor,
@@ -392,7 +396,32 @@ class _HistoryCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+      if (order.statusLabel.toLowerCase() == 'approved') ...[
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                showDialog<void>(
+                  context: context,
+                  builder: (_) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    child: OrderReceipt(order: order),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.receipt_long),
+              label: const Text('View Receipt'),
+            ),
+          ),
+        ),
+      ],
+    ],
+  ),
+  );
+
   }
 
   static IconData _statusIcon(OrderStatus status) => switch (status) {
