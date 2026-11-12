@@ -3,9 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../data/repositories/audit_repository.dart';
-import '../../domain/audit_event.dart';
-import '../widgets/activity_row.dart';
 import '../widgets/low_stock_widget.dart';
 import '../widgets/revenue_chart_widget.dart';
 import '../../../reports/presentation/providers/reports_provider.dart';
@@ -155,7 +152,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
           const SizedBox(height: 24),
 
-          // Quick actions (without Manage users)
+          // Quick actions
           _SectionHeader(title: 'Quick actions'),
           const SizedBox(height: 8),
           _QuickActions(),
@@ -169,8 +166,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
           const SizedBox(height: 24),
 
-          // Recent activity
-          _RecentActivitySection(),
         ],
       ),
     );
@@ -355,10 +350,10 @@ class _LowStockSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Quick actions (without Manage users)
+// Quick actions
 // ---------------------------------------------------------------------------
 
-/// Quick action tiles for the admin dashboard (without Manage users).
+/// Quick action tiles for the admin dashboard.
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
@@ -374,6 +369,13 @@ class _QuickActions extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _ActionTile(
+          icon: Icons.inventory_2_outlined,
+          title: 'Inventory',
+          subtitle: 'Manage stock, prices and expiry',
+          onTap: () => context.pushNamed('admin-inventory'),
+        ),
+        const SizedBox(height: 12),
+        _ActionTile(
           icon: Icons.storefront_outlined,
           title: 'Store settings',
           subtitle: 'Name, hours, low-stock threshold',
@@ -386,13 +388,7 @@ class _QuickActions extends StatelessWidget {
           subtitle: 'View system alerts and updates',
           onTap: () => context.pushNamed('admin-notifications'),
         ),
-        const SizedBox(height: 12),
-        _ActionTile(
-          icon: Icons.article_outlined,
-          title: 'Activity log',
-          subtitle: 'Who did what, when',
-          onTap: () => context.pushNamed('admin-activity'),
-        ),
+
       ],
     );
   }
@@ -471,104 +467,13 @@ class _ActionTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Recent activity
-// ---------------------------------------------------------------------------
-
-/// The last three audit entries, with a "See all" link.
-/// Shows three and not five so the section reads as a preview rather than a
-/// list -- the full log is a screen of its own (the Activity log), and this
-/// section is a pointer to it.
-class _RecentActivitySection extends StatelessWidget {
-  const _RecentActivitySection();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final repository = context.read<AuditRepository>();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(
-          title: 'Recent activity',
-          trailing: TextButton(
-            onPressed: () => context.pushNamed('admin-activity'),
-            child: const Text('See all'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          color: theme.colorScheme.surfaceContainerLow,
-          clipBehavior: Clip.antiAlias,
-          child: StreamBuilder<List<AuditEvent>>(
-            stream: repository.watchAll(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                );
-              }
-
-              final events = snapshot.data ?? const <AuditEvent>[];
-              if (events.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.history,
-                        color: theme.colorScheme.outline,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'No activity yet.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final preview = events.take(3).toList();
-              return Column(
-                children: [
-                  for (var i = 0; i < preview.length; i++) ...[
-                    if (i > 0)
-                      const Divider(height: 1, indent: 60, endIndent: 16),
-                    ActivityRow(event: preview[i]),
-                  ],
-                ],
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Shared
 // ---------------------------------------------------------------------------
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.trailing});
+  const _SectionHeader({required this.title});
 
   final String title;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -578,11 +483,6 @@ class _SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(title, style: theme.textTheme.titleMedium),
         ),
-        // trailing is placed to the right if provided
-        if (trailing != null) ...[
-          const SizedBox(width: 8),
-          trailing!,
-        ],
       ],
     );
   }
