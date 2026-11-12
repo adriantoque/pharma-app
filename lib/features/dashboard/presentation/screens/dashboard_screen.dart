@@ -2,26 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../admin/presentation/providers/store_settings_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../orders/data/models/order_history_model.dart';
 import '../../../orders/data/repositories/order_history_repository.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
+import '../../../reports/presentation/providers/reports_provider.dart';
 import '../../../search/data/sync/sync_status.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../providers/notification_provider.dart';
 
-/// Days ahead that count as "expiring soon" on the dashboard.
-///
-/// Matches the Expiring Meds screen so the number on Home and the list it
-/// opens always agree.
-const int _expirySoonDays = 90;
-
 /// The Home tab.
 ///
 /// Staff only. Every figure and action here is something a counter staff
-/// member does or needs to know. Stock counting and reports are admin tasks
-/// and live on the admin screen, so they do not appear here.
+/// member does or needs to know. Stock *counting* stays an admin task, but
+/// the shelf shortfall is a number the counter needs: it tells them what they
+/// will have to say "we're out" about before the customer asks.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -314,8 +311,9 @@ class _PendingCard extends StatelessWidget {
 // Expiry and stock attention
 // ---------------------------------------------------------------------------
 
-/// Lines expiring soon and lines out of stock. Each opens a staff screen
-/// where the problem is handled: Expiring Meds for dates, Medicine for stock.
+/// Lines expiring soon and shelf shortfall. Each opens a staff screen where
+/// the problem is handled: Expiring Meds for dates, Medicine for stock and
+/// counting.
 class _AttentionRow extends StatelessWidget {
   const _AttentionRow();
 
@@ -323,14 +321,30 @@ class _AttentionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final medicines = context.watch<MedicineProvider>().all();
 
+    final expirySoonDays = context.watch<StoreSettingsProvider>()
+        .settings
+        .expiryWarningDays;
+
     final expiring = medicines.where((m) {
       if (m.expiryDate == null) return false;
       if (m.isExpired) return true;
       final days = m.daysUntilExpiry;
-      return days != null && days <= _expirySoonDays;
+      return days != null && days <= expirySoonDays;
     }).length;
 
-    final outOfStock = medicines.where((m) => m.isOutOfStock).length;
+    // The shortfall the alerts carry, in units. Computed in the reports
+    // repository against Store settings' coverage window, so this tile and
+    // the admin dashboard's Low Stock Alerts always agree. Uncounted lines
+    // are excluded from the sum: "not counted" is its own problem and folding
+    // it into a unit count would report a fresh import as thousands short.
+    final reports = context.watch<ReportsProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      context.read<ReportsProvider>().ensureLowStockLoaded();
+    });
+    final shortUnits = reports.lowStockAlerts
+        .where((alert) => !alert.isStockUncounted)
+        .fold(0, (sum, alert) => sum + alert.deficit);
 
     return Row(
       children: [
@@ -346,8 +360,8 @@ class _AttentionRow extends StatelessWidget {
         Expanded(
           child: _CountTile(
             icon: Icons.inventory_2_outlined,
-            count: outOfStock,
-            label: 'out of stock',
+            count: shortUnits,
+            label: shortUnits == 1 ? 'unit short' : 'units short',
             onTap: () => context.goNamed('medicines'),
           ),
         ),

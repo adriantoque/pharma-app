@@ -470,7 +470,13 @@ class _LowStockAlertsView extends StatelessWidget {
               ),
             ),
             title: Text(alert.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('Threshold: ${alert.reorderLevel}'),
+            subtitle: Text(
+              // The rate sits beside the threshold so the number is
+              // checkable: "threshold 90, sells ~6.4/day" can be judged,
+              // "threshold 90" alone cannot.
+              'Threshold: ${alert.reorderLevel}'
+              '${alert.formattedUnitsPerDay == null ? '' : ' · sells ~${alert.formattedUnitsPerDay}/day'}',
+            ),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,

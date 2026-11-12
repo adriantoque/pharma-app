@@ -12,7 +12,9 @@ three-role split (admin, staff, guest). The app is two workspaces:
   orders, expiring/out-of-stock tiles, new order), **Medicine** search, and
   **Orders** (approve or reject pending orders, plus order history). Staff also
   get New Sale + cart, ML Kit OCR scanning, notifications and profile/appearance.
-- **Admin workspace** (no bottom bar): inventory, reports and user management.
+- **Admin workspace** (no bottom bar): inventory, reports, user management and
+  store settings (name, hours, low-stock threshold, expiry warning), which
+  every save into `settings/store` and the audit log.
 
 Reports read real order history and the live catalogue. Profit is an estimate
 because the price list has no cost price: it is shown as revenue times a fixed

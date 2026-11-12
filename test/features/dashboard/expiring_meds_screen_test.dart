@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
+import 'package:pharmaguide/features/admin/data/repositories/store_settings_repository.dart';
+import 'package:pharmaguide/features/admin/presentation/providers/store_settings_provider.dart';
 import 'package:pharmaguide/features/auth/presentation/providers/auth_provider.dart';
 import 'package:pharmaguide/features/dashboard/presentation/screens/expiring_meds_screen.dart';
 import 'package:pharmaguide/features/search/data/models/medicine_model.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../../helpers/fake_audit_repository.dart';
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_medicine_store.dart';
 
@@ -36,8 +39,19 @@ void main() {
     final store = FakeMedicineStore(initial: catalogue);
     final provider = MedicineProvider(auth: auth, storeFor: (_) => store);
 
+    // The screen reads its expiry window from Store settings; the defaults
+    // serve, since no test here opens the settings screen.
+    final settingsRepository = InMemoryStoreSettingsRepository();
+    final settings = StoreSettingsProvider(
+      repository: settingsRepository,
+      audit: FakeAuditRepository(),
+      auth: auth,
+    );
+
     addTearDown(() {
       provider.dispose();
+      settings.dispose();
+      settingsRepository.dispose();
       auth.dispose();
       authRepository.dispose();
       store.dispose();
@@ -48,6 +62,7 @@ void main() {
         providers: [
           ChangeNotifierProvider<AuthProvider>.value(value: auth),
           ChangeNotifierProvider<MedicineProvider>.value(value: provider),
+          ChangeNotifierProvider<StoreSettingsProvider>.value(value: settings),
         ],
         child: MaterialApp(
           theme: buildAppTheme(Brightness.light),

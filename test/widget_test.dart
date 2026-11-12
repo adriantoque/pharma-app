@@ -5,6 +5,8 @@ import 'package:pharmaguide/app.dart';
 import 'package:pharmaguide/core/navigation/app_shell.dart';
 import 'package:pharmaguide/core/theme/app_theme.dart';
 import 'package:pharmaguide/core/theme/theme_mode_provider.dart';
+import 'package:pharmaguide/features/admin/data/repositories/store_settings_repository.dart';
+import 'package:pharmaguide/features/admin/presentation/providers/store_settings_provider.dart';
 import 'package:pharmaguide/features/auth/data/models/user_model.dart';
 import 'package:pharmaguide/features/auth/data/repositories/offline_pin.dart';
 import 'package:pharmaguide/features/auth/data/repositories/offline_session.dart';
@@ -16,12 +18,17 @@ import 'package:pharmaguide/features/orders/data/repositories/order_history_repo
 import 'package:pharmaguide/features/orders/presentation/providers/order_provider.dart';
 import 'package:pharmaguide/features/search/data/repositories/medicine_repository.dart';
 import 'package:pharmaguide/features/search/presentation/providers/medicine_provider.dart';
+import 'package:pharmaguide/features/reports/data/models/expiry_alert.dart';
+import 'package:pharmaguide/features/reports/data/models/report_range.dart';
+import 'package:pharmaguide/features/reports/data/models/sales_report.dart';
+import 'package:pharmaguide/features/reports/data/models/stock_alert.dart';
 import 'package:pharmaguide/features/reports/data/repositories/reports_repository.dart';
 import 'package:pharmaguide/features/reports/data/repositories/reports_repository_impl.dart';
 import 'package:pharmaguide/features/reports/presentation/providers/reports_provider.dart';
 import 'package:pharmaguide/routing/app_router.dart';
 import 'package:provider/provider.dart';
 
+import 'helpers/fake_audit_repository.dart';
 import 'helpers/fake_auth_repository.dart';
 import 'helpers/fake_medicine_store.dart';
 
@@ -202,6 +209,37 @@ void main() {
         child: child,
       );
 
+  /// Puts the app-wide StoreSettingsProvider over the tree, as main.dart does.
+  ///
+  /// The Home dashboard reads the expiry window from it for the "expiring"
+  /// tile, so any test that reaches Home needs one. Backed by the in-memory
+  /// repository, which serves the defaults when nothing has been saved.
+  Widget settingsProvider({required Widget child}) =>
+      ChangeNotifierProvider<StoreSettingsProvider>(
+        create: (ctx) => StoreSettingsProvider(
+          repository: InMemoryStoreSettingsRepository(),
+          audit: FakeAuditRepository(),
+          auth: ctx.read<AuthProvider>(),
+        ),
+        child: child,
+      );
+
+  /// Puts the app-wide ReportsProvider over the tree, as main.dart does.
+  ///
+  /// The Home dashboard's "units short" tile reads the low-stock alerts from
+  /// it. Backed by a repository that answers empty so these routing tests
+  /// stay cheap; the tile's own behaviour is covered in
+  /// `dashboard_attention_test.dart`.
+  Widget reportsProvider({required Widget child}) =>
+      ChangeNotifierProvider<ReportsProvider>(
+        create: (ctx) => ReportsProvider(
+          repository: _EmptyReportsRepository(),
+          coverageDays: () =>
+              ctx.read<StoreSettingsProvider>().settings.reorderCoverageDays,
+        ),
+        child: child,
+      );
+
   Future<void> pumpApp(WidgetTester tester, AuthProvider auth) async {
     final router = createAppRouter(refreshListenable: auth);
     addTearDown(router.dispose);
@@ -217,9 +255,13 @@ void main() {
           child: medicineProvider(
             child: historyFactory(
               child: notificationsProvider(
-                child: MaterialApp.router(
-                  routerConfig: router,
-                  theme: buildAppTheme(Brightness.light),
+                child: settingsProvider(
+                  child: reportsProvider(
+                    child: MaterialApp.router(
+                      routerConfig: router,
+                      theme: buildAppTheme(Brightness.light),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -251,26 +293,36 @@ void main() {
           child: medicineProvider(
             child: historyFactory(
               child: notificationsProvider(
-                child: ChangeNotifierProvider<ThemeModeProvider>(
-                  // Constructed without load(): the App only needs the mode to
-                  // read as light, and load() would reach the SharedPreferences
-                  // plugin, which is not available in a widget test.
-                  create: (_) => ThemeModeProvider(),
-                  child: Provider<ReportsRepository>(
-                    create: (ctx) => ReportsRepositoryImpl(
-                      medicineProvider: ctx.read<MedicineProvider>(),
-                      historyFactory: () =>
-                          ctx.read<OrderHistoryRepositoryFactory>()(
-                            ctx.read<AuthProvider>().user?.id ?? '',
-                          ),
-                    ),
-                    child: ChangeNotifierProvider<ReportsProvider>(
-                      create: (ctx) => ReportsProvider(
-                        repository: ctx.read<ReportsRepository>(),
+                child: settingsProvider(
+                  child: ChangeNotifierProvider<ThemeModeProvider>(
+                    // Constructed without load(): the App only needs the mode to
+                    // read as light, and load() would reach the SharedPreferences
+                    // plugin, which is not available in a widget test.
+                    create: (_) => ThemeModeProvider(),
+                    child: Provider<ReportsRepository>(
+                      create: (ctx) => ReportsRepositoryImpl(
+                        medicineProvider: ctx.read<MedicineProvider>(),
+                        historyFactory: () =>
+                            ctx.read<OrderHistoryRepositoryFactory>()(
+                              ctx.read<AuthProvider>().user?.id ?? '',
+                            ),
+                        // No bundled seed in this harness: parsing 2000 asset
+                        // lines per test buys nothing the routing assertions
+                        // use, and a null answer simply floors the targets.
+                        salesLoader: () async => null,
                       ),
-                      child: Provider<GoRouter>.value(
-                        value: router,
-                        child: const App(),
+                      child: ChangeNotifierProvider<ReportsProvider>(
+                        create: (ctx) => ReportsProvider(
+                          repository: ctx.read<ReportsRepository>(),
+                          coverageDays: () => ctx
+                              .read<StoreSettingsProvider>()
+                              .settings
+                              .reorderCoverageDays,
+                        ),
+                        child: Provider<GoRouter>.value(
+                          value: router,
+                          child: const App(),
+                        ),
                       ),
                     ),
                   ),
@@ -797,4 +849,35 @@ testWidgets('a home action opens a child page and back returns home', (
       expect(repository.loginAttempts, 0);
     });
   });
+}
+
+/// A [ReportsRepository] that answers empty, for the routing tests' harness.
+///
+/// The Home dashboard reads `lowStockAlerts` from the ReportsProvider for its
+/// "units short" tile, so the provider has to exist above the router -- but
+/// these tests assert routing and chrome, not figures, and an empty answer
+/// keeps them from parsing the sales seed or walking a catalogue.
+class _EmptyReportsRepository implements ReportsRepository {
+  @override
+  Future<SalesReport> getSalesReport(ReportRange range) async => SalesReport(
+        range: range,
+        generatedAt: DateTime.now(),
+        dailySales: const [],
+        topSellers: const [],
+        categorySales: const [],
+        totalRevenue: 0,
+        totalOrders: 0,
+        totalItems: 0,
+        profitMargin: 0.22,
+      );
+
+  @override
+  Future<List<StockAlert>> getLowStockAlerts({
+    int coverageDays = 14,
+  }) async =>
+      const [];
+
+  @override
+  Future<List<ExpiryAlert>> getExpiryAlerts({int withinDays = 90}) async =>
+      const [];
 }

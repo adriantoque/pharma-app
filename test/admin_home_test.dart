@@ -26,7 +26,10 @@ class _FakeReportsRepository implements ReportsRepository {
       salesReport ?? _emptyReport(range);
 
   @override
-  Future<List<StockAlert>> getLowStockAlerts() async => lowStockAlerts;
+  Future<List<StockAlert>> getLowStockAlerts({
+    int coverageDays = 14,
+  }) async =>
+      lowStockAlerts;
 
   @override
   Future<List<ExpiryAlert>> getExpiryAlerts({int withinDays = 90}) async =>

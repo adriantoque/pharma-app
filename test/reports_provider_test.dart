@@ -27,6 +27,10 @@ class FakeReportsRepository implements ReportsRepository {
   Object? getLowStockAlertsError;
   Object? getExpiryAlertsError;
 
+  /// The coverage window the last [getLowStockAlerts] call asked for, for
+  /// asserting the provider forwards the settings value.
+  int? lastCoverageDays;
+
   @override
   Future<SalesReport> getSalesReport(ReportRange range) async {
     if (getSalesReportError != null) {
@@ -36,7 +40,10 @@ class FakeReportsRepository implements ReportsRepository {
   }
 
   @override
-  Future<List<StockAlert>> getLowStockAlerts() async {
+  Future<List<StockAlert>> getLowStockAlerts({
+    int coverageDays = 14,
+  }) async {
+    lastCoverageDays = coverageDays;
     if (getLowStockAlertsError != null) {
       throw getLowStockAlertsError!;
     }

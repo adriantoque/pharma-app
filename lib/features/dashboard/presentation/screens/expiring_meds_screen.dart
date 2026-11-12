@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/widgets/show_csv_export_dialog.dart';
+import '../../../admin/presentation/providers/store_settings_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../widgets/expiry_sheet.dart';
@@ -56,9 +57,14 @@ class ExpiringMedsScreen extends StatelessWidget {
 
     final expired = dated.where((medicine) => medicine.isExpired).toList();
 
-    // The window the middle section covers, in days. Three months is a typical
-    // reorder horizon and is short enough that the list stays something to read.
-    const soonDays = 90;
+    // The window the middle section covers, in days. Read from Store
+    // settings, with the same default the setting's picker shows as first
+    // choice: an admin who never opens the settings screen sees what they
+    // always saw. Watched, so a change on the settings screen moves this
+    // list on the next visit without a restart.
+    final soonDays = context.watch<StoreSettingsProvider>()
+        .settings
+        .expiryWarningDays;
     final soon = <MedicineModel>[];
     final later = <MedicineModel>[];
     for (final medicine in dated) {

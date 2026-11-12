@@ -308,10 +308,151 @@ void main() {
     });
   });
 
-  // TODO: Rewrite widget tests for the new ReportsScreen architecture.
-  // The new screen uses ReportsRepository (different from SalesRepository)
-  // and requires a MedicineProvider. These tests need a proper fake
-  // ReportsRepository that returns realistic SalesReport data.
-  // For now, the SalesRepository unit tests above provide coverage of
-  // the core report arithmetic.
+  // Widget tests for the ReportsScreen - these test the screen's UI
+  /// with realistic data rather than just the SalesRepository unit tests above.
+  group('widget', () {
+    late FakeReportsRepository fakeRepo;
+    late ReportsProvider provider;
+
+    setUp(() {
+      fakeRepo = FakeReportsRepository();
+      provider = ReportsProvider(
+        repository: fakeRepo,
+        coverageDays: () => 14,
+      );
+    });
+
+    tearDown(() {
+      provider.dispose();
+    });
+
+    testWidgets('renders sales summary tab with data', (tester) async {
+      // Arrange: seed the fake repo with test data
+      fakeRepo.salesReport = SalesReport(
+        range: ReportRange.week,
+        generatedAt: DateTime.now(),
+        dailySales: const [
+          DailySales(date: DateTime(2025, 8, 3), amount: 5000),
+          DailySales(date: DateTime(2025, 8, 2), amount: 3000),
+        ],
+        topSellers: const [
+          TopSeller(name: 'Amox', quantity: 7, unit: 'units', revenue: 7000),
+        ],
+        categorySales: const [
+          CategorySales(category: 'Antibiotics', percentage: 70, revenue: 7000),
+        ],
+        totalRevenue: 7000,
+        totalOrders: 1,
+        totalItems: 7,
+        profitMargin: 0.22,
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ReportsProvider>.value(
+          value: provider,
+          child: const ReportsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Assert: sales summary metrics should be present
+      expect(find.text('Total Sales'), findsOneWidget);
+      expect(find.text('₱7,000.00'), findsOneWidget);
+      expect(find.text('Orders'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+    });
+
+    testWidgets('renders low stock alerts tab', (tester) async {
+      fakeRepo.lowStockAlerts = const [
+        StockAlert(
+          name: 'Amox',
+          currentStock: 0,
+          reorderLevel: 90,
+          category: 'Antibiotics',
+          unitsPerDay: 5.0,
+          coverageDays: 14,
+          isStockUncounted: false,
+        ),
+      ];
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ReportsProvider>.value(
+          value: provider,
+          child: const ReportsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Should show out of stock item
+      expect(find.text('Out of Stock'), findsOneWidget);
+      expect(find.text('Amox'), findsOneWidget);
+    });
+
+    testWidgets('renders expiry alerts tab', (tester) async {
+      fakeRepo.expiryAlerts = const [
+        ExpiryAlert(
+          name: 'Amox',
+          expiryDate: DateTime(2025, 8, 15),
+          quantity: 10,
+          category: 'Antibiotics',
+        ),
+      ];
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ReportsProvider>.value(
+          value: provider,
+          child: const ReportsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Should show expiry item
+      expect(find.text('Expired'), findsOneWidget);
+      expect(find.text('Amox'), findsOneWidget);
+    });
+
+    testWidgets('shows loading indicator initially', (tester) async {
+      // No seed data: provider will trigger loading state
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ReportsProvider>.value(
+          value: provider,
+          child: const ReportsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Loading indicator should be visible initially
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+    });
+
+    testWidgets('shows error state when repository fails', (tester) async {
+      // Make the sales report load fail
+      fakeRepo.shouldError = true;
+      await tester.pumpWidget(
+        ChangeNotifierProvider<ReportsProvider>.value(
+          value: provider,
+          child: const ReportsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Error state should be visible
+      expect(find.text('Failed to load'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+    });
+  });
+
+  /// A fake [ReportsRepository] for widget tests.
+  class FakeReportsRepository implements ReportsRepository {
+    var shouldError = false;
+    SalesReport? salesReport;
+    List<StockAlert> lowStockAlerts = [];
+    List<ExpiryAlert> expiryAlerts = [];
+n    @override
+    Future<SalesReport> getSalesReport(ReportRange range) async {
+      if (shouldError) throw Exception('Test error');
+      return salesReport ?!
+        ..range = range
+        ..generatedAt = DateTime.now();
+    }
+n    @override
+    Future<List<StockAlert>> getLowStockAlerts({
+      int coverageDays = 14,
+    }) async => lowStockAlerts;
+
+    @override
+    Future<List<ExpiryAlert>> getExpiryAlerts({int withinDays = 90}) async => expiryAlerts;
+  }
 }

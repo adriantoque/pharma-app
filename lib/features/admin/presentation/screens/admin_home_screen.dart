@@ -347,7 +347,10 @@ class _LowStockSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LowStockWidget(lowStockAlerts: reports.lowStockAlerts);
+    return LowStockWidget(
+      lowStockAlerts: reports.lowStockAlerts,
+      onManageStock: () => context.pushNamed('admin-inventory'),
+    );
   }
 }
 
@@ -374,7 +377,6 @@ class _QuickActions extends StatelessWidget {
           icon: Icons.storefront_outlined,
           title: 'Store settings',
           subtitle: 'Name, hours, low-stock threshold',
-          comingSoon: true,
           onTap: () => context.go('/admin/store-settings'),
         ),
         const SizedBox(height: 12),
@@ -397,31 +399,26 @@ class _QuickActions extends StatelessWidget {
 }
 
 /// One destination row.
-/// Has a "coming soon" state: the tile visuals indicate completion status
-/// while the tap always runs.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.comingSoon = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isMuted = comingSoon;
 
     return Card(
-      elevation: isMuted ? 0 : 2,
+      elevation: 2,
       margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
       clipBehavior: Clip.antiAlias,
@@ -436,17 +433,10 @@ class _ActionTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isMuted
-                      ? scheme.surfaceContainerHighest
-                      : scheme.secondaryContainer,
+                  color: scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: isMuted
-                      ? scheme.onSurfaceVariant
-                      : scheme.onSecondaryContainer,
-                ),
+                child: Icon(icon, color: scheme.onSecondaryContainer),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -454,41 +444,11 @@ class _ActionTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: isMuted
-                                  ? scheme.onSurfaceVariant
-                                  : null,
-                              fontWeight: isMuted
-                                  ? FontWeight.normal
-                                  : FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (isMuted) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              'Soon',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -501,11 +461,7 @@ class _ActionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              if (!isMuted)
-                Icon(
-                  Icons.chevron_right,
-                  color: scheme.outline,
-                ),
+              Icon(Icons.chevron_right, color: scheme.outline),
             ],
           ),
         ),

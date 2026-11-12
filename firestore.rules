@@ -18,6 +18,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // The profile document: `users/{uid}`. Firebase Auth answers who an account
+    // is; this document is what says what it may do. The app reads it on every
+    // sign-in to learn the role, and writes it during signup.
+    //
+    // Without this block the catch-all at the bottom denies the document, and
+    // every consequence is silent: the sign-in falls back to `staff`, so an
+    // administrator never reaches the admin shell; the `active` flag cannot be
+    // read, so a deactivated account is never signed back out; and signup
+    // creates the Auth account and then fails on the profile write, leaving an
+    // address that is taken but has no profile.
+    //
+    // Read is open to any signed-in account rather than owner-only. The admin
+    // Users screen lists every profile, and an owner-or-admin rule cannot be
+    // used for a list query: a `get()` in a rule is capped at ten document
+    // lookups per request, so a collection read of more than ten accounts would
+    // fail outright. A profile carries a name, an email and a role -- the same
+    // things colleagues already know about each other -- and nothing else.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+
+      // Signup writes its own profile, and may only pick a non-admin role:
+      // otherwise the first thing a new account would do is promote itself. An
+      // administrator creating an account for somebody else may assign any role.
+      allow create: if (isOwner(userId) && validSelfProfile())
+        || (isAdmin() && validProfile());
+
+      // The owner may maintain their own name and email but not their role or
+      // the active flag. Those two fields decide what the account can do, and
+      // an account editing its own copy of them is privilege escalation.
+      allow update: if (isOwner(userId)
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.active == resource.data.active)
+        || isAdmin();
+
+      allow delete: if isAdmin();
+    }
+
     // The price list. Identified by a hash of the name and price rather than an
     // auto id, so re-importing the spreadsheet updates the existing lines and
     // leaves the stock counts in place.
@@ -58,6 +95,34 @@ service cloud.firestore {
       allow read, write: if isOwner(userId) && validSale();
     }
 
+    // The append-only administrator log: `audit`. Read by the Activity screen
+    // and the dashboard's recent-activity list, written by the user-management
+    // actions.
+    //
+    // Read is open to signed-in accounts for the same reason profiles are: the
+    // screen streams up to 500 entries, and an admin-only rule would have to
+    // `get()` the reader's profile once per document read, past the ten-lookup
+    // cap. Creates are still administrator-only, and an entry is never edited
+    // or deleted, which is what makes the log worth reading.
+    match /audit/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && validAuditEvent();
+      allow update, delete: if false;
+    }
+
+    // The store's own settings: `settings/store`, one singleton document.
+    // Read by any signed-in account, because the staff-side screens read the
+    // expiry window and the low-stock threshold out of it; written only by an
+    // administrator, because the only editor is the admin workspace's Store
+    // settings screen. The document carries no personal data and no prices,
+    // so "signed-in may read" costs nothing an outsider does not already see
+    // on the shelf.
+    match /settings/{settingId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && validStoreSettings();
+      allow delete: if false;
+    }
+
     // Everything else is closed. A document placed outside users/{uid} by
     // mistake is unreadable rather than quietly public.
     match /{document=**} {
@@ -65,8 +130,88 @@ service cloud.firestore {
     }
   }
 
+  // The shape of `settings/store`. Every field is bounded, because these are
+  // the numbers the app's alert rules are computed from: a threshold typed as
+  // a negative number would call every uncounted line low, and a window of
+  // a million days would make the expiry list a lifetime commitment.
+  function validStoreSettings() {
+    let data = request.resource.data;
+    return data.keys().hasAll(
+        ['name', 'openMinutes', 'closeMinutes', 'lowStockThreshold',
+         'expiryWarningDays'])
+      && data.name is string
+      && data.name.size() <= 80
+      && (!data.keys().hasAny(['address']) || data.address is string)
+      && (!data.keys().hasAny(['phone']) || data.phone is string)
+      && data.openMinutes is int
+      && data.openMinutes >= 0
+      && data.openMinutes < 1440
+      && data.closeMinutes is int
+      && data.closeMinutes >= 0
+      && data.closeMinutes < 1440
+      && data.lowStockThreshold is int
+      && data.lowStockThreshold >= 1
+      && data.lowStockThreshold <= 99
+      && data.expiryWarningDays is int
+      && data.expiryWarningDays in [30, 60, 90]
+      && data.reorderCoverageDays is int
+      && data.reorderCoverageDays in [7, 14, 30]
+      && (!data.keys().hasAny(['updatedBy']) || data.updatedBy is string);
+  }
+
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
   function isOwner(userId) {
     return request.auth != null && request.auth.uid == userId;
+  }
+
+  // Whether the caller's own profile says `admin`.
+  //
+  // One document read, so it belongs on single-document writes only -- never on
+  // a query, where the ten-lookup cap turns it into a rejection.
+  //
+  // The database segment is written out as `(default)` rather than
+  // `$(database)`: interpolating the match wildcard resolves to null here, so
+  // every lookup came back empty and every admin action was denied. `exists()`
+  // guards the missing-profile case, and `data.get` guards a document written
+  // before the role field did -- reading either directly turns a denial into a
+  // rule error.
+  function isAdmin() {
+    return isSignedIn()
+      && exists(/databases/(default)/documents/users/$(request.auth.uid))
+      && get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
+  }
+
+  // A profile the account wrote for itself: no role above staff, and active.
+  function validSelfProfile() {
+    return validProfile()
+      && request.resource.data.role in ['staff', 'guest']
+      && request.resource.data.active == true;
+  }
+
+  // The shape of `users/{uid}`. Extra keys are allowed -- `createdAt` and
+  // `updatedAt` are stamped by the writer -- but these four are required.
+  function validProfile() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['displayName', 'email', 'role', 'active'])
+      && data.displayName is string
+      && data.displayName.size() <= 80
+      && data.email is string
+      && data.email.size() <= 120
+      && data.role in ['admin', 'staff', 'guest']
+      && data.active is bool;
+  }
+
+  // One line the Activity screen can render, written by the account it names.
+  function validAuditEvent() {
+    let data = request.resource.data;
+    return data.keys().hasAll(['action', 'actorUid', 'actorName', 'summary'])
+      && data.action is string
+      && data.actorUid == request.auth.uid
+      && data.summary is string
+      && data.summary.size() <= 200;
   }
 
   // A price-list line, checked field by field.
@@ -139,29 +284,23 @@ service cloud.firestore {
     return status in ['new', 'approved', 'rejected'];
   }
 
-  // A basket as stored: the medicine's identity and how many, never its stock.
+  // A basket as stored: a bounded list of lines.
   //
-  // `OrderLineCodec` writes exactly these three fields and reads the count back
-  // as uncounted, so requiring anything more here would reject a legal basket.
-  // The quantity is an int rather than a number, unlike [validSale]: a counter
-  // order is a whole number of items, and the half-tablet lines are the bulk
-  // workbook's own shape rather than something this app writes.
+  // The per-line field checks are deliberately absent, and not by preference:
+  // security rules cannot iterate a list. `lines.all(line, ...)` is not a rules
+  // function at all -- it compiles with a warning and then fails at evaluation
+  // with "Function not found: [all]", which turns every order and draft write
+  // into a permission denial. What is left is the part a rule can actually
+  // enforce: that `lines` is a list of at most 100 entries, so a document cannot
+  // grow without bound.
+  //
+  // The shape of each line is the client codec's business. `OrderLineCodec`
+  // writes exactly name, priceCentavos and quantity, and these documents are
+  // owner-scoped: an account that writes a malformed line corrupts its own
+  // order history and nobody else's.
   function validOrderLines(lines) {
     return lines is list
-      && lines.size() <= 100
-      && lines.all(line, validOrderLine(line));
-  }
-
-  function validOrderLine(line) {
-    return line is map
-      && line.keys().hasAll(['name', 'priceCentavos', 'quantity'])
-      && line.name is string
-      && line.name.size() > 0
-      && line.name.size() <= 60
-      && line.priceCentavos is int
-      && line.priceCentavos >= 0
-      && line.quantity is int
-      && line.quantity >= 1;
+      && lines.size() <= 100;
   }
 
   // A sale line. The quantity is a number rather than an int because the

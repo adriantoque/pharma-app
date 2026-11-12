@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../admin/data/models/store_settings_model.dart';
 import '../../data/models/report_range.dart';
 import '../../data/models/sales_report.dart';
 import '../../data/models/stock_alert.dart';
@@ -19,8 +20,12 @@ enum ReportSource {
 
 /// Provider for the Reports screen state.
 class ReportsProvider extends ChangeNotifier {
-  ReportsProvider({required this.repository})
-      : _range = ReportRange.week,
+  ReportsProvider({required this.repository, int Function()? coverageDays})
+      : // A named parameter cannot be private, so `this._coverageDays` is not
+        // available. The same ignore comment the other providers carry.
+        // ignore: prefer_initializing_formals
+        _coverageDays = coverageDays,
+        _range = ReportRange.week,
         _currentTab = ReportTab.sales;
 
   /// Where the figures come from.
@@ -29,8 +34,21 @@ class ReportsProvider extends ChangeNotifier {
   /// field behind a public parameter cannot be an initializing formal.
   final ReportsRepository repository;
 
-  ReportRange _range = ReportRange.week;
-  ReportTab _currentTab = ReportTab.sales;
+  /// The demand window a reorder target covers, read at load time.
+  ///
+  /// A function rather than a fixed value so a settings change is picked up
+  /// on the next load without rebuilding this provider -- the closure reads
+  /// the live StoreSettingsProvider.
+  final int Function()? _coverageDays;
+
+  /// The coverage window the current [lowStockAlerts] were loaded against,
+  /// null before the first load. [ensureLowStockLoaded] compares against it
+  /// so a settings change is picked up on the next visit rather than living
+  /// with targets sized for an old window.
+  int? _loadedCoverageDays;
+
+  ReportRange _range;
+  ReportTab _currentTab;
 
   SalesReport? _salesReport;
   List<StockAlert> _lowStockAlerts = [];
@@ -40,6 +58,7 @@ class ReportsProvider extends ChangeNotifier {
   bool _isStockLoading = false;
   bool _isExpiryLoading = false;
   bool _hasLoadedOnce = false;
+  bool _stockLoaded = false;
 
   String? _salesError;
   String? _stockError;
@@ -73,6 +92,25 @@ class ReportsProvider extends ChangeNotifier {
   Future<void> initialize() async {
     await _loadAll();
   }
+
+  /// Loads the low-stock alerts if they are stale, and does nothing if not.
+  ///
+  /// For readers who only need this one slice -- the staff dashboard's
+  /// "units short" tile -- so a Home visit does not also build the sales
+  /// report and the expiry list. "Stale" means never loaded, still loading,
+  /// or loaded against a different coverage window than the settings now
+  /// ask for: the third case is what makes a settings change reach the tile
+  /// on the next visit instead of showing targets sized for the old window.
+  Future<void> ensureLowStockLoaded() async {
+    final coverage = _currentCoverageDays;
+    if (_isStockLoading || (_stockLoaded && _loadedCoverageDays == coverage)) {
+      return;
+    }
+    await _run(ReportSource.stock, _loadLowStockAlerts);
+  }
+
+  int get _currentCoverageDays =>
+      _coverageDays?.call() ?? StoreSettingsModel.defaultReorderCoverageDays;
 
   /// Changes the date range and reloads sales data.
   Future<void> setRange(ReportRange range) async {
@@ -178,7 +216,11 @@ class ReportsProvider extends ChangeNotifier {
   }
 
   Future<void> _loadLowStockAlerts() async {
-    _lowStockAlerts = await repository.getLowStockAlerts();
+    _lowStockAlerts = await repository.getLowStockAlerts(
+      coverageDays: _currentCoverageDays,
+    );
+    _loadedCoverageDays = _currentCoverageDays;
+    _stockLoaded = true;
   }
 
   Future<void> _loadExpiryAlerts() async {

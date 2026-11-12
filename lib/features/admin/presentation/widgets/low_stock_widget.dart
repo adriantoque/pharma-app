@@ -5,14 +5,24 @@ import '../../../reports/data/models/stock_alert.dart';
 /// A widget displaying low stock alerts for the admin dashboard.
 ///
 /// Shows items that are below their reorder level, with critical items
-/// highlighted at the top of the list.
+/// highlighted at the top of the list. The reorder level is a computed
+/// target -- coverage days of demand at the item's selling rate, floored at
+/// the store's low-stock threshold -- so the deficit badge answers "how many
+/// units do I need to cover the window", not "how far below a made-up
+/// constant".
 class LowStockWidget extends StatelessWidget {
   const LowStockWidget({
     required this.lowStockAlerts,
+    this.onManageStock,
     super.key,
   });
 
   final List<StockAlert> lowStockAlerts;
+
+  /// Where "Manage Stock" leads, typically the inventory screen. The button
+  /// does not render without one: a button whose tap does nothing reads as a
+  /// failure, and this widget should not invent a route.
+  final VoidCallback? onManageStock;
 
   /// Builds the list tile for a single stock alert.
   Widget _buildAlertTile(BuildContext context, StockAlert alert) {
@@ -34,7 +44,13 @@ class LowStockWidget extends StatelessWidget {
           ),
           child: Center(
             child: Text(
-              alert.currentStock >= 10 ? alert.currentStock.toString() : '<10',
+              // An uncounted line has no count to show, and showing 0 would
+              // state a fact nobody measured.
+              alert.isStockUncounted
+                  ? '?'
+                  : alert.currentStock >= 10
+                      ? alert.currentStock.toString()
+                      : '<10',
               style: TextStyle(
                 color: isCritical ? scheme.onErrorContainer : scheme.onSecondaryContainer,
                 fontWeight: FontWeight.bold,
@@ -58,15 +74,34 @@ class LowStockWidget extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Stock: ${alert.currentStock}',
+              alert.isStockUncounted
+                  ? 'Stock: not counted'
+                  : 'Stock: ${alert.currentStock}',
               style: TextStyle(
                 color: scheme.onSurfaceVariant,
                 fontSize: 10,
               ),
             ),
+            // The observed rate, when velocity was behind this target: it is
+            // what makes the reorder number checkable against the counter's
+            // own sense of how fast the item moves.
+            if (alert.formattedUnitsPerDay != null) ...[
+              const SizedBox(width: 4),
+              Text(
+                '~${alert.formattedUnitsPerDay}/day',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 10,
+                ),
+              ),
+            ],
             const SizedBox(width: 4),
             Tooltip(
-              message: 'Below reorder level by ${alert.deficit} units',
+              message: alert.coverageDays == null
+                  ? 'Below reorder level by ${alert.deficit} units'
+                  : 'Sells about ${alert.formattedUnitsPerDay}/day; '
+                      'reorder ${alert.deficit} units to cover '
+                      '${alert.coverageDays} days',
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -162,15 +197,15 @@ class LowStockWidget extends StatelessWidget {
                   _buildAlertTile(context, sortedAlerts[index]),
             ),
 
-            // Action button if there are critical items
-            if (sortedAlerts.any((alert) => alert.isCritical))
+            // Action button if there are critical items and somewhere to
+            // send the admin: previously a no-op stub, which read as a
+            // broken button every time the list had a critical row.
+            if (sortedAlerts.any((alert) => alert.isCritical) &&
+                onManageStock != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Navigate to inventory or reorder screen
-                    // In a full implementation
-                  },
+                  onPressed: onManageStock,
                   icon: const Icon(Icons.shopping_basket),
                   label: const Text('Manage Stock'),
                   style: ElevatedButton.styleFrom(

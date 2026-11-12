@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../domain/auth_exception.dart';
@@ -183,8 +182,6 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<UserModel> _enrich(User user) async {
     try {
       final doc = await _firestore.collection('users').doc(user.uid).get();
-      debugPrint('[AUTH] doc.exists=${doc.exists} uid=${user.uid}');
-      debugPrint('[AUTH] data=${doc.data()}');
 
       final model = UserModel.fromFirestore(
         uid: user.uid,
@@ -192,12 +189,11 @@ class FirebaseAuthRepository implements AuthRepository {
         fallbackName: user.displayName,
         fallbackEmail: user.email,
       );
-      debugPrint('[AUTH] resolved role=${model.role.name} active=${model.active}');
       _roleCache[user.uid] = model.role;
       return model;
-    } catch (e, s) {
-      debugPrint('[AUTH] _enrich FAILED: $e');
-      debugPrint('[AUTH] stack: $s');
+    } catch (_) {
+      // Deliberately quiet: this fallback is a downgrade to the cached role,
+      // not an error worth logging a profile document into in a release build.
       final cached = _roleCache[user.uid];
       return UserModel(
         id: user.uid,

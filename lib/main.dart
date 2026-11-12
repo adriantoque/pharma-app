@@ -21,6 +21,7 @@ import 'features/auth/data/repositories/offline_session.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/admin/data/repositories/audit_repository.dart';
 import 'features/admin/data/repositories/user_repository.dart';
+import 'features/admin/data/repositories/store_settings_repository.dart';
 import 'features/orders/data/repositories/local_order_draft_store.dart';
 import 'features/orders/data/repositories/local_order_history_repository.dart';
 import 'features/orders/data/repositories/order_draft_store.dart';
@@ -40,6 +41,7 @@ import 'features/dashboard/presentation/providers/notification_provider.dart';
 import 'features/dashboard/presentation/providers/notification_repository.dart';
 import 'features/finder/presentation/providers/feature_search_provider.dart';
 import 'features/symptom_guide/presentation/providers/symptom_search_provider.dart';
+import 'features/admin/presentation/providers/store_settings_provider.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -191,6 +193,25 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
             pinStore: ctx.read<OfflinePinStore>(),
           ),
         ),
+        // The pharmacy's own settings (`settings/store`): name, hours, and
+        // the two rules the alerts are built on. Above the router, so the
+        // Expiring Meds screen and the dashboard read the same instance the
+        // admin edits, and one subscription serves the whole app -- the
+        // document is a singleton, so per-screen listeners would only multiply
+        // traffic. Built after AuthProvider because every save logs who
+        // performed it.
+        Provider<StoreSettingsRepository>(
+          create: (ctx) => FirestoreStoreSettingsRepository(
+            firestore: ctx.read<FirebaseFirestore>(),
+          ),
+        ),
+        ChangeNotifierProvider<StoreSettingsProvider>(
+          create: (ctx) => StoreSettingsProvider(
+            repository: ctx.read<StoreSettingsRepository>(),
+            audit: ctx.read<AuditRepository>(),
+            auth: ctx.read<AuthProvider>(),
+          ),
+        ),
         // Above the router, so the price list outlives a tab switch. Built from a
         // factory because the store is scoped to a user id, and signing in as
         // Shared medicine catalogue for all pharmacy staff (admin + staff).
@@ -296,9 +317,17 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
           ),
         ),
         ChangeNotifierProvider<ReportsProvider>(
-          create: (ctx) => ReportsProvider(
-            repository: ctx.read<ReportsRepository>(),
-          ),
+          create: (ctx) {
+            // The coverage window a reorder target covers is a Store
+            // settings value, read live at load time: the closure returns
+            // the setting as it is when a load happens, so an admin changing
+            // the window moves the targets without rebuilding this provider.
+            final settings = ctx.read<StoreSettingsProvider>();
+            return ReportsProvider(
+              repository: ctx.read<ReportsRepository>(),
+              coverageDays: () => settings.settings.reorderCoverageDays,
+            );
+          },
         ),
         Provider<NotificationRepository>(
           create: (_) => InMemoryNotificationRepository(),

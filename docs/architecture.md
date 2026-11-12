@@ -429,6 +429,23 @@ read, since a basket line is a price quote rather than a shelf claim.
 
 `orderId` is `DateTime.now().millisecondsSinceEpoch.toString()`.
 
+**`settings/store`** — the store's own settings, one singleton document
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | the store's name; blank until the admin fills it in |
+| `address`, `phone` | string or null | optional contact fields |
+| `openMinutes`, `closeMinutes` | int | minutes from midnight; validated `close > open` |
+| `lowStockThreshold` | int | 1–99; read into `MedicineModel.lowStockThreshold` on every snapshot |
+| `expiryWarningDays` | int | 30, 60 or 90; drives the Expiring Meds window |
+| `updatedBy` | string | display only — the audit log is the real record |
+| `updatedAt` | `serverTimestamp` | stamped by the repository, never by the model |
+
+Admin-only write, signed-in read (rules `validStoreSettings()`). The default is
+what the app did before the setting existed — threshold 5, expiry window 90 —
+so a store that never opens the settings screen sees no change. Every save
+writes an `AuditAction.settingsUpdated` entry with a before/after field diff.
+
 ### Bundled and local storage
 
 | Where | Key | Contents |
@@ -585,12 +602,16 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 
 ## 8. Tests
 
-27 test files under `test/`, plus six shared fakes in `test/helpers/`.
+37 test files under `test/`, plus six shared fakes in `test/helpers/`.
 
 | File | Covers |
 |---|---|
 | `widget_test.dart` | auth provider units, routing, app bar titles, login sheet |
 | `features/admin/activity_log_screen_test.dart` | the full activity log: entries, category filter, empty state |
+| `features/admin/admin_home_test.dart` | the admin dashboard: summary cards, quick actions, activity preview |
+| `store_settings_model_test.dart` | mapping, defaults, validation, equality, clock formatting |
+| `store_settings_repository_test.dart` | Firestore and in-memory stores: null-then-value, singleton path, server stamp |
+| `store_settings_screen_test.dart` | rows, edit sheets, dirty state, save-and-audit, refusal paths |
 | `features/profile/about_screen_test.dart` | the About screen's name and licence affordance |
 | `features/dashboard/expiring_meds_screen_test.dart` | the CSV export of the dated list, and its absence when empty |
 | `features/finder/feature_catalogue_test.dart` | feature ids, route paths and icon keys |

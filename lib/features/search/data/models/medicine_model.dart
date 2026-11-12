@@ -171,9 +171,18 @@ class MedicineModel {
 
   /// At or below this, an item is called out as running low.
   ///
-  /// Lives on the model rather than in a widget so the search list, the quantity
-  /// sheet and anything built later cannot disagree about what "low" means.
-  static const int lowStockThreshold = 5;
+  /// Lives on the model rather than in a widget so the search list, the
+  /// quantity sheet and anything built later cannot disagree about what "low"
+  /// means.
+  ///
+  /// Read by Store settings: the StoreSettingsProvider keeps this in step
+  /// with the threshold the admin saved, so changing the setting re-colours
+  /// every row without each reader being wired to a provider. A mutable
+  /// static rather than a field on every instance because [stockState] is a
+  /// getter the whole catalogue shares -- handing 490 lines a copy of one
+  /// shared rule invites drift.
+  static const int defaultLowStockThreshold = 5;
+  static int lowStockThreshold = defaultLowStockThreshold;
 
   /// Nothing on the shelf, so the item cannot be put in an order at all.
   ///
@@ -235,12 +244,17 @@ class MedicineModel {
   ///
   /// The single place the count is turned into a state, so [stockLine] and any
   /// caller sorting or filtering cannot disagree about what "low" means.
-  StockState get stockState => switch (stock) {
-    null => StockState.unknown,
-    0 => StockState.outOfStock,
-    <= lowStockThreshold => StockState.low,
-    _ => StockState.available,
-  };
+  ///
+  /// An if-chain rather than a switch: the low-stock threshold is settable
+  /// from Store settings, and a relational pattern's operand has to be a
+  /// compile-time constant, which a setting is not.
+  StockState get stockState {
+    final count = stock;
+    if (count == null) return StockState.unknown;
+    if (count == 0) return StockState.outOfStock;
+    if (count <= lowStockThreshold) return StockState.low;
+    return StockState.available;
+  }
 
   /// `₱4.00`. Built from integer arithmetic instead of dividing a double, so
   /// there is no floating-point rounding to reason about.

@@ -1,26 +1,56 @@
 import 'dart:async';
 
+import '../../../admin/data/models/store_settings_model.dart';
 import '../../../orders/data/models/order_history_model.dart';
 import '../../../orders/data/repositories/order_history_repository.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../search/data/models/medicine_model.dart';
+import '../../domain/reorder_velocity.dart';
 import '../models/report_range.dart';
 import '../models/sales_report.dart';
 import '../models/stock_alert.dart';
 import '../models/expiry_alert.dart';
 import 'reports_repository.dart';
+import 'sales_repository.dart';
 
 /// Implementation of [ReportsRepository] using existing providers.
 class ReportsRepositoryImpl implements ReportsRepository {
   ReportsRepositoryImpl({
     required this.medicineProvider,
     required this.historyFactory,
-  });
+    Future<SalesRepository?> Function()? salesLoader,
+  }) : salesLoader = salesLoader ?? loadBundledSales;
 
   /// Public so the parameter and the field can be the same name; a private
   /// field behind a public parameter cannot be an initializing formal.
   final MedicineProvider medicineProvider;
   final OrderHistoryRepository Function() historyFactory;
+
+  /// Produces the bundled sales history the velocity falls back on, or null
+  /// when there is none. Injectable so tests can hand over a tiny fixed
+  /// history instead of the 2000-line asset, and so a test can assert what
+  /// happens when the seed is missing entirely.
+  final Future<SalesRepository?> Function() salesLoader;
+
+  /// The bundled sales history, loaded once per process.
+  ///
+  /// Static rather than per-instance: the seed never changes at runtime, and
+  /// the app builds this repository above the router where a second instance
+  /// would otherwise pay the asset parse again.
+  static SalesRepository? _bundledCache;
+
+  static Future<SalesRepository?> loadBundledSales() async {
+    final cached = _bundledCache;
+    if (cached != null) return cached;
+    try {
+      _bundledCache = await SalesRepository.load();
+    } catch (_) {
+      // A missing or unreadable seed is not a broken screen: the reorder
+      // targets fall back to the threshold floor and the alerts still list.
+      _bundledCache = null;
+    }
+    return _bundledCache;
+  }
 
   /// Margin assumed when reporting profit.
   ///
@@ -75,34 +105,64 @@ class ReportsRepositoryImpl implements ReportsRepository {
   }
 
   @override
-  Future<List<StockAlert>> getLowStockAlerts() async {
+  Future<List<StockAlert>> getLowStockAlerts({
+    int coverageDays = StoreSettingsModel.defaultReorderCoverageDays,
+  }) async {
     final medicines = medicineProvider.all();
+
+    // Two velocity sources, live preferred. The history read uses the same
+    // per-user factory the sales report does, so the rate an item's target is
+    // built from is the rate this account's orders actually moved.
+    final liveUsage = usageByOrderKey(await _approvedOrders());
+    final seed = await salesLoader();
+    final seedUsage = seed == null
+        ? const <String, SalesUsage>{}
+        : usageBySaleKey(seed.sales);
+
     final alerts = <StockAlert>[];
 
     for (final med in medicines) {
       if (med.isLowStock || med.isOutOfStock) {
-        final reorderLevel = med.isOutOfStock
-            ? 10
-            : MedicineModel.lowStockThreshold + 5;
+        final unitsPerDay = unitsPerDayForMedicine(med, liveUsage, seedUsage);
         alerts.add(
           StockAlert(
             name: med.name,
             currentStock: med.stock ?? 0,
-            reorderLevel: reorderLevel,
+            reorderLevel: reorderTarget(
+              unitsPerDay: unitsPerDay,
+              coverageDays: coverageDays,
+              threshold: MedicineModel.lowStockThreshold,
+            ),
             category: _inferCategory(med.name),
+            unitsPerDay: unitsPerDay,
+            coverageDays: coverageDays,
+            isStockUncounted: med.stock == null,
           ),
         );
       }
     }
 
-    // Sort: out of stock first, then by lowest stock
+    // Sort: out of stock first, then the biggest shortfall -- "how much do I
+    // need" in the order a reorder would be placed in. Uncounted lines carry
+    // currentStock 0 and land in the first group beside the true zeros, which
+    // is the pre-existing treatment: they need counting as much as the empty
+    // shelf needs filling.
     alerts.sort((a, b) {
       if (a.currentStock == 0 && b.currentStock != 0) return -1;
       if (a.currentStock != 0 && b.currentStock == 0) return 1;
-      return a.currentStock.compareTo(b.currentStock);
+      return b.deficit.compareTo(a.deficit);
     });
 
     return alerts;
+  }
+
+  /// Approved orders only, as one snapshot. Rejected orders were never sold
+  /// and a pending one may still not be, so neither may size a reorder.
+  Future<List<OrderHistory>> _approvedOrders() async {
+    final snapshot = await historyFactory().watchAll().first;
+    return snapshot
+        .where((order) => order.status == OrderStatus.approved)
+        .toList();
   }
 
   @override
