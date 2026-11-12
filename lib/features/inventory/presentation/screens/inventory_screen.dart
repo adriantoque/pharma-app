@@ -8,6 +8,7 @@ import '../../../../core/widgets/show_csv_export_dialog.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../../dashboard/presentation/widgets/stock_sheet.dart';
+import '../widgets/add_medicine_dialog.dart';
 
 /// Reached from the bottom-nav Inventory tab.
 ///
@@ -202,6 +203,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
     await showStockSheet(context, medicine: medicine);
   }
 
+  Future<void> _addMedicine() async {
+    final medicine = await showDialog<MedicineModel>(
+      context: context,
+      builder: (_) => const AddMedicineDialog(),
+    );
+    if (medicine == null || !mounted) return;
+
+    final provider = context.read<MedicineProvider>();
+    await provider.addMedicine(medicine);
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (provider.error != null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not add medicine: ${provider.error}')),
+      );
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Medicine added')),
+      );
+    }
+  }
+
   void _clearSearch() {
     setState(() {
       _controller.clear();
@@ -378,6 +402,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: const Text('Inventory'),
         centerTitle: true,
         actions: [
+          TextButton.icon(
+            onPressed: _addMedicine,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Medicine'),
+          ),
           IconButton(
             tooltip: 'Export counted list',
             icon: const Icon(Icons.download_outlined),

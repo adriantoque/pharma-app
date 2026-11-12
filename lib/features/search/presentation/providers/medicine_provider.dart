@@ -320,6 +320,26 @@ _syncStatus = SyncStatus.unknown;
     }
   }
 
+  /// Adds a single new medicine to the price list.
+  ///
+  /// Optimistic, so the new line shows up immediately; rolls back on failure.
+  Future<void> addMedicine(MedicineModel medicine) async {
+    final store = _store;
+    if (store == null) return;
+
+    final previous = _medicines;
+    _replace([..._medicines, medicine]);
+
+    try {
+      await store.upsert(medicine);
+      _clearError();
+    } catch (error) {
+      _replace(previous);
+      _error = _describe(error);
+      _safeNotify();
+    }
+  }
+
   /// Writes an imported price list in, for the account currently signed in.
   Future<void> importMedicines(Iterable<MedicineModel> medicines) async {
     final store = _store;
