@@ -183,6 +183,12 @@ class SeededMedicineStore
               usageIndication:
                   medicine.usageIndication ?? bundledMedicine.usageIndication,
             );
+          } else {
+            // A remote line the bundled catalogue does not know about (for
+            // example a medicine an admin added by hand) must still be shown.
+            // Previously these were dropped, so admin-added items never
+            // reached the staff inventory view.
+            byId[medicine.documentId] = medicine;
           }
           continue;
         }
@@ -195,6 +201,11 @@ class SeededMedicineStore
             aliases: medicine.aliases.isEmpty ? legacy.aliases : medicine.aliases,
             genericKey: medicine.genericKey ?? legacy.genericKey,
           );
+        } else {
+          // No bundled counterpart: keep the remote line as-is so newly added
+          // medicines (which have no product id and no legacy identity match)
+          // sync through to every client.
+          byId[medicine.documentId] = medicine;
         }
         continue;
       }
