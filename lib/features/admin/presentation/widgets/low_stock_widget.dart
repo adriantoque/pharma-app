@@ -210,6 +210,17 @@ class LowStockWidget extends StatelessWidget {
                   label: const Text('Manage Stock'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: scheme.errorContainer,
+                    foregroundColor: scheme.onErrorContainer,
+                    elevation: 0,
+                    shadowColor: Colors.black.withValues(alpha: 0.08),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    minimumSize: const Size(48, 44),
                   ),
                 ),
               ),

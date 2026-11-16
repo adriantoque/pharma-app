@@ -280,10 +280,18 @@ class _SummaryCard extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return Card(
+      elevation: 1,
       color: scheme.surfaceContainerLow,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
+        hoverColor: scheme.onSurface.withValues(alpha: 0.04),
+        focusColor: scheme.primary.withValues(alpha: 0.08),
+        splashColor: scheme.primary.withValues(alpha: 0.06),
+        highlightColor: Colors.transparent,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -414,15 +422,22 @@ class _ActionTile extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return Card(
-      elevation: 2,
+      elevation: 1,
       margin: EdgeInsets.zero,
       color: scheme.surfaceContainerLow,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      surfaceTintColor: Colors.transparent,
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
+        hoverColor: scheme.onSurface.withValues(alpha: 0.04),
+        focusColor: scheme.primary.withValues(alpha: 0.10),
+        splashColor: scheme.primary.withValues(alpha: 0.08),
+        highlightColor: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Row(
             children: [
               Container(
@@ -430,7 +445,7 @@ class _ActionTile extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: scheme.onSecondaryContainer),
               ),
