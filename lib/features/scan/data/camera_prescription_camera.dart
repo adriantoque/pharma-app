@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show Widget;
+import 'package:flutter/widgets.dart' show Offset, Widget;
 
 import '../domain/prescription_camera.dart';
 import '../domain/prescription_recognizer.dart';
@@ -30,6 +30,11 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   /// The live scanner's callback, held so the stream can pause itself around a
   /// deliberate capture and come back without being asked twice.
   void Function(PrescriptionFrame frame)? _onFrame;
+
+  /// The zoom range the device reported when it opened, cached so the preview's
+  /// zoom controls can clamp against it without a platform call per gesture.
+  double? _minZoom;
+  double? _maxZoom;
 
   /// How fast frames are converted and forwarded. A stream arrives at
   /// camera-like rates while a frame can only be read at a fraction of that,
@@ -70,13 +75,76 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
       }
       _back ??= cameras.first;
 
-      final controller = CameraController(
-        _back == null ? cameras.first : _back!,
+      // Text lives or dies on resolution: a 4K still holds dose lines a 1080p
+      // one turns to noise, so the highest preset is tried first and the chain
+      // steps down only when the device refuses the one above it.
+      const presets = [
+        ResolutionPreset.max,
+        ResolutionPreset.ultraHigh,
         ResolutionPreset.veryHigh,
-        enableAudio: false,
-      );
-      _controller = controller;
-      await controller.initialize();
+      ];
+      CameraException? lastFailure;
+      for (final preset in presets) {
+        final controller = CameraController(
+          _back == null ? cameras.first : _back!,
+          preset,
+          enableAudio: false,
+        );
+        try {
+          await controller.initialize();
+          _controller = controller;
+          lastFailure = null;
+          break;
+        } on CameraException catch (error) {
+          // A refused permission is not a resolution the next preset can fix,
+          // so it climbs straight to the outer handler and its permission
+          // message instead of being spent on a doomed retry.
+          if (error.code == 'CameraAccessDenied' ||
+              error.code == 'CameraAccessDeniedWithoutPrompt' ||
+              error.code == 'cameraPermission' ||
+              error.code == 'CameraPermissions') {
+            rethrow;
+          }
+          lastFailure = error;
+          try {
+            await controller.dispose();
+          } on CameraException {
+            // Nothing native to release for a controller that never opened.
+          }
+        }
+      }
+      final controller = _controller;
+      if (controller == null) {
+        final error = lastFailure;
+        if (error != null) {
+          throw PrescriptionRecognitionException(
+            'The camera could not start. ${error.description ?? error.code}.',
+          );
+        }
+        throw PrescriptionRecognitionException('The camera could not start.');
+      }
+
+      // The automatic focus and metering the scanner wants are the camera
+      // defaults, but asking for them by name means a device left in another
+      // mode by a previous app still lands where the scan expects.
+      try {
+        await controller.setFocusMode(FocusMode.auto);
+        await controller.setExposureMode(ExposureMode.auto);
+      } on CameraException {
+        // A device that refuses the mode still frames and captures; the tap-
+        // to-focus capability below reports what actually works.
+      }
+
+      // The zoom range is a device fact, asked once and held: the preview's
+      // pinch gesture clamps against these on every update, and a camera
+      // without zoom optics reports a range that says so.
+      try {
+        _minZoom = await controller.getMinZoomLevel();
+        _maxZoom = await controller.getMaxZoomLevel();
+      } on CameraException {
+        _minZoom = null;
+        _maxZoom = null;
+      }
     } on MissingPluginException {
       _controller = null;
       throw PrescriptionRecognitionException(
@@ -179,6 +247,66 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
 
   @override
   bool get supportsLiveFrames => isSupported;
+
+  @override
+  bool get supportsZoom => _minZoom != null && _maxZoom != null;
+
+  @override
+  Future<double> get minZoomLevel async => _minZoom ?? 1.0;
+
+  @override
+  Future<double> get maxZoomLevel async => _maxZoom ?? 1.0;
+
+  @override
+  Future<void> setZoomLevel(double zoom) async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    final min = _minZoom;
+    final max = _maxZoom;
+    // Clamped here as well as in the preview's gesture: a gesture can outrun
+    // the cache on a device whose range was probed before optics settled.
+    final clamped = zoom.clamp(min ?? zoom, max ?? zoom).toDouble();
+    try {
+      await controller.setZoomLevel(clamped);
+    } on CameraException {
+      // A refused zoom is a downgrade to the framing the user already had,
+      // not an error worth a card over the preview.
+    }
+  }
+
+  @override
+  bool get supportsTapToFocus =>
+      _controller?.value.focusPointSupported ?? false;
+
+  @override
+  Future<void> setFocusPoint(double x, double y) async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    try {
+      final point = Offset(
+        x.clamp(0.0, 1.0).toDouble(),
+        y.clamp(0.0, 1.0).toDouble(),
+      );
+      await controller.setFocusPoint(point);
+      await controller.setExposurePoint(point);
+    } on CameraException {
+      // The tap asked for a focus the device will not give; the preview keeps
+      // its whole-frame focus and the next tap can try again.
+    }
+  }
+
+  @override
+  Future<void> clearFocusPoint() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    try {
+      await controller.setFocusPoint(null);
+      await controller.setExposurePoint(null);
+    } on CameraException {
+      // Same quietness as setting: a device that refused the point refuses
+      // the clearing too, and nothing the user can see depends on either.
+    }
+  }
 
   @override
   Future<void> startLiveFrames(

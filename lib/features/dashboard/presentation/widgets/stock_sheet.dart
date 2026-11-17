@@ -137,9 +137,10 @@ class _StockSheetState extends State<_StockSheet> {
                 tooltip: 'One fewer',
               ),
               const SizedBox(width: 16),
-              SizedBox(
-                width: 112,
-                child: TextField(
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 112),
+                  child: TextField(
                   key: const Key('stockField'),
                   controller: _controller,
                   textAlign: TextAlign.center,
@@ -157,6 +158,7 @@ class _StockSheetState extends State<_StockSheet> {
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _save(),
                 ),
+              ),
               ),
               const SizedBox(width: 16),
               IconButton.filledTonal(

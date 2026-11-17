@@ -338,7 +338,7 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
               // The Home tab is the first branch, displaying the New Sale catalog
               // with filtering tabs. The cart is nested under Home because it
               // is part of the sale flow.
-              ],
+            ],
           ),
           // The Symptoms tab: symptom-driven recommendations from the
           // bundled catalogue, in the committed finder layout.
@@ -395,7 +395,12 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
       GoRoute(
         path: AppRoutes.medicines,
         name: 'medicines',
-        builder: (context, state) => const MedicineScreen(),
+        builder: (context, state) {
+          final extra = state.extra;
+          final fromExtra = extra is String ? extra : null;
+          final fromQuery = state.uri.queryParameters['q'];
+          return MedicineScreen(initialQuery: fromExtra ?? fromQuery);
+        },
       ),
       GoRoute(
         path: AppRoutes.orders,

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/connectivity/connection_source.dart';
 import '../models/medicine_model.dart';
 import '../sync/pending_write_queue.dart';
+import '../sync/pending_write_reporting.dart';
 import '../sync/sync_status.dart';
 import '../sync/sync_status_source.dart';
 import '../sync/transport_failure.dart';
@@ -39,7 +40,7 @@ import 'medicine_store.dart';
 /// the wire when the connection returns, or when the app next starts with one
 /// already waiting.
 class FirestoreMedicineStore
-    implements MedicineStore, SyncStatusSource, DisposableStore {
+    implements MedicineStore, PendingWriteReporting, SyncStatusSource, DisposableStore {
   FirestoreMedicineStore({
     required FirebaseFirestore firestore,
     required this._queue,
@@ -60,6 +61,19 @@ class FirestoreMedicineStore
   final CollectionReference<Map<String, dynamic>> _collection;
   final PendingWriteQueue _queue;
   final ConnectionSource? _connection;
+
+  /// Document ids with a write this device recorded and the server has not
+  /// acknowledged.
+  ///
+  /// Read by the mirror in `SyncedMedicineStore`, so a snapshot that does not
+  /// carry an edit yet cannot overwrite the row holding it. The id is the
+  /// [PendingWrite.documentId] the write was submitted with, which is the
+  /// [MedicineModel.documentId] of the line the user was looking at -- the same
+  /// key the cache stores the row under.
+  @override
+  Set<String> get pendingDocumentIds => {
+    for (final write in _queue.pending) write.documentId,
+  };
 
   StreamSubscription<bool>? _connectionSubscription;
 

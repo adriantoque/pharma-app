@@ -29,9 +29,10 @@ import 'features/orders/data/repositories/order_history_repository.dart';
 import 'features/orders/data/repositories/firestore_order_history_repository.dart';
 import 'features/orders/presentation/providers/order_provider.dart';
 import 'features/orders/presentation/providers/orders_provider.dart';
+import 'features/search/data/local/app_database.dart';
+import 'features/search/data/local/drift_medicine_store.dart';
+import 'features/search/data/local/synced_medicine_store.dart';
 import 'features/search/data/repositories/firestore_medicine_store.dart';
-import 'features/search/data/repositories/local_medicine_store.dart';
-import 'features/search/data/repositories/seeded_medicine_store.dart';
 import 'features/search/data/sync/pending_write_queue.dart';
 import 'features/search/presentation/providers/medicine_provider.dart';
 import 'features/reports/data/repositories/reports_repository.dart';
@@ -143,6 +144,13 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         // already a singleton, so this is a shared handle rather than a shared
         // database, and every store can be built from the same object.
         Provider<FirebaseFirestore>(create: (_) => FirebaseFirestore.instance),
+        // The local medicine cache, opened once for the whole app and never
+        // closed. Firestore is the source of truth; this database is the
+        // durable mirror the price list is read from and written into, so it
+        // has to outlive every store built over it -- the same lifetime the
+        // Firestore handle has. Opening is lazy: nothing touches the file
+        // until a signed-in account asks for its catalogue.
+        Provider<AppDatabase>(create: (_) => AppDatabase()),
         Provider<UserRepository>(
           create: (ctx) => UserRepository(firestore: ctx.read<FirebaseFirestore>()),
         ),
@@ -215,12 +223,14 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         // Above the router, so the price list outlives a tab switch. Built from a
         // factory because the store is scoped to a user id, and signing in as
         // Shared medicine catalogue for all pharmacy staff (admin + staff).
-        // Wrapped in SeededMedicineStore so the bundled price list is on screen
-        // before any network call finishes, and seeds the shared collection on
-        // first run instead of sitting empty.
+        // Firestore stays the source of truth; the local SQLite cache (Option A)
+        // seeds itself from the bundled price list on first use, mirrors every
+        // server snapshot so the catalogue survives offline starts, and keeps a
+        // stock count typed before the connection returns.
         ChangeNotifierProvider<MedicineProvider>(
           create: (ctx) {
             final firestore = ctx.read<FirebaseFirestore>();
+            final database = ctx.read<AppDatabase>();
             // One shared remote store for all online users.
             final sharedRemote = FirestoreMedicineStore(
               firestore: firestore,
@@ -231,10 +241,16 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
               auth: ctx.read<AuthProvider>(),
               storeFor: (uid) {
                 if (uid == AuthProvider.offlineUserId) {
-                  return LocalMedicineStore();
+                  // Deliberate offline mode: the catalogue is the cache's own,
+                  // seeded from the bundle, with no server behind it.
+                  return DriftMedicineStore(database: database);
                 }
-                // All online users (admin, staff) share the same catalogue.
-                return SeededMedicineStore(remote: sharedRemote);
+                // All online users (admin, staff) share the same catalogue,
+                // mirrored into the cache as the server answers.
+                return SyncedMedicineStore(
+                  local: DriftMedicineStore(database: database),
+                  remote: sharedRemote,
+                );
               },
             );
           },

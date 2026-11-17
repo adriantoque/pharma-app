@@ -12,7 +12,11 @@ enum _MedicineFilter { all, lowStock, inStock }
 /// Package variants are grouped under their shared medicine name, with quick
 /// stock filters and the detailed information kept available from every row.
 class MedicineScreen extends StatefulWidget {
-  const MedicineScreen({super.key});
+  const MedicineScreen({super.key, this.initialQuery});
+
+  /// When provided (e.g. coming from the scanner), the list opens already
+  /// filtered by this text so the near-name matches are visible immediately.
+  final String? initialQuery;
 
   @override
   State<MedicineScreen> createState() => _MedicineScreenState();
@@ -22,6 +26,16 @@ class _MedicineScreenState extends State<MedicineScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   _MedicineFilter _filter = _MedicineFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuery?.trim();
+    if (initial != null && initial.isNotEmpty) {
+      _searchController.text = initial;
+      _query = initial;
+    }
+  }
 
   @override
   void dispose() {
@@ -601,12 +615,16 @@ class _MedicineInfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 112,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 112),
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),

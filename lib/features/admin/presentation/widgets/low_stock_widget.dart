@@ -220,7 +220,7 @@ class LowStockWidget extends StatelessWidget {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    minimumSize: const Size(48, 44),
+                    minimumSize: const Size(0, 44),
                   ),
                 ),
               ),

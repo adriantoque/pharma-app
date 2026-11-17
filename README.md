@@ -23,6 +23,12 @@ because the price list has no cost price: it is shown as revenue times a fixed
 Reading and writing are separated. The Orders and Reports screens subscribe to
 repository streams, so they stay live without a manual refresh.
 
+The medicine catalogue is kept in a local SQLite database (Drift) as well as
+Firestore. Firestore supplies the shared catalogue (names, prices, aliases) and
+the local copy holds every medicine edit — stock counts and expiry dates are
+written to the device and never sent to the server, so a count typed at the
+counter stands even when the connection is gone or the server refuses a write.
+
 ## Running
 
 ```bash

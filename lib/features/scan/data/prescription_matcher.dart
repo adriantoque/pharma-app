@@ -143,7 +143,11 @@ class PrescriptionMatcher {
       for (final token in _tokens(reading)) _normalise(token),
     ];
 
-    final best = <MedicineModel, double>{};
+    // Score every catalog entry first, so a line that matches nothing above the
+    // threshold can still surface its nearest neighbour rather than an empty
+    // result: the scanner is expected to offer at least the closest medicine it
+    // can find, even when the reading is noisy or partial.
+    final scored = <MedicineModel, double>{};
     for (final entry in catalog) {
       if (entry.normalised.isEmpty) continue;
 
@@ -153,19 +157,29 @@ class PrescriptionMatcher {
         entry.normalised,
         entry.tokens,
       );
-      if (score < threshold) continue;
 
-      final current = best[entry.medicine];
-      if (current == null || score > current) best[entry.medicine] = score;
+      final current = scored[entry.medicine];
+      if (current == null || score > current) scored[entry.medicine] = score;
     }
 
-    final ranked = best.entries.toList()
+    // Prefer the entries that clear the threshold; fall back to the nearest ones
+    // (positive similarity only) when none do, so the scan never comes back
+    // empty for a reading that shares anything with the catalogue.
+    final qualifying = scored.entries
+        .where((entry) => entry.value >= threshold)
+        .toList();
+    final pool = qualifying.isNotEmpty
+        ? qualifying
+        : scored.entries.where((entry) => entry.value > 0).toList();
+
+    final ranked = pool
       ..sort((a, b) {
         final byScore = b.value.compareTo(a.value);
-        // Ties broken by name so the same input always offers the same order.
+        // Ties broken the same way the price list is ordered, so packages of
+        // one medicine come back cheapest first and the order stays stable.
         return byScore != 0
             ? byScore
-            : a.key.name.toLowerCase().compareTo(b.key.name.toLowerCase());
+            : MedicineModel.compareByNameThenPrice(a.key, b.key);
       });
 
     return [

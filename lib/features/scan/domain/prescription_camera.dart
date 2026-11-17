@@ -39,6 +39,44 @@ abstract class PrescriptionCamera {
   /// [PrescriptionRecognitionException] when the capture failed.
   Future<Uint8List> takePicture();
 
+  /// Whether the preview can be zoomed at all.
+  ///
+  /// Printed prescriptions are read line by line, so zooming into a dose line
+  /// is the difference between a read and a misread on small print. A fake
+  /// answers false and the tab hides its zoom affordances.
+  bool get supportsZoom => false;
+
+  /// The smallest zoom factor the device accepts. Meaningful only while
+  /// [supportsZoom]; the default matches a camera with no zoom optics.
+  Future<double> get minZoomLevel async => 1.0;
+
+  /// The largest zoom factor the device accepts. Meaningful only while
+  /// [supportsZoom].
+  Future<double> get maxZoomLevel async => 1.0;
+
+  /// Zooms the preview to [zoom], a factor between [minZoomLevel] and
+  /// [maxZoomLevel]. Safe to call before [initialize]; a camera that cannot
+  /// zoom simply ignores it.
+  Future<void> setZoomLevel(double zoom) async {}
+
+  /// Whether the camera can focus (and meter) on a chosen point at all.
+  ///
+  /// A fake answers false and the tab treats taps on the preview as nothing
+  /// more than taps.
+  bool get supportsTapToFocus => false;
+
+  /// Focuses and meters on a point of the preview, given as fractions of the
+  /// preview's width and height (0..1, top-left origin).
+  ///
+  /// Safe to call before [initialize]; a camera without point focus ignores
+  /// it. Throws nothing of its own \u2014 a refused focus point is quieter than
+  /// an error card over a preview that is still framing.
+  Future<void> setFocusPoint(double x, double y) async {}
+
+  /// Returns focus and metering to the whole-frame automatic behaviour after
+  /// a [setFocusPoint]. Safe to call when no point was ever set.
+  Future<void> clearFocusPoint() async {}
+
   /// Whether the preview torch can be toggled at all.
   bool get supportsTorch => false;
 

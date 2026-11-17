@@ -605,15 +605,21 @@ class _PosProductCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  medicine.formattedPrice,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _posPrimary,
-                  ),
-                ),
-                ElevatedButton.icon(
+                Flexible(
+                   child: Text(
+                     medicine.formattedPrice,
+                     maxLines: 1,
+                     overflow: TextOverflow.ellipsis,
+                     style: const TextStyle(
+                       fontSize: 16,
+                       fontWeight: FontWeight.bold,
+                       color: _posPrimary,
+                     ),
+                   ),
+                 ),
+                 const SizedBox(width: 8),
+                 Flexible(
+                   child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _posPrimary,
                     foregroundColor: Colors.white,
@@ -624,6 +630,7 @@ class _PosProductCard extends StatelessWidget {
                   onPressed: onAdd,
                   icon: const Icon(Icons.add_shopping_cart, size: 16),
                   label: const Text('Add'),
+                ),
                 ),
               ],
             ),

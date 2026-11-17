@@ -38,6 +38,7 @@ class MedicineRow extends StatelessWidget {
                 Text(
                   medicine.name,
                   maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 2),

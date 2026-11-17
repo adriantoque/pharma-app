@@ -186,7 +186,7 @@ class _RoleButton extends StatelessWidget {
           shape: shape,
         ),
         icon: Icon(icon),
-        label: Text(label),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       );
     }
 
@@ -201,7 +201,7 @@ class _RoleButton extends StatelessWidget {
         shape: shape,
       ),
       icon: Icon(icon),
-      label: Text(label),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 }

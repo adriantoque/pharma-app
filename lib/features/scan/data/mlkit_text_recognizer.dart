@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import '../domain/prescription_recognizer.dart';
+import 'prescription_image_enhancer.dart';
 
 /// The real recognizer: ML Kit's on-device text recognition over a platform
 /// channel.
@@ -45,11 +46,17 @@ class MlKitTextRecognizer extends PrescriptionRecognizer {
     _checkUsable();
     if (imageBytes.isEmpty) return const [];
 
+    // The deliberate capture is the one photo the user aimed, so it is worth
+    // the enhancement pass: contrast and sharpness are what turn a soft phone
+    // photo into print ML Kit reads first time. Live frames skip this \u2014 they
+    // arrive continuously and raw, and reading them at all is the win there.
+    final enhanced = PrescriptionImageEnhancer.enhance(imageBytes);
+
     final recognizer = _recognizer ??= TextRecognizer(script: script);
     final tempDir = await Directory.systemTemp.createTemp('pharmaguide_scan');
     final file = File('${tempDir.path}/prescription.jpg');
     try {
-      await file.writeAsBytes(imageBytes, flush: true);
+      await file.writeAsBytes(enhanced, flush: true);
 
       final RecognizedText recognized;
       try {

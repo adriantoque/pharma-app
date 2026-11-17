@@ -71,7 +71,7 @@ tool/
   seed_firestore.dart         optional manual upload of the seed
   out/                        generated review artefacts (checked in)
 
-test/                         30 test files + 6 shared fakes in helpers/
+test/                         the store layer's tests + shared helpers
 integration_test/             EMPTY (package still declared as a dev dep)
 
 firestore.rules               deployed by hand, deliberately not in build path
@@ -89,6 +89,7 @@ features/<name>/
     models/         plain Dart, no Flutter import
     repositories/   interfaces + implementations
     sync/           (search only) pending writes and status
+    local/          (search only) the SQLite cache: Drift tables, merge, codec
   presentation/
     providers/      ChangeNotifiers
     screens/        one file per screen
@@ -125,8 +126,8 @@ graph TD
 
   subgraph data["Data implementations"]
     firestore_store["FirestoreMedicineStore<br/>+ PendingWriteQueue"]
-    seeded["SeededMedicineStore<br/>bundle first, server over it"]
-    local["LocalMedicineStore<br/>offline mode"]
+    synced["SyncedMedicineStore<br/>catalogue from the server,<br/>shelf edits local-only"]
+    drift["DriftMedicineStore<br/>SQLite cache, offline mode"]
     draft["Firestore / Local<br/>OrderDraftStore"]
     history["Firestore / Local<br/>OrderHistoryRepository"]
     reports_impl["ReportsRepositoryImpl"]
@@ -137,6 +138,7 @@ graph TD
     fs[("Cloud Firestore")]
     prefs[("SharedPreferences")]
     bundle[("bundled JSON assets")]
+    sqlite[("SQLite file<br/>via Drift")]
     ocr["ML Kit / camera plugins"]
   end
 
@@ -153,9 +155,12 @@ graph TD
   repos -.implemented by.-> data
   firestore_store --> fs
   firestore_store --> prefs
-  local --> prefs
-  local --> bundle
-  seeded --> bundle
+  synced --> firestore_store
+  synced --> drift
+  synced --> bundle
+  drift --> sqlite
+  drift --> prefs
+  drift --> bundle
   draft --> fs
   draft --> prefs
   history --> fs
@@ -166,8 +171,8 @@ graph TD
   classDef extStyle fill:#f3efe4,stroke:#8a7a5c,color:#333
   classDef dataStyle fill:#e8eef7,stroke:#4a6fa5,color:#1a2b45
   classDef domainStyle fill:#eaf3ec,stroke:#4d7c5f,color:#1d3325
-  class fs,prefs,bundle,ocr extStyle
-  class firestore_store,seeded,local,draft,history,reports_impl,scan_impl dataStyle
+  class fs,prefs,bundle,sqlite,ocr extStyle
+  class firestore_store,synced,drift,draft,history,reports_impl,scan_impl dataStyle
   class repos,models,domain_scan domainStyle
 ```
 
@@ -176,7 +181,7 @@ graph TD
 | Feature | Provider | Screens | Backing store |
 |---|---|---|---|
 | auth | `AuthProvider` | `AuthLandingScreen`, `RoleLoginScreen` | Firebase Auth + `OfflineSession` |
-| search | `MedicineProvider` | `MedicineScreen` (sale branch "Medicines") | `SeededMedicineStore` → `FirestoreMedicineStore` or `LocalMedicineStore` |
+| search | `MedicineProvider` | `MedicineScreen` (sale branch "Medicines") | `SyncedMedicineStore` → `FirestoreMedicineStore` mirrored into `DriftMedicineStore` (SQLite), or `DriftMedicineStore` alone in offline mode |
 | orders | `OrderProvider`, `OrdersProvider`, `OrderHistoryProvider` | `OrdersScreen`, `OrderHistoryScreen` | `OrderDraftStore`, `OrderHistoryRepository` |
 | sales | — | `NewSaleScreen`, `cart_sheet.dart` (`showCartSheet`) | writes through `OrderProvider` |
 | symptom_guide | — | `SymptomFinderScreen` | reads `MedicineProvider` + `OrderProvider`; curated catalogue in code |
@@ -200,19 +205,25 @@ built by a **factory keyed on uid** rather than by a store instance, because the
 store has to be different for a different account.
 
 ```dart
+Provider<AppDatabase>(create: (_) => AppDatabase()),   // the SQLite cache, opened once
 ChangeNotifierProvider<MedicineProvider>(
   create: (ctx) => MedicineProvider(
     auth: ctx.read<AuthProvider>(),
     storeFor: (uid) => uid == AuthProvider.offlineUserId
-        ? LocalMedicineStore()
-        : SeededMedicineStore(remote: FirestoreMedicineStore(...)),
+        ? DriftMedicineStore(database: ctx.read<AppDatabase>())
+        : SyncedMedicineStore(
+            local: DriftMedicineStore(database: ctx.read<AppDatabase>()),
+            remote: FirestoreMedicineStore(...),
+          ),
   ),
 )
 ```
 
 Both `MedicineProvider` and `OrderProvider` sit **above** the router, so the
 price list and the open basket survive a tab switch. `OrderProvider`'s draft
-store additionally outlives the process closing.
+store additionally outlives the process closing. `AppDatabase` is provided the
+same way Firestore is: one handle for the whole app, never closed at runtime,
+because stores over it come and go with sign-in.
 
 ### Startup sequence
 
@@ -450,9 +461,10 @@ writes an `AuditAction.settingsUpdated` entry with a before/after field diff.
 
 | Where | Key | Contents |
 |---|---|---|
+| SQLite (Drift) | `pharmaguide_medicines` | one `MedicineRows` row per price-list line: the catalogue mirrored from the server, the shelf edits (stock, expiry) owned by the device |
 | SharedPreferences | `offlineMode` | `'active'` or `''` |
 | SharedPreferences | `pendingWrites/$uid` | `{version, nextId, writes[]}` — namespaced by uid |
-| SharedPreferences | `offlineMedicinesOverlay` | `{documentId: {stock, expiryDate}}`, changed fields only |
+| SharedPreferences | `offlineMedicinesOverlay` | `{documentId: {stock, expiryDate}}` — read once by `DriftMedicineStore._migrateOverlay` on first launch after the upgrade, applied to the rows, then deleted |
 | SharedPreferences | `offlineOrderDraft` | `{lines, revision}` |
 | asset | `assets/data/medicines_seed.json` | 490 lines; **all** have `stock: null` |
 | asset | `assets/data/sales_seed.json` | 2043 sale lines, 2025-07-12 .. 2025-09-29 |
@@ -461,24 +473,54 @@ The uid namespace on `pendingWrites/$uid` is deliberate: a shared counter tablet
 is signed in and out all day, and one pharmacist's unsent stock counts must not
 surface as another's.
 
-Firestore's disk cache is the third layer and is switched on explicitly at
-`firebase_bootstrap.dart:62` — `persistenceEnabled: true`, 16 MB. The rest of the
-offline story rests on that one setting, so it is stated out loud rather than left
-to an SDK default.
+The SQLite database is the fourth layer. It is opened through a conditional
+import — `drift_flutter` (a file in the documents directory, SQLite run on a
+background isolate) on native platforms, `drift/web.dart` (IndexedDB through
+sql.js) on web — and seeds itself from the bundled JSON the first time it is
+found empty. Because edits are rows, offline edits survive a restart without an
+overlay to re-apply; the SharedPreferences overlay is now only a migration
+input, and the migration can be deleted once it has shipped for a release
+cycle.
+
+Firestore's disk cache is the layer that answers *between* app launches that
+stay alive, and is switched on explicitly at `firebase_bootstrap.dart:62` —
+`persistenceEnabled: true`, 16 MB. The rest of the offline story rests on that
+one setting, so it is stated out loud rather than left to an SDK default.
 
 ---
 
 ## 6. Offline sync
 
 This is the most intricate part of the app. There are **three** independent
-durability layers:
+durability layers for the price list:
 
 1. Firestore's own persisted write queue (disk cache).
 2. `PendingWriteQueue` — the app's own second copy, in SharedPreferences.
-3. `LocalMedicineStore`'s overlay patch map, for deliberate offline mode.
+3. The SQLite cache (`DriftMedicineStore` over `AppDatabase`) — a durable mirror
+   of the whole catalogue: what an online store shows before Firestore answers,
+   what an offline-mode store shows always, and where offline edits live as
+   rows.
 
 Layer 2 exists for the cases layer 1 does not cover: the app killed mid-queue, or
-the native cache evicted under its LRU budget.
+the native cache evicted under its LRU budget. Layer 3 exists for the cases both
+layers miss: a cold start with no connection, a cache the OS evicted entirely,
+and every medicine edit, which never leaves the device at all (below).
+
+Online, `SyncedMedicineStore` sits over both the SQLite cache and Firestore.
+Firestore is the source of truth for the **catalogue** (names, prices, aliases,
+the descriptive fields); every snapshot is **mirrored** into the cache, and
+every emission is `mergeMedicines(local, remote)` — the server's answer laid
+over the local rows.
+
+Medicine writes — a stock count, an expiry, an upsert, an import — are
+**local only**. They used to go on to Firestore after the local write, and the
+server refused them (`PERMISSION_DENIED` on `pharmacy/medicines/items`), which
+rolled the edit back out of the cache it had just been painted into: the
+pharmacist watched a count appear and then vanish. The write path now stops at
+the SQLite database. `mergeMedicines` keeps the local `stock` and `expiryDate`
+for a line both sides know — a snapshot fills an uncounted line but never
+undoes a typed one — so the shelf's numbers are this device's facts. The trade:
+counts and dates do not travel between devices; the catalogue still does.
 
 ### A stock count, happy path
 
@@ -567,14 +609,16 @@ Firestore has actually spoken to the server. `_platformConnected` starts as
 |---|---|---|
 | Entered by | "Continue offline" on the login screen | the network going away |
 | Identity | `AuthProvider.offlineUserId == 'offline'` | unchanged |
-| Price list | `LocalMedicineStore` | `FirestoreMedicineStore` + its disk cache |
+| Price list | `DriftMedicineStore` | `SyncedMedicineStore`: server + the same cache |
 | Basket | `LocalOrderDraftStore` | `FirestoreOrderDraftStore` |
 | History | `LocalOrderHistoryRepository`, in memory only | Firestore |
 | Banner | `OfflineModeBanner`, always on | `OfflineBanner`, on `status.isOffline` |
 | Sync status | `SyncStatus.localOnly` | real, with a pending count |
 
-In offline mode `SeededMedicineStore` reports `localOnly`, so the *connection*
+In offline mode `DriftMedicineStore` reports `localOnly`, so the *connection*
 banner stays hidden and the mode banner shows instead — the two never stack.
+In online mode `SyncedMedicineStore` passes the remote store's sync status
+straight through, so the banner measures exactly what it says it measures.
 
 Order drafts use a **different, simpler model** than stock counts. The whole
 basket is written through `OrderDraftStore.save()` on every change, entirely
@@ -602,66 +646,31 @@ the workbook by `tool/import_sales_tracker.dart`, and parsed properly by
 
 ## 8. Tests
 
-37 test files under `test/`, plus six shared fakes in `test/helpers/`.
+The store layer has the suite; the suites for screens and providers are still
+to be written back (earlier revisions of this document described a larger
+inventory that is not in the tree). What exists, under `test/`:
 
 | File | Covers |
 |---|---|
-| `widget_test.dart` | auth provider units, routing, app bar titles, login sheet |
-| `features/admin/activity_log_screen_test.dart` | the full activity log: entries, category filter, empty state |
-| `features/admin/admin_home_test.dart` | the admin dashboard: summary cards, quick actions, activity preview |
-| `store_settings_model_test.dart` | mapping, defaults, validation, equality, clock formatting |
-| `store_settings_repository_test.dart` | Firestore and in-memory stores: null-then-value, singleton path, server stamp |
-| `store_settings_screen_test.dart` | rows, edit sheets, dirty state, save-and-audit, refusal paths |
-| `features/profile/about_screen_test.dart` | the About screen's name and licence affordance |
-| `features/dashboard/expiring_meds_screen_test.dart` | the CSV export of the dated list, and its absence when empty |
-| `features/finder/feature_catalogue_test.dart` | feature ids, route paths and icon keys |
-| `features/finder/feature_entry_test.dart` | feature search matching and ordering |
-| `features/finder/feature_repository_test.dart` | feature repository ordering and query behaviour |
-| `medicine_catalog_test.dart` | `StaticMedicineRepository`, search semantics |
-| `medicine_persistence_test.dart` | `documentId` stability, Firestore round trip, `copyWith`, the age/shelf/prescription fields |
-| `medicine_provider_test.dart` | account scoping, optimistic writes and rollback |
-| `seeded_medicine_store_test.dart` | bundle/server merge, auto-seed, disposal |
-| `firestore_medicine_store_test.dart` | confirmation intersection, replay-before-`enableNetwork`, refusal vs transport |
-| `order_provider_test.dart` | basket arithmetic, stock caps, sign-out behaviour |
-| `orders_screen_test.dart` | order tabs, approve action, empty states |
-| `new_sale_screen_test.dart` | cart, payment selection, completing a sale, the age and shelf filters |
-| `offline_mode_test.dart` | offline session, both local stores, `OrderLineCodec` |
-| `offline_banner_test.dart` | `OfflineBanner` copy per status, singular/plural, safe-vs-pending |
-| `pending_write_queue_test.dart` | both queue implementations: durability, id reuse, ceiling, unreadable storage |
-| `connection_source_test.dart` | `PlatformConnectionSource` against a fake `ConnectivityPlatform` |
-| `reports_test.dart` | report arithmetic against `SaleModel` |
-| `prescription_matcher_test.dart` | OCR-to-catalogue ranking, including misreads |
-| `scan_screen_test.dart` | camera gate, reading, suggestions, manual entry, disposal |
-| `mlkit_text_recognizer_test.dart` | plugin channel mapping and failure modes |
-| `nav_alignment_test.dart` | bar/branch order and label fit on a 360 dp phone |
-| `splash_test.dart` | splash artwork, bootstrap gating |
+| `features/search/local/medicine_row_codec_test.dart` | row↔model round trip, uncounted stock stays null, corrupt JSON tolerated, and `sameStoredMedicine` seeing through the identity-only `==` |
+| `features/search/local/medicine_merge_test.dart` | `mergeMedicines` rules: server wins, local descriptions survive, pending ids are protected, legacy name+price identity, ambiguity not guessed at, ordering |
+| `features/search/local/synced_medicine_store_test.dart` | store ordering: base before server, mirror after merge, medicine writes that stay on the device, shelf edits surviving a stale snapshot, auto-seed of the server, status passthrough |
+| `features/search/local/drift_medicine_store_test.dart` | the SQLite store against an in-memory database: seeding once, overlay migration, partial writes, watch behaviour |
+| `features/search/local/fakes.dart` | shared in-memory cache and a hand-driven remote, so store logic runs without Firestore or SQLite |
+| `helpers/sqlite3_for_tests.dart` | the SQLite probe: database-backed tests **skip** on a machine where the native library cannot load, rather than fail |
+
+The Drift tests need a SQLite library the test runner does not bundle;
+`package:sqlite3` resolves one through Dart's native assets, which works here,
+and on a machine without it the suite reports skips and the logic still holds
+via the fake-backed suites above.
 
 ### Injection seams
 
-A handful of screens take constructor parameters for tests:
-
-| Seam | Type | Purpose |
-|---|---|---|
-| `PharmaGuideApp.bootstrap` | `Future<FirebaseBootstrapResult>?` | control when the splash gives way |
-| `OrdersScreen.historyFactory` | `OrderHistoryRepository Function()?` | inject order history |
-| `ReportsScreen.repository` | `ReportsRepository?` | inject report data |
-| `ActivityLogScreen.repository` | `AuditRepository?` | inject the activity log |
-| `ScanScreen.{repository, recognizer, camera}` | interface types | inject catalogue, OCR, camera |
-
-`AuthLandingScreen`, `DashboardScreen`, `InventoryScreen`, `ExpiringMedsScreen`,
-`NewSaleScreen` and `ProfileScreen` have no seam; their tests build a provider
-graph around them instead.
-
-### Shared fakes
-
-| Fake | Interface |
-|---|---|
-| `FakeAuthRepository` | `AuthRepository` — counters, injectable failures, a gateable refresh |
-| `FakeAuditRepository` | `AuditRepository` — a driven stream plus a `recorded` list |
-| `FakeMedicineStore` | `MedicineStore` — `operations` log, injectable read/write errors |
-| `FakeSyncingMedicineStore` | adds `SyncStatusSource`, kept separate so a store that does *not* report reachability stays provable |
-| `FakePrescriptionCamera` | `PrescriptionCamera` — support flags, picture bytes, disposal flag |
-| `FakePrescriptionRecognizer` | `PrescriptionRecognizer` — readings, gateable `recognize`, disposal flag |
+The store layer is the seam: both new stores take their parts by constructor —
+`SyncedMedicineStore(local:, remote:, bundled:)` and
+`DriftMedicineStore(database:, bundled:, prefs:)` — so tests hand in lists and
+an in-memory database instead of Firestore, SharedPreferences or the asset
+bundle.
 
 `integration_test/` is empty but the package is still a dev dependency. The Scan
 integration test was deleted and is tracked as deferred item **D1** in §10 — camera
@@ -693,7 +702,7 @@ writes eight files:
 
 **`tool/seed_firestore.dart`** (66 lines) uploads the medicine seed to
 `users/{uid}/medicines` in 500-write batches. It is now optional: a brand-new
-account self-seeds from the bundle via `SeededMedicineStore._seedIfEmpty`.
+account self-seeds from the bundle via `SyncedMedicineStore._seedIfEmpty`.
 
 ---
 

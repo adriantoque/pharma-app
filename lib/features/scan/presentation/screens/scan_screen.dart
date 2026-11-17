@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -29,7 +30,9 @@ import '../../domain/prescription_recognizer.dart';
 /// as a deliberate result, so pointing the camera at a name already answers
 /// "do we stock this?" before a photo is taken. The Scan button stays the
 /// deliberate commit — it freezes the frame, reads it, and hands its lines to
-/// the results the way it always has.
+/// the results the way it always has — and when the frames stop moving with a
+/// strong match held steady, the gate commits for the user by taking that same
+/// photo itself: auto-capture, the move every dedicated scanner makes.
 ///
 /// Nothing is ever added to the order by itself. Printed text is still read
 /// wrong now and then — a "5" that is a "6", an "o" that is an "a" — and
@@ -135,9 +138,9 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _liveOn = false;
   bool _liveFrameBusy = false;
 
-  /// Whether the frames have shown any readable text, so the live bar can say
-  /// "found printed text" instead of a stateless "looking".
-  bool _liveTextSeen = false;
+  /// The actual words the last live frame produced, kept so the bar can show
+  /// them for debugging rather than only a state label.
+  String _liveText = '';
 
   /// Candidates the live reads have matched so far, deduplicated by the
   /// matcher like any other reading list.
@@ -167,21 +170,19 @@ class _ScanScreenState extends State<ScanScreen> {
 
   /// How sure a candidate must be to count towards a self-commit.
   ///
-  /// Deliberately above the matcher's 0.6 offer threshold: a live commit raises
-  /// the stakes of a misread (the sheet presents itself as done), so only
-  /// strong matches are allowed to trigger it. Weaker candidates still display
-  /// in the committed sheet — they just cannot vote for it.
+  /// Deliberately above the matcher's 0.6 offer threshold: an auto-capture
+  /// raises the stakes of a misread (it spends a photo and the user's attention
+  /// without being asked), so only strong matches are allowed to trigger it.
+  /// Weaker candidates still display in the live bar — they just cannot vote.
   static const double _commitConfidence = 0.75;
 
-  /// Whether auto-commit has already produced a sheet the user is reviewing.
-  /// While it is up the gate holds still: a sheet re-committing itself out
-  /// from under a hand moving towards a Fix button is the one failure the
-  /// scanner must never cause.
-  bool _sheetOpen = false;
-
-  /// The auto-commit sheet. The data behind it is the ordinary `_readings` /
-  /// `_suggestions` pair, so Fix, Add, and the details dialog work through
-  /// exactly the paths they work through in the deliberate results.
+  /// Whether a photo has been asked for and its read has not finished — the
+  /// window between the gate firing, or a tap on Scan, and the results landing.
+  ///
+  /// The gate needs this because a photo is not "being read" until its bytes
+  /// are in hand: the takePicture seconds would otherwise look idle to a frame
+  /// still arriving, and a second capture would stack on the first.
+  bool _autoCapturePending = false;
 
   /// The photo currently being read, shown frozen in place of the live feed
   /// while recognition runs, so the screen always answers "which frame am I
@@ -192,6 +193,30 @@ class _ScanScreenState extends State<ScanScreen> {
   /// Whether the torch is lit. Held here rather than asked back from the
   /// camera, so the toggle stays honest even on a device that quietly refuses.
   bool _torchOn = false;
+
+  // ── The preview's zoom and focus-point gestures ───────────────────────────
+
+  /// The zoom the live preview is at, in device units inside the camera's
+  /// reported range. Held here so the badge can show it; the camera clamps
+  /// the same value again before it reaches the optics.
+  double _zoom = 1.0;
+
+  /// The zoom range the device reported when it opened. Null while unknown or
+  /// absent, and a range whose ends meet hides every zoom affordance.
+  double? _minZoom;
+  double? _maxZoom;
+
+  /// The zoom a pinch starts from, so the gesture's relative scale becomes an
+  /// absolute zoom level rather than an increment on a moving target.
+  double _pinchStartZoom = 1.0;
+
+  /// Where the last tap asked the camera to focus, as fractions of the
+  /// preview, and the ring that marks it on the feed.
+  Offset? _focusPoint;
+
+  /// The timer that returns focus to the whole frame after a tap, so one aimed
+  /// tap does not hold the camera's meter forever.
+  Timer? _focusClearTimer;
 
   /// Whether the last failure was the missing model rather than the photo.
   ///
@@ -221,6 +246,7 @@ class _ScanScreenState extends State<ScanScreen> {
     // relevant once this state is gone.
     _liveOn = false;
     _liveFrameBusy = false;
+    _focusClearTimer?.cancel();
     unawaited(_recognizer.dispose());
     unawaited(_camera.dispose());
     super.dispose();
@@ -231,6 +257,19 @@ class _ScanScreenState extends State<ScanScreen> {
       await _camera.initialize();
       if (!mounted) return;
       setState(() => _cameraReady = true);
+      // The zoom range is asked once rather than per gesture: the pinch clamps
+      // against these numbers on every update, and a camera without zoom
+      // optics reports a range whose ends meet, which hides the affordances.
+      if (_camera.supportsZoom) {
+        final min = await _camera.minZoomLevel;
+        final max = await _camera.maxZoomLevel;
+        if (!mounted) return;
+        setState(() {
+          _minZoom = min;
+          _maxZoom = max;
+          _zoom = _zoom.clamp(min, max).toDouble();
+        });
+      }
       // Live scanning rides on the same permission the deliberate flow needs:
       // a preview that just opened is already framing, so its frames may as
       // well start being read while the user lines up the photo.
@@ -290,29 +329,34 @@ class _ScanScreenState extends State<ScanScreen> {
         !_liveOn ||
         _liveFrameBusy ||
         _isReading ||
+        _autoCapturePending ||
         _showResults) {
       return;
     }
     _liveFrameBusy = true;
     try {
       final lines = await _recognizer.recognizeFrame(frame);
-      if (!mounted || !_liveOn || _isReading || _showResults || _sheetOpen) {
+      if (!mounted ||
+          !_liveOn ||
+          _isReading ||
+          _autoCapturePending ||
+          _showResults) {
         return;
       }
-      final suggestions = _matcher.suggest(lines, perLine: 3);
+      final suggestions = _matcher.suggest(lines, perLine: 5);
       setState(() {
-        _liveTextSeen = lines.isNotEmpty;
+        _liveText = lines.map((line) => line.text).join(' · ');
         _liveSuggestions = suggestions;
       });
 
       // The gate only steps while the screen is the route the user is actually
       // on — a Fix dialog or quantity sheet above it means a hand heading for
       // a button, and nothing must commit out from under that. Inside it, a
-      // stable read with at least one strong match commits itself into the
-      // sheet; no match at all is not a reading, only text.
+      // stable read with at least one strong match takes the photo itself; no
+      // match at all is not a reading, only text.
       final route = ModalRoute.of(context);
       if (route != null && !route.isCurrent) return;
-      if (_stepGate(lines, suggestions)) return;
+      if (_stepGate(suggestions)) return;
     } on PrescriptionRecognitionException catch (error) {
       if (!mounted) return;
       if (error.isOffline) {
@@ -333,11 +377,8 @@ class _ScanScreenState extends State<ScanScreen> {
   /// [_commitStableFrames] reads in a row — measured by the medicine
   /// identities the strong matches resolve to, because a misread dose line is
   /// exactly the noise a repeat read corrects — the answer is good enough to
-  /// present, and the sheet opens with it.
-  bool _stepGate(
-    List<RecognizedLine> lines,
-    List<PrescriptionSuggestion> suggestions,
-  ) {
+  /// act on, and the photo is taken with it.
+  bool _stepGate(List<PrescriptionSuggestion> suggestions) {
     // Identity above display: the product id when the dataset supplies one,
     // the name otherwise. Sorting makes the set comparable across frames.
     final ids = [
@@ -348,8 +389,8 @@ class _ScanScreenState extends State<ScanScreen> {
     ]..sort();
 
     if (ids.isEmpty) {
-      // Text with nothing matched is not a reading yet; holding it would
-      // present shelves of near-misses the moment a page prints its header.
+      // Text with nothing matched is not a reading yet; acting on it would
+      // spend photos the moment a page prints its header.
       _stableIds = null;
       _stabilityCount = 0;
       return false;
@@ -365,11 +406,12 @@ class _ScanScreenState extends State<ScanScreen> {
     if (_stabilityCount < _commitStableFrames) return false;
 
     _stabilityCount = 0;
-    setState(() {
-      _readings = [for (final line in lines) line.text];
-      _suggestions = suggestions;
-      _sheetOpen = true;
-    });
+    // The gate's question has been answered the same way three reads running.
+    // Answer it for real: the photo the Scan button would have taken, through
+    // the capture, enhancement and results the button feeds. The gate merely
+    // pressed the button, so what the user reviews is the full-quality
+    // reading, not a frame the live loop happened to have in its hands.
+    unawaited(_autoCapture());
     return true;
   }
 
@@ -382,17 +424,71 @@ class _ScanScreenState extends State<ScanScreen> {
     return true;
   }
 
-  /// Lowers the commit sheet and hands the screen back to the live feed.
+  /// The stability gate's commit: the deliberate capture, fired because the
+  /// frame held still rather than because a button was tapped.
   ///
-  /// The gate restarts from cold ([_stepGate] has already zeroed itself), so
-  /// the same scene takes the full run of stable frames to commit again — a
-  /// pause the closing hand effectively dialed in.
-  void _closeSheet() {
-    setState(() {
-      _sheetOpen = false;
-      _readings = const [];
-      _suggestions = const [];
+  /// Whatever the gate saw in the live frames, the photo will see better —
+  /// full resolution, the enhancement pass, the same results below the
+  /// preview — so the gate hands over to [_scan]'s flow instead of committing
+  /// its own frame reading. The guards here mirror [_scan]'s own: a capture
+  /// already under way is the one that counts.
+  Future<void> _autoCapture() async {
+    if (_autoCapturePending ||
+        _isReading ||
+        _showResults ||
+        _cameraReady != true) {
+      return;
+    }
+    await _scan();
+  }
+
+  /// A pinch on the live preview zooms the feed, clamped to the device's
+  /// reported range and applied to the camera as the fingers move, so the
+  /// preview answers a dose line being aimed at rather than after it.
+  void _onScaleStart(ScaleStartDetails details) {
+    _pinchStartZoom = _zoom;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    final min = _minZoom;
+    final max = _maxZoom;
+    if (min == null || max == null || min >= max) return;
+    // One finger is a tap's journey, not a zoom; the pinch is what zooms.
+    if (details.pointerCount < 2) return;
+    if (_isReading) return;
+    final next = (_pinchStartZoom * details.scale).clamp(min, max).toDouble();
+    if (next == _zoom) return;
+    _zoom = next;
+    unawaited(_camera.setZoomLevel(next));
+    setState(() {});
+  }
+
+  /// A tap on the live preview asks the camera to focus and meter where the
+  /// text is — the move every scanner app teaches for "read this spot".
+  ///
+  /// The point clears itself after a moment, so one aimed tap does not hold
+  /// the camera's focus on a shelf the preview has already moved off.
+  void _onTapUp(BuildContext previewContext, TapUpDetails details) {
+    if (_isReading || !_camera.supportsTapToFocus) return;
+    final box = previewContext.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+    final size = box.size;
+    if (size.width <= 0 || size.height <= 0) return;
+    final x = (details.localPosition.dx / size.width)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final y = (details.localPosition.dy / size.height)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    unawaited(_camera.setFocusPoint(x, y));
+    _focusClearTimer?.cancel();
+    _focusClearTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      unawaited(_camera.clearFocusPoint());
+      setState(() => _focusPoint = null);
     });
+    setState(() => _focusPoint = Offset(x, y));
   }
 
   /// Lights or douses the torch from the preview's own toggle.
@@ -430,13 +526,20 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   /// Takes the photo the preview is showing and reads it.
+  ///
+  /// Also the body of the stability gate's self-commit, which is why the
+  /// pending flag is held here rather than by the caller: an auto-capture and
+  /// a button tap are the same photo once the decision has been made, and
+  /// neither may stack a second capture on the first.
   Future<void> _scan() async {
-    if (_isReading || _cameraReady != true) return;
+    if (_isReading || _autoCapturePending || _cameraReady != true) return;
+    _autoCapturePending = true;
 
     final Uint8List bytes;
     try {
       bytes = await _camera.takePicture();
     } on PrescriptionRecognitionException catch (error) {
+      _autoCapturePending = false;
       if (!mounted) return;
       _reportError(error);
       return;
@@ -450,9 +553,6 @@ class _ScanScreenState extends State<ScanScreen> {
       _frozenPhoto = bytes;
       _error = null;
       _errorNeedsConnection = false;
-      // A deliberate scan is the user choosing their own reading; any sheet
-      // the live frames committed is superseded the moment they touch it.
-      _sheetOpen = false;
     });
     // Reading one photo is a single-threaded moment: the live bar would only
     // compete with it, and a gallery read has no capture around which the
@@ -465,7 +565,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
       setState(() {
         _readings = [for (final line in readings) line.text];
-        _suggestions = _matcher.suggest(readings);
+        _suggestions = _matcher.suggest(readings, perLine: 5);
         _isReading = false;
         // Nothing read means nothing to give the room to, so the preview
         // stays where it is rather than collapsing onto an empty result.
@@ -475,6 +575,10 @@ class _ScanScreenState extends State<ScanScreen> {
       if (!mounted) return;
       _reportError(error);
       setState(() => _isReading = false);
+    } finally {
+      // The capture window is over whether the read succeeded or not: the
+      // gate may compete again, and a tap on Scan means a new photo.
+      _autoCapturePending = false;
     }
   }
 
@@ -507,12 +611,14 @@ class _ScanScreenState extends State<ScanScreen> {
   /// replaces them — and the live scanner wakes back up with the preview,
   /// since a frame the camera is showing again is the next thing to read.
   void _scanAgain() {
+    _focusClearTimer?.cancel();
+    unawaited(_camera.clearFocusPoint());
     setState(() {
       _showResults = false;
       _frozenPhoto = null;
-      _liveTextSeen = false;
       _liveSuggestions = const [];
-      _sheetOpen = false;
+      _liveText = '';
+      _focusPoint = null;
     });
     unawaited(_startLive());
   }
@@ -569,18 +675,17 @@ class _ScanScreenState extends State<ScanScreen> {
               const SizedBox(height: 8),
               Text(
                 'Stock: $stockLabel',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: stockColor,
-                ),
+                style: theme.textTheme.bodySmall?.copyWith(color: stockColor),
               ),
               const SizedBox(height: 8),
               if (medicine.dosageInfo case final dosage?)
-                Text('Dosage: $dosage',
-                  style: theme.textTheme.bodySmall),
+                Text('Dosage: $dosage', style: theme.textTheme.bodySmall),
               const SizedBox(height: 8),
               if (medicine.ageGuidance case final age?)
-                Text('Age guidance: ${age.kids}',
-                  style: theme.textTheme.bodySmall),
+                Text(
+                  'Age guidance: ${age.kids}',
+                  style: theme.textTheme.bodySmall,
+                ),
             ],
           ),
         ),
@@ -602,13 +707,6 @@ class _ScanScreenState extends State<ScanScreen> {
         _Intro(message: widget.introMessage),
         if (canScanOnPlatform) ...[
           _cameraSection(),
-          // The deliberate trigger. Rendered even when the camera was refused,
-          // where it is disabled: the gate above it explains why.
-          _CameraControls(
-            cameraReady: _cameraReady == true,
-            isReading: _isReading,
-            onScan: _scan,
-          ),
           if (_showResults)
             _ResultsBelowCamera(
               readings: _readings,
@@ -645,28 +743,7 @@ class _ScanScreenState extends State<ScanScreen> {
       ],
     );
 
-    // The deliberate flow's results own the results area beneath the preview;
-    // a self-committed reading rides over the screen as a sheet, so the feed
-    // the user was aiming keeps its place above it.
-    final body = Stack(
-      children: [
-        cameraColumn,
-        if (_sheetOpen)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _CommitSheet(
-              readings: _readings,
-              suggestions: _suggestions,
-              onEdit: _editReading,
-              onAdd: _add,
-              onDetails: _showMedicineDetails,
-              onClose: _closeSheet,
-            ),
-          ),
-      ],
-    );
+    final body = cameraColumn;
 
     // Embedded in a host that already has chrome (the Scan SKU tab).
     if (widget.embedded) return body;
@@ -703,63 +780,97 @@ class _ScanScreenState extends State<ScanScreen> {
         child: AnimatedContainer(
           // The preview's change from full frame to strip is a spatial fact
           // — the results took its room — so it moves rather than jumps.
-          duration: erroring ? Duration.zero : const Duration(milliseconds: 250),
+          duration: erroring
+              ? Duration.zero
+              : const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           height: previewHeight,
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: GestureDetector(
-              // The collapsed strip is the sleeping camera; waking it is the
-              // same gesture every camera app teaches, so the strip answers it.
-              key: const Key('previewStrip'),
-              behavior: HitTestBehavior.opaque,
-              onTap: _showResults ? _scanAgain : null,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _previewContent(preview),
-                  if (_frozenPhoto == null && !_showResults) ...[
-                    // Framing guide and chrome belong to the live feed only: a
-                    // frozen photo is already framed, and a collapsed strip is
-                    // too small to spend on anything but waking up.
-                    const Positioned.fill(
-                      child: IgnorePointer(child: _ScanFrameGuide()),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: _PreviewIconButton(
-                        key: const Key('torchButton'),
-                        icon: _torchOn ? Icons.flash_on : Icons.flash_off,
-                        tooltip: _torchOn ? 'Torch is on' : 'Light the preview',
-                        onPressed: () => unawaited(_setTorch(!_torchOn)),
+            child: Builder(
+              // A Builder so a tap can read the preview's own size: the focus
+              // point is asked for in fractions of the feed, not of the screen.
+              builder: (previewContext) => GestureDetector(
+                // The collapsed strip is the sleeping camera; waking it is the
+                // same gesture every camera app teaches, so the strip answers
+                // it. The live feed answers a pinch with zoom and a tap with
+                // focus — the two moves a dedicated scanner teaches next.
+                key: const Key('previewStrip'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _showResults ? _scanAgain : null,
+                onTapUp: _showResults
+                    ? null
+                    : (details) => _onTapUp(previewContext, details),
+                onScaleStart: _showResults ? null : _onScaleStart,
+                onScaleUpdate: _showResults ? null : _onScaleUpdate,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _previewContent(preview),
+                    if (_frozenPhoto == null && !_showResults) ...[
+                      // Framing guide and chrome belong to the live feed only: a
+                      // frozen photo is already framed, and a collapsed strip is
+                      // too small to spend on anything but waking up.
+                      const Positioned.fill(
+                        child: IgnorePointer(child: _ScanFrameGuide()),
                       ),
-                    ),
-                    if (_liveOn && !_isReading)
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: IgnorePointer(
-                          ignoring: _liveSuggestions.isEmpty,
-                          child: _LiveBar(
-                            suggestions: _liveSuggestions,
-                            textSeen: _liveTextSeen,
-                            liveSupported:
-                                _recognizer.supportsFrames &&
-                                _camera.supportsLiveFrames &&
-                                !_liveUnavailable,
-                            onAdd: _add,
+                      // The zoom badge answers "how close am I?" while a pinch
+                      // is being aimed, and goes quiet when the lens is back
+                      // where it started.
+                      if (_zoom > (_minZoom ?? 1.0))
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: _ZoomBadge(zoom: _zoom),
                           ),
                         ),
+                      // The ring marks the point the last tap asked the camera
+                      // to read; it goes away with the point itself.
+                      if (_focusPoint case final point?)
+                        Align(
+                          alignment: Alignment(
+                            point.dx * 2 - 1,
+                            point.dy * 2 - 1,
+                          ),
+                          child: const IgnorePointer(child: _FocusRing()),
+                        ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _PreviewIconButton(
+                          key: const Key('torchButton'),
+                          icon: _torchOn ? Icons.flash_on : Icons.flash_off,
+                          tooltip: _torchOn
+                              ? 'Torch is on'
+                              : 'Light the preview',
+                          onPressed: () => unawaited(_setTorch(!_torchOn)),
+                        ),
+                      ),
+                      if (_liveOn && !_isReading)
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: IgnorePointer(
+                            ignoring: _liveSuggestions.isEmpty,
+                            child: _LiveBar(
+                              suggestions: _liveSuggestions,
+                              text: _liveText,
+                              liveSupported:
+                                  _recognizer.supportsFrames &&
+                                  _camera.supportsLiveFrames &&
+                                  !_liveUnavailable,
+                              onAdd: _add,
+                            ),
+                          ),
+                        ),
+                    ],
+                    if (_isReading)
+                      const Positioned.fill(
+                        child: IgnorePointer(child: _ReadingVeil()),
                       ),
                   ],
-                  if (_isReading)
-                    const Positioned.fill(
-                      child: IgnorePointer(
-                        child: _ReadingVeil(),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           ),
@@ -796,9 +907,13 @@ class _ScanScreenState extends State<ScanScreen> {
             const ColoredBox(color: Color(0xFF103B21)),
       );
     }
-    return preview ?? Center(
-      child: Text('No preview', style: Theme.of(context).textTheme.bodySmall),
-    );
+    return preview ??
+        Center(
+          child: Text(
+            'No preview',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        );
   }
 }
 
@@ -918,8 +1033,7 @@ class _PreviewIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
       decoration: ShapeDecoration(
         shape: const CircleBorder(),
         color: Colors.black.withValues(alpha: 0.45),
@@ -966,9 +1080,8 @@ class _ReadingVeil extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 'Reading the photo…',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: Colors.white),
               ),
             ],
           ),
@@ -990,13 +1103,13 @@ class _ReadingVeil extends StatelessWidget {
 class _LiveBar extends StatelessWidget {
   const _LiveBar({
     required this.suggestions,
-    required this.textSeen,
+    required this.text,
     required this.liveSupported,
     required this.onAdd,
   });
 
   final List<PrescriptionSuggestion> suggestions;
-  final bool textSeen;
+  final String text;
   final bool liveSupported;
   final void Function(MedicineModel medicine) onAdd;
 
@@ -1006,28 +1119,67 @@ class _LiveBar extends StatelessWidget {
 
     final Widget content;
     if (suggestions.isNotEmpty) {
-      content = SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final suggestion in suggestions)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: _LiveChip(
-                  key: Key('liveChip${suggestion.medicine.name}'),
-                  suggestion: suggestion,
-                  onAdd: () => onAdd(suggestion.medicine),
+      // The chips are the answer, but the words behind them are shown too:
+      // a misread that happens to land on a real medicine is the failure
+      // worth seeing, and a bar that hides its own input hides that.
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '"$text"',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white70,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
-          ],
-        ),
+            ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final suggestion in suggestions)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _LiveChip(
+                      key: Key('liveChip${suggestion.medicine.name}'),
+                      suggestion: suggestion,
+                      onAdd: () => onAdd(suggestion.medicine),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       );
-    } else if (textSeen) {
-      content = _barLabel(
-        theme: theme,
-        label: 'Printed text found — no medicine matched yet',
+    } else if (text.isNotEmpty) {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '"$text"',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            liveSupported ? '— no medicine matched yet' : '— live matching off',
+            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+          ),
+        ],
       );
     } else {
       content = _barLabel(theme: theme, label: 'Looking for a medicine name…');
@@ -1042,20 +1194,14 @@ class _LiveBar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.55),
-          ],
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
         ),
       ),
       child: content,
     );
   }
 
-  Widget _barLabel({
-    required ThemeData theme,
-    required String label,
-  }) => Text(
+  Widget _barLabel({required ThemeData theme, required String label}) => Text(
     label,
     style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
   );
@@ -1065,11 +1211,7 @@ class _LiveBar extends StatelessWidget {
 /// the same quantity sheet as every other Add, so nothing about the live chip
 /// is a second path into the order.
 class _LiveChip extends StatelessWidget {
-  const _LiveChip({
-    super.key,
-    required this.suggestion,
-    required this.onAdd,
-  });
+  const _LiveChip({super.key, required this.suggestion, required this.onAdd});
 
   final PrescriptionSuggestion suggestion;
   final VoidCallback onAdd;
@@ -1115,9 +1257,8 @@ class _LiveChip extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 medicine.formattedPrice,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white70,
-                ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: Colors.white70),
               ),
             ],
           ),
@@ -1128,40 +1269,6 @@ class _LiveChip extends StatelessWidget {
 }
 
 /// The deliberate scan trigger, under the preview.
-class _CameraControls extends StatelessWidget {
-  const _CameraControls({
-    required this.cameraReady,
-    required this.isReading,
-    required this.onScan,
-  });
-
-  final bool cameraReady;
-  final bool isReading;
-  final VoidCallback onScan;
-
-  @override
-  Widget build(BuildContext context) {
-    final canUseCamera = cameraReady && !isReading;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: OutlinedButton.icon(
-        key: const Key('scanButton'),
-        onPressed: canUseCamera ? onScan : null,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(44),
-          backgroundColor: AppColors.brandGreenSurface,
-          foregroundColor: AppColors.brandGreen,
-          side: const BorderSide(
-            color: AppColors.brandGreenSurfaceBorder,
-          ),
-        ),
-        icon: const Icon(Icons.camera_alt),
-        label: Text(isReading ? 'Reading…' : 'Scan it'),
-      ),
-    );
-  }
-}
-
 /// Why the preview is not showing: the camera was refused, missing, or broke.
 class _CameraGate extends StatelessWidget {
   const _CameraGate({required this.message, required this.onRetry});
@@ -1300,9 +1407,7 @@ class _ErrorCard extends StatelessWidget {
           TextButton(
             key: const Key('retryReadingButton'),
             onPressed: onRetry,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.brandGreen,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.brandGreen),
             child: Text(needsConnection ? 'Try again' : 'Retry'),
           ),
         ],
@@ -1344,15 +1449,13 @@ class _Results extends StatelessWidget {
   final void Function(PrescriptionSuggestion suggestion) onDetails;
 
   static const String _nothingRead =
-      'Nothing read yet. Point the camera at printed text and tap Scan it.';
+      'Nothing read yet. Point the camera at printed text; live scanning reads it automatically.';
 
   @override
   Widget build(BuildContext context) {
     if (!showResults) {
       return _Empty(
-        message: readings.isEmpty
-            ? _nothingRead
-            : 'Results hidden — tap Scan it to read a new photo.',
+        message: readings.isEmpty ? _nothingRead : 'Results hidden — point the camera at printed text to read a new photo.',
       );
     }
 
@@ -1362,7 +1465,9 @@ class _Results extends StatelessWidget {
           index: i,
           reading: readings[i],
           isEmpty: readings[i].isEmpty,
-          hasMatches: suggestions.any((suggestion) => suggestion.lineIndex == i),
+          hasMatches: suggestions.any(
+            (suggestion) => suggestion.lineIndex == i,
+          ),
           suggestions: [
             for (final suggestion in suggestions)
               if (suggestion.lineIndex == i) suggestion,
@@ -1437,24 +1542,38 @@ class _ResultsBelowCamera extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             itemCount: readings.length,
-              itemBuilder: (context, index) {
-                final reading = readings[index];
-                final matches = suggestions.where((s) => s.lineIndex == index).toList();
-                return ListTile(
-                  title: Text(
-                    reading.isNotEmpty ? reading : 'Line ${index + 1}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  trailing: matches.isNotEmpty
-                      ? Tooltip(
-                          message: 'Add ${matches.first.medicine.name}',
-                          child: IconButton(
-                            icon: const Icon(Icons.add_circle_outline, size: 18),
-                            onPressed: () => onDetails(matches.first),
-                          ),
-                        )
-                      : null,
-                );
+            itemBuilder: (context, index) {
+              final reading = readings[index];
+              final matches = suggestions
+                  .where((s) => s.lineIndex == index)
+                  .toList();
+              return ListTile(
+                title: Text(
+                  reading.isNotEmpty ? reading : 'Line ${index + 1}',
+                  style: theme.textTheme.bodySmall,
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (reading.trim().isNotEmpty)
+                      IconButton(
+                        key: Key('findInMedicineListBelow$index'),
+                        icon: const Icon(Icons.search, size: 18),
+                        tooltip: 'Near names in medicine list',
+                        onPressed: () =>
+                            context.push('/medicines', extra: reading),
+                      ),
+                    if (matches.isNotEmpty)
+                      Tooltip(
+                        message: 'Add ${matches.first.medicine.name}',
+                        child: IconButton(
+                          icon: const Icon(Icons.add_circle_outline, size: 18),
+                          onPressed: () => onDetails(matches.first),
+                        ),
+                      ),
+                  ],
+                ),
+              );
             },
           ),
           const SizedBox(height: 8),
@@ -1508,9 +1627,7 @@ class _ResultHeader extends StatelessWidget {
           TextButton(
             key: const Key('scanAgainButton'),
             onPressed: onScanAgain,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.brandGreen,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.brandGreen),
             child: const Text('Scan again'),
           ),
         ],
@@ -1590,6 +1707,15 @@ class _LineResult extends StatelessWidget {
                   ),
                   child: const Text('Fix'),
                 ),
+              if (index >= 0 && reading.trim().isNotEmpty)
+                TextButton(
+                  key: Key('findInMedicineList$index'),
+                  onPressed: () => context.push('/medicines', extra: reading),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.brandGreen,
+                  ),
+                  child: const Text('Near names'),
+                ),
             ],
           ),
           if (suggestions.isEmpty)
@@ -1616,7 +1742,9 @@ class _LineResult extends StatelessWidget {
       ),
     );
   }
-}/// One matched medicine under the line that named it.
+}
+
+/// One matched medicine under the line that named it.
 ///
 /// The chips carry the facts worth knowing before tapping Add: what is on the
 /// shelf, how sure the match is, whether a prescription is needed, and how
@@ -1797,9 +1925,7 @@ class _EditLineDialogState extends State<_EditLineDialog> {
           style: OutlinedButton.styleFrom(
             backgroundColor: AppColors.brandGreenSurface,
             foregroundColor: AppColors.brandGreen,
-            side: const BorderSide(
-              color: AppColors.brandGreenSurfaceBorder,
-            ),
+            side: const BorderSide(color: AppColors.brandGreenSurfaceBorder),
           ),
           child: const Text('Use this'),
         ),
@@ -1808,120 +1934,48 @@ class _EditLineDialogState extends State<_EditLineDialog> {
   }
 }
 
-/// What a self-committed reading rides in: a sheet from the bottom, over the
-/// feed that produced it.
-///
-/// The cards are the same `_LineResult`s the deliberate results use, wired to
-/// the same Add, Fix, and details paths — nothing here is a second path into
-/// the order or a second place to correct a misread. The sheet presents the
-/// reading as one thing (the header counts it like the deliberate flow does)
-/// and pairs it with exactly one way back: Done, which returns the screen to
-/// the live feed the reading came from.
-class _CommitSheet extends StatelessWidget {
-  const _CommitSheet({
-    required this.readings,
-    required this.suggestions,
-    required this.onEdit,
-    required this.onAdd,
-    required this.onDetails,
-    required this.onClose,
-  });
+/// The pill at the preview's top-left that says how far in the feed is zoomed:
+/// a number where the torch button sits opposite, because "how close am I?" is
+/// asked mid-gesture and answered without words. It shows only once the lens
+/// has actually moved from where it started.
+class _ZoomBadge extends StatelessWidget {
+  const _ZoomBadge({required this.zoom});
 
-  final List<String> readings;
-  final List<PrescriptionSuggestion> suggestions;
-  final void Function(int index) onEdit;
-  final void Function(MedicineModel medicine) onAdd;
-  final void Function(PrescriptionSuggestion suggestion) onDetails;
-  final VoidCallback onClose;
+  final double zoom;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final lines = [
-      for (var i = 0; i < readings.length; i++)
-        _LineResult(
-          index: i,
-          reading: readings[i],
-          isEmpty: readings[i].isEmpty,
-          hasMatches: suggestions.any((suggestion) => suggestion.lineIndex == i),
-          suggestions: [
-            for (final suggestion in suggestions)
-              if (suggestion.lineIndex == i) suggestion,
-          ],
-          onEdit: () => onEdit(i),
-          onAdd: onAdd,
-          onDetails: onDetails,
-        ),
-    ];
+    if (zoom <= 1) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: ShapeDecoration(
+        shape: const StadiumBorder(),
+        color: Colors.black.withValues(alpha: 0.45),
+      ),
+      child: Text(
+        '${zoom.toStringAsFixed(1)}×',
+        style: Theme.of(context).textTheme.bodySmall
+            ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
 
-    final linesLabel = readings.length == 1 ? '1 line' : '${readings.length} lines';
-    final matchesLabel = suggestions.length == 1
-        ? '1 match'
-        : '${suggestions.length} matches';
+/// The rounded square that marks where the last tap asked the camera to focus
+/// and meter: the same mark every camera app draws for "read this spot", gone
+/// as soon as the point clears itself and the frame is free again.
+class _FocusRing extends StatelessWidget {
+  const _FocusRing();
 
-    return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      elevation: 8,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      child: SafeArea(
-        top: false,
-        child: ConstrainedBox(
-          // Room to read, never enough to take the whole screen: the feed
-          // behind the sheet stays part of the story — committed from it.
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.6,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // The grab handle: the sheet's one decoration that says
-              // "drag me away" without any copy being spent on it.
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 8, bottom: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Scan result · $linesLabel · $matchesLabel',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      key: const Key('commitSheetClose'),
-                      onPressed: onClose,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.brandGreen,
-                      ),
-                      child: const Text('Done'),
-                    ),
-                  ],
-                ),
-              ),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: lines.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) => lines[index],
-                ),
-              ),
-            ],
-          ),
-        ),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white, width: 2),
+        borderRadius: BorderRadius.circular(10),
+        color: Colors.white.withValues(alpha: 0.10),
       ),
     );
   }
