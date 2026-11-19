@@ -62,11 +62,13 @@ class ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_badges().isNotEmpty) ...[
-              Row(
+              Wrap(
                 // The sample pins the prescription tag to the far edge, so the
                 // eye finds the one red thing on the card without scanning
                 // between the badges.
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 6,
+                runSpacing: 4,
                 children: _badges(),
               ),
               const SizedBox(height: 8),

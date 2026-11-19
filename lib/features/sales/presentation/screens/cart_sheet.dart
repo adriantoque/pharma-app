@@ -319,36 +319,43 @@ class _CartItemTile extends StatelessWidget {
           ),
           Text(line.formattedTotal, style: totalStyle),
           const SizedBox(width: 4),
-          IconButton(
-            onPressed: () => order.setQuantity(medicine, line.quantity - 1),
-            icon: Icon(Icons.remove_circle_outline, size: iconSize),
-            tooltip: 'One fewer ${medicine.name}',
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-          SizedBox(
-            width: qtyWidth,
-            child: Text(
-              '${line.quantity}',
-              textAlign: TextAlign.center,
-              style: qtyStyle,
-            ),
-          ),
-          IconButton(
-            onPressed: atMax
-                ? null
-                : () => order.setQuantity(medicine, line.quantity + 1),
-            icon: Icon(Icons.add_circle_outline, size: iconSize),
-            tooltip: 'One more ${medicine.name}',
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-          IconButton(
-            onPressed: () => order.remove(medicine),
-            icon: Icon(Icons.delete_outline, size: iconSize),
-            tooltip: 'Remove ${medicine.name}',
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
+          Wrap(
+            spacing: 2,
+            runSpacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              IconButton(
+                onPressed: () => order.setQuantity(medicine, line.quantity - 1),
+                icon: Icon(Icons.remove_circle_outline, size: iconSize),
+                tooltip: 'One fewer ${medicine.name}',
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+              SizedBox(
+                width: qtyWidth,
+                child: Text(
+                  '${line.quantity}',
+                  textAlign: TextAlign.center,
+                  style: qtyStyle,
+                ),
+              ),
+              IconButton(
+                onPressed: atMax
+                    ? null
+                    : () => order.setQuantity(medicine, line.quantity + 1),
+                icon: Icon(Icons.add_circle_outline, size: iconSize),
+                tooltip: 'One more ${medicine.name}',
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+              IconButton(
+                onPressed: () => order.remove(medicine),
+                icon: Icon(Icons.delete_outline, size: iconSize),
+                tooltip: 'Remove ${medicine.name}',
+                constraints: const BoxConstraints(),
+                padding: EdgeInsets.zero,
+              ),
+            ],
           ),
         ],
       ),

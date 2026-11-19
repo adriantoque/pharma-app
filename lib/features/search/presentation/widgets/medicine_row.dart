@@ -56,20 +56,26 @@ class MedicineRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Text(
-            medicine.formattedPrice,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.primary,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              medicine.formattedPrice,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
             ),
           ),
           const SizedBox(width: 8),
-          _QuantityControl(
-            medicine: medicine,
-            quantity: quantity,
-            onAdd: onAdd,
-            onRemove: onRemove,
+          Flexible(
+            child: _QuantityControl(
+              medicine: medicine,
+              quantity: quantity,
+              onAdd: onAdd,
+              onRemove: onRemove,
+            ),
           ),
         ],
       ),

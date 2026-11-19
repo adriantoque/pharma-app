@@ -7,6 +7,8 @@ import '../../../search/data/models/age_guidance.dart';
 import '../../../search/data/models/medicine_model.dart';
 import '../../../scan/presentation/screens/scan_screen.dart';
 import '../../../search/presentation/providers/medicine_provider.dart';
+import '../../../../core/utils/search_text.dart';
+import '../../../symptom_guide/data/models/symptom_entry.dart';
 import '../../../symptom_guide/data/repositories/symptom_repository.dart';
 import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
 
@@ -398,7 +400,7 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
   }
 }
 
-/// TAB 2: SYMPTOM FINDER -- what the customer has, what to hand over.
+/// TAB 2: SYMPTOM FINDER -- type symptoms, analyze, and see medicines to hand over.
 class PosSymptomFinderScreen extends StatefulWidget {
   const PosSymptomFinderScreen({super.key});
 
@@ -409,24 +411,129 @@ class PosSymptomFinderScreen extends StatefulWidget {
 class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
   static const SymptomRepository _repository = StaticSymptomRepository();
 
+  /// Who the medicine is for. Defaults to child to match the previous screen;
+  /// `All` is offered too so unlabelled stock is never hidden behind a question.
   AgeGroup _targetAgeGroup = AgeGroup.child;
-  final Set<String> _selectedSymptoms = {};
+
+  /// The symptom ids the staff member has committed so far.
+  final Set<String> _selectedSymptomIds = <String>{};
+
+  /// Free-text tokens that could not be matched to any symptom. Kept separate so
+  /// the staff member can see what the app did not understand.
+  final List<String> _unmatchedTokens = <String>[];
+
+  final TextEditingController _controller = TextEditingController();
+  String _currentToken = '';
+
+  static final RegExp _delimiter = RegExp(r'[,\n;]|\s+and\s+');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// The symptoms that have been committed, in catalogue order.
+  List<SymptomEntry> get _matchedSymptoms {
+    final matched = _repository
+        .all()
+        .where((entry) => _selectedSymptomIds.contains(entry.id))
+        .toList()
+      ..sort(SymptomEntry.compareByName);
+    return matched;
+  }
+
+  /// Autocomplete suggestions for the token currently being typed.
+  List<SymptomEntry> get _suggestions {
+    final token = _currentToken.trim();
+    if (token.isEmpty) return const <SymptomEntry>[];
+    return _repository
+        .search(token)
+        .where((entry) => !_selectedSymptomIds.contains(entry.id))
+        .take(6)
+        .toList(growable: false);
+  }
+
+  /// Commits a single raw token: either adds the matching symptom or records it
+  /// as unmatched. Mutates state; the caller is responsible for setState.
+  void _commitToken(String raw) {
+    final token = raw.trim();
+    if (token.isEmpty) return;
+
+    final matches = _repository.search(token);
+    if (matches.isEmpty) {
+      if (!_unmatchedTokens.contains(token)) _unmatchedTokens.add(token);
+      return;
+    }
+
+    // Prefer an exact name/alias match; otherwise take the first suggestion.
+    SymptomEntry chosen = matches.first;
+    for (final entry in matches) {
+      if (entry.searchableNames.any(
+        (name) => normaliseForSearch(name) == normaliseForSearch(token),
+      )) {
+        chosen = entry;
+        break;
+      }
+    }
+    _selectedSymptomIds.add(chosen.id);
+    _unmatchedTokens.remove(token);
+  }
+
+  void _handleInput(String value) {
+    final parts = value.split(_delimiter);
+    if (parts.length > 1) {
+      setState(() {
+        for (var i = 0; i < parts.length - 1; i++) {
+          _commitToken(parts[i]);
+        }
+        _currentToken = parts.last;
+      });
+      _controller.value = TextEditingValue(
+        text: parts.last,
+        selection: TextSelection.collapsed(offset: parts.last.length),
+      );
+      return;
+    }
+    setState(() => _currentToken = value);
+  }
+
+  void _commitCurrent() {
+    setState(() {
+      _commitToken(_controller.text);
+      _currentToken = '';
+    });
+    _controller.clear();
+  }
+
+  void _clearAll() {
+    setState(() {
+      _selectedSymptomIds.clear();
+      _unmatchedTokens.clear();
+      _currentToken = '';
+    });
+    _controller.clear();
+  }
+
+  void _addSymptom(SymptomEntry symptom) {
+    setState(() {
+      _selectedSymptomIds.add(symptom.id);
+      _currentToken = '';
+      _unmatchedTokens.clear();
+    });
+    _controller.clear();
+  }
 
   @override
   Widget build(BuildContext context) {
     final order = context.watch<OrderProvider>();
-    final catalogue = context.read<MedicineProvider>().all();
+    final catalogue = context.watch<MedicineProvider>().all();
 
-    final symptoms = _repository.all();
-    final picked = symptoms
-        .where((entry) => _selectedSymptoms.contains(entry.name))
-        .toList();
-
-    // The union of what each picked symptom recommends -- deduplicated by
-    // [SymptomEntry.recommendationsIn] -- narrowed to who the customer is.
+    // Union of each matched symptom's recommendations, deduplicated by medicine
+    // name, narrowed to who the customer is.
     final matches = <MedicineModel>[];
     final seen = <String>{};
-    for (final entry in picked) {
+    for (final entry in _matchedSymptoms) {
       for (final medicine in entry.recommendationsIn(catalogue)) {
         if (!medicine.isForAge(_targetAgeGroup)) continue;
         if (seen.add(medicine.name.trim().toLowerCase())) {
@@ -438,13 +545,11 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: _posAppBar(context),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // The committed heading, with the app's standing disclaimer right
-            // under it: the finder may suggest, it must not diagnose.
             const Text(
               'Patient Demographic & Symptoms',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -452,11 +557,18 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
             const SizedBox(height: 8),
             const SafetyBanner(),
             const SizedBox(height: 12),
-            Row(
+
+            // Demographic control: wraps instead of overflowing on narrow screens.
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 ChoiceChip(
                   avatar: const Icon(Icons.child_care, size: 16),
                   label: const Text('Pediatric / Child'),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                   selected: _targetAgeGroup == AgeGroup.child,
                   onSelected: (selected) {
                     if (selected) {
@@ -464,10 +576,12 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                     }
                   },
                 ),
-                const SizedBox(width: 8),
                 ChoiceChip(
                   avatar: const Icon(Icons.person, size: 16),
                   label: const Text('Adult'),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                   selected: _targetAgeGroup == AgeGroup.adult,
                   onSelected: (selected) {
                     if (selected) {
@@ -475,63 +589,218 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                     }
                   },
                 ),
+                ChoiceChip(
+                  avatar: const Icon(Icons.people_outline, size: 16),
+                  label: const Text('All'),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                  selected: _targetAgeGroup == AgeGroup.both,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() => _targetAgeGroup = AgeGroup.both);
+                    }
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Select Symptoms:',
-              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+
+            Text(
+              'Type Symptoms:',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              children: symptoms
-                  .map(
-                    (symptom) => FilterChip(
-                      label: Text(
-                        symptom.name,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      selected: _selectedSymptoms.contains(symptom.name),
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedSymptoms.add(symptom.name);
-                          } else {
-                            _selectedSymptoms.remove(symptom.name);
-                          }
-                        });
-                      },
-                    ),
-                  )
-                  .toList(),
+            TextField(
+              controller: _controller,
+              onChanged: _handleInput,
+              onSubmitted: (_) => _commitCurrent(),
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                hintText: 'Type symptoms (e.g. fever, headache, cough)',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  tooltip: 'Analyze',
+                  icon: const Icon(Icons.analytics_outlined),
+                  onPressed: _commitCurrent,
+                ),
+                helperText: 'Separate multiple symptoms with commas or "and".',
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+              ),
             ),
-            const SizedBox(height: 16),
+
+            // Autocomplete suggestions for the token being typed.
+            if (_suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _suggestions
+                    .map(
+                      (symptom) => ActionChip(
+                        avatar: const Icon(Icons.add, size: 14),
+                        label: Text(symptom.name,
+                            style: const TextStyle(fontSize: 12)),
+                        onPressed: () => _addSymptom(symptom),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+
+            // Committed symptom chips.
+            if (_selectedSymptomIds.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _matchedSymptoms
+                    .map(
+                      (symptom) => InputChip(
+                        label: Text(symptom.name,
+                            style: const TextStyle(fontSize: 12)),
+                        onDeleted: () => setState(
+                          () => _selectedSymptomIds.remove(symptom.id),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _clearAll,
+                  child: const Text(
+                    'Clear all',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+
+            // Unmatched terms.
+            if (_unmatchedTokens.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'No symptom found for: ${_unmatchedTokens.join(', ')}. '
+                'Try another word or an alias.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ],
+
+            // Clinical notes for the matched symptoms.
+            if (_matchedSymptoms.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              for (final symptom in _matchedSymptoms) ...[
+                _SymptomNote(symptom: symptom),
+                const SizedBox(height: 8),
+              ],
+            ],
+
+            const SizedBox(height: 10),
             Text(
               'Recommended Medications (${matches.length})',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
+            if (_matchedSymptoms.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'Based on: ${_matchedSymptoms.map((s) => s.name).join(', ')}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
-            Expanded(
-              child: matches.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No matching medication found for selected criteria.',
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: matches.length,
-                      itemBuilder: (context, index) {
-                        final medicine = matches[index];
-                        return _PosProductCard(
-                          medicine: medicine,
-                          onAdd: () => _addToOrder(context, order, medicine),
-                        );
-                      },
-                    ),
-            ),
+            if (matches.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    _selectedSymptomIds.isEmpty
+                        ? 'Type a symptom to see suggested medicines.'
+                        : 'No matching medication found for selected criteria.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: matches.length,
+                itemBuilder: (context, index) {
+                  final medicine = matches[index];
+                  return _PosProductCard(
+                    medicine: medicine,
+                    onAdd: () => _addToOrder(context, order, medicine),
+                  );
+                },
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SymptomNote extends StatelessWidget {
+  const _SymptomNote({required this.symptom});
+
+  final SymptomEntry symptom;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            symptom.name,
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(symptom.summary, style: theme.textTheme.bodySmall),
+          if (symptom.referralNote case final note?) ...[
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                note,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -581,8 +850,10 @@ class _PosProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 6,
+              runSpacing: 4,
               children: _badges(),
             ),
             const SizedBox(height: 8),
@@ -623,13 +894,15 @@ class _PosProductCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _posPrimary,
                     foregroundColor: Colors.white,
+                    minimumSize: const Size(72, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   onPressed: onAdd,
                   icon: const Icon(Icons.add_shopping_cart, size: 16),
-                  label: const Text('Add'),
+                  label: const Text('Add', overflow: TextOverflow.ellipsis),
                 ),
                 ),
               ],
