@@ -152,6 +152,11 @@ class _ScanScreenState extends State<ScanScreen> {
   /// missing live view is an upgrade not taken, never an error.
   bool _liveUnavailable = false;
 
+  /// Whether the user explicitly paused live scanning. Distinct from the
+  /// internal readiness flags so the button can offer Reset while the camera
+  /// itself is still open.
+  bool _liveUserStopped = false;
+
   // ── Stage 2: the stability gate and the committed sheet ───────────────────
 
   /// The medicine identities the last read matched, ordered. Two frames
@@ -289,6 +294,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _startLive() async {
     if (_liveOn ||
         _liveUnavailable ||
+        _liveUserStopped ||
         _isReading ||
         _showResults ||
         !_recognizer.supportsFrames ||
@@ -314,6 +320,21 @@ class _ScanScreenState extends State<ScanScreen> {
     _liveOn = false;
     _liveFrameBusy = false;
     await _camera.stopLiveFrames();
+  }
+
+  Future<void> _stopLiveScanning() async {
+    _liveUserStopped = true;
+    await _stopLive();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _resetLiveScanning() async {
+    _liveUserStopped = false;
+    _liveSuggestions = const [];
+    _liveText = '';
+    _frozenPhoto = null;
+    if (mounted) setState(() {});
+    unawaited(_startLive());
   }
 
   /// One preview frame, read on the recognizer's own pace.
@@ -619,6 +640,7 @@ class _ScanScreenState extends State<ScanScreen> {
       _liveSuggestions = const [];
       _liveText = '';
       _focusPoint = null;
+      _liveUserStopped = false;
     });
     unawaited(_startLive());
   }
@@ -707,6 +729,52 @@ class _ScanScreenState extends State<ScanScreen> {
         _Intro(message: widget.introMessage),
         if (canScanOnPlatform) ...[
           _cameraSection(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _isReading || _autoCapturePending
+                    ? null
+                    : (_liveUserStopped
+                        ? _resetLiveScanning
+                        : _stopLiveScanning),
+                child: Text(
+                  _liveUserStopped ? 'Reset' : 'Stop scanning',
+                ),
+              ),
+            ),
+          ),
+          if (!_showResults && _liveSuggestions.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'Near matches (up to 10)',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+            if (_liveText.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  '"$_liveText"',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
+            for (final suggestion in _liveSuggestions.take(10))
+              _SuggestionRow(
+                suggestion: suggestion,
+                onAdd: () => _add(suggestion.medicine),
+                onDetailsPress: () => _showMedicineDetails(suggestion),
+              ),
+          ],
           if (_showResults)
             _ResultsBelowCamera(
               readings: _readings,
@@ -728,22 +796,20 @@ class _ScanScreenState extends State<ScanScreen> {
                 'Camera text recognition is not available on this '
                 'platform. Search for a medicine below instead.',
           ),
-        Expanded(
-          child: _Results(
-            readings: _readings,
-            suggestions: _suggestions,
-            isReading: _isReading,
-            showResults: _showResults,
-            onEdit: _editReading,
-            onAdd: _add,
-            onScanAgain: _scanAgain,
-            onDetails: _showMedicineDetails,
-          ),
+        _Results(
+          readings: _readings,
+          suggestions: _suggestions,
+          isReading: _isReading,
+          showResults: _showResults,
+          onEdit: _editReading,
+          onAdd: _add,
+          onScanAgain: _scanAgain,
+          onDetails: _showMedicineDetails,
         ),
       ],
     );
 
-    final body = cameraColumn;
+    final body = SingleChildScrollView(child: cameraColumn);
 
     // Embedded in a host that already has chrome (the Scan SKU tab).
     if (widget.embedded) return body;
@@ -755,6 +821,16 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   /// Live preview — or the frame being read, or why neither is showing.
+  Color _previewBorderColor() {
+    if (_frozenPhoto != null) {
+      return _readings.any((reading) => reading.trim().isNotEmpty)
+          ? Colors.green.shade600
+          : Colors.red.shade600;
+    }
+    if (_liveText.isNotEmpty) return Colors.green.shade600;
+    return Colors.red.shade600;
+  }
+
   Widget _cameraSection() {
     if (_cameraReady == true) {
       final preview = _camera.preview;
@@ -785,7 +861,10 @@ class _ScanScreenState extends State<ScanScreen> {
               : const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           height: previewHeight,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _previewBorderColor(), width: 2),
+          ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Builder(
@@ -848,22 +927,8 @@ class _ScanScreenState extends State<ScanScreen> {
                           onPressed: () => unawaited(_setTorch(!_torchOn)),
                         ),
                       ),
-                      if (_liveOn && !_isReading)
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: IgnorePointer(
-                            ignoring: _liveSuggestions.isEmpty,
-                            child: _LiveBar(
-                              suggestions: _liveSuggestions,
-                              text: _liveText,
-                              liveSupported:
-                                  _recognizer.supportsFrames &&
-                                  _camera.supportsLiveFrames &&
-                                  !_liveUnavailable,
-                              onAdd: _add,
-                            ),
-                          ),
-                        ),
+                      // Live matches are shown as a normal list below the preview
+                      // rather than as an overlay on the frame.
                     ],
                     if (_isReading)
                       const Positioned.fill(
@@ -1090,184 +1155,6 @@ class _ReadingVeil extends StatelessWidget {
     );
   }
 }
-
-/// The bar under the frame that makes scanning live: what the frames have
-/// matched so far, as chips to tap — the Google-scan move of acting on what
-/// you can see — or, while nothing useful has come out of the frames yet, a
-/// quiet line about which state it is in.
-///
-/// Kept to the bottom of the preview rather than floating on the text itself:
-/// chips that follow phoneme-sized zones need bounding boxes the lines do not
-/// carry, and a set of candidates under the frame answers the same question
-/// ("is what I am pointing at on the shelf?") without guessing at geometry.
-class _LiveBar extends StatelessWidget {
-  const _LiveBar({
-    required this.suggestions,
-    required this.text,
-    required this.liveSupported,
-    required this.onAdd,
-  });
-
-  final List<PrescriptionSuggestion> suggestions;
-  final String text;
-  final bool liveSupported;
-  final void Function(MedicineModel medicine) onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final Widget content;
-    if (suggestions.isNotEmpty) {
-      // The chips are the answer, but the words behind them are shown too:
-      // a misread that happens to land on a real medicine is the failure
-      // worth seeing, and a bar that hides its own input hides that.
-      content = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '"$text"',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.white70,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final suggestion in suggestions)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _LiveChip(
-                      key: Key('liveChip${suggestion.medicine.name}'),
-                      suggestion: suggestion,
-                      onAdd: () => onAdd(suggestion.medicine),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      );
-    } else if (text.isNotEmpty) {
-      content = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '"$text"',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.white,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            liveSupported ? '— no medicine matched yet' : '— live matching off',
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
-          ),
-        ],
-      );
-    } else {
-      content = _barLabel(theme: theme, label: 'Looking for a medicine name…');
-    }
-
-    return Container(
-      // Grounded scrim: legibility over any feed — a counter's white paper or
-      // a dim shelf — without hiding what it describes.
-      padding: const EdgeInsets.fromLTRB(8, 20, 8, 10),
-      alignment: Alignment.bottomCenter,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.55)],
-        ),
-      ),
-      child: content,
-    );
-  }
-
-  Widget _barLabel({required ThemeData theme, required String label}) => Text(
-    label,
-    style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
-  );
-}
-
-/// One live candidate: the name, the price, and a tap that feeds it through
-/// the same quantity sheet as every other Add, so nothing about the live chip
-/// is a second path into the order.
-class _LiveChip extends StatelessWidget {
-  const _LiveChip({super.key, required this.suggestion, required this.onAdd});
-
-  final PrescriptionSuggestion suggestion;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final medicine = suggestion.medicine;
-    final enabled = !medicine.isOutOfStock;
-
-    return Material(
-      color: Colors.black.withValues(alpha: enabled ? 0.65 : 0.35),
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: AppColors.brandGreen.withValues(alpha: 0.55),
-          width: 1,
-        ),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: enabled ? onAdd : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (enabled) ...[
-                Icon(
-                  Icons.add_circle_outline,
-                  size: 16,
-                  color: AppColors.brandGreen,
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                medicine.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                medicine.formattedPrice,
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: Colors.white70),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The deliberate scan trigger, under the preview.
 /// Why the preview is not showing: the camera was refused, missing, or broke.
 class _CameraGate extends StatelessWidget {
@@ -1489,13 +1376,13 @@ class _Results extends StatelessWidget {
           matchCount: suggestions.length,
           onScanAgain: onScanAgain,
         ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            itemCount: lines.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) => lines[index],
-          ),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          itemCount: lines.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemBuilder: (context, index) => lines[index],
         ),
       ],
     );

@@ -9,6 +9,7 @@ import '../../../search/presentation/providers/medicine_provider.dart';
 import '../../data/models/order_history_model.dart';
 import '../../data/repositories/order_history_repository.dart';
 import '../providers/orders_provider.dart';
+import '../widgets/order_receipt.dart';
 import '../widgets/reject_order_dialog.dart';
 
 /// The Orders tab: new orders waiting for a decision.
@@ -186,6 +187,9 @@ class _PendingOrderCardState extends State<_PendingOrderCard> {
     // Read before the first await: after it the card may have been disposed.
     final orders = context.read<OrdersProvider>();
     final catalogue = context.read<MedicineProvider>();
+    // Keep a navigator reference so the receipt can still open after the card
+    // leaves the pending list.
+    final navigator = Navigator.of(context);
 
     await orders.updateOrderStatus(order.id, OrderStatus.approved);
 
@@ -197,6 +201,16 @@ class _PendingOrderCardState extends State<_PendingOrderCard> {
     ]);
 
     if (mounted) setState(() => _busy = false);
+
+    final approvedOrder = order.copyWith(status: OrderStatus.approved);
+    showDialog<void>(
+      // ignore: use_build_context_synchronously
+      context: navigator.context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: OrderReceipt(order: approvedOrder),
+      ),
+    );
   }
 
   Future<void> _reject() async {
