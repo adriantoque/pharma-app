@@ -43,6 +43,8 @@ import 'features/dashboard/presentation/providers/notification_repository.dart';
 import 'features/finder/presentation/providers/feature_search_provider.dart';
 import 'features/symptom_guide/presentation/providers/symptom_search_provider.dart';
 import 'features/admin/presentation/providers/store_settings_provider.dart';
+import 'features/orders/data/repositories/receipt_repository.dart';
+import 'features/orders/presentation/providers/receipt_provider.dart';
 import 'routing/app_router.dart';
 
 void main() {
@@ -321,7 +323,17 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
             ),
           ),
         ),
-
+        // Receipt generation: render an order to PDF, save it to disk, and
+        // share or open it. Built above the router so the receipt outlives
+        // the screen that asked for it.
+        Provider<ReceiptRepository>(
+          create: (_) => ReceiptRepositoryImpl(),
+        ),
+        ChangeNotifierProvider<ReceiptProvider>(
+          create: (ctx) => ReceiptProvider(
+            repository: ctx.read<ReceiptRepository>(),
+          ),
+        ),
 
         // Reports repository and provider for the Reports tab.
         Provider<ReportsRepository>(

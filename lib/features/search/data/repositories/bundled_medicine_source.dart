@@ -18,13 +18,11 @@ abstract interface class MedicineSource {
 
 /// The price list shipped inside the app binary.
 ///
-/// The same file `tool/import_sales_tracker.dart` writes and
-/// `tool/seed_firestore.dart` uploads, so the fallback and the server agree on
-/// what the pharmacy stocks. Every line in it carries a null stock count, because
-/// the source was a price list with no quantities on it: the app must not invent
-/// one. An uncounted line is still orderable, capped at
-/// [OrderProvider.maxQuantity], so this is a working price list rather than a
-/// degraded one.
+/// The price list asset (medicines_seed.json) is bundled with the app and
+/// serves as the source of truth for the medicine catalogue. Every line in it
+/// carries a null stock count, because the source was a price list with no quantities
+/// on it: the app must not invent one. An uncounted line is still orderable, capped
+/// at [OrderProvider.maxQuantity], so this is a working price list rather than a/// degraded one.
 class BundledMedicineSource implements MedicineSource {
   BundledMedicineSource({this.assetPath = defaultAssetPath});
 

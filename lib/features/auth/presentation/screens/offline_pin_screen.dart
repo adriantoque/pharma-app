@@ -61,6 +61,14 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
   String? _error;
   bool _busy = false;
 
+  /// Whether update mode must prove knowledge of the existing PIN first.
+  bool _needsVerify = false;
+  bool _verified = false;
+
+  /// False until [hasOfflinePin] has been resolved in update mode, so the pad
+  /// is not shown with the wrong title for a frame.
+  bool _pinChecked = true;
+
   /// Repaints the countdown while a cooldown is running, so the pad comes back
   /// on its own rather than after the next unrelated rebuild.
   Timer? _cooldownTicker;
@@ -74,6 +82,25 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
   bool get _isSetup => !_isUnlock;
 
   @override
+  void initState() {
+    super.initState();
+    if (_isUpdate) {
+      _pinChecked = false;
+      unawaited(_resolveVerifyRequirement());
+    }
+  }
+
+  Future<void> _resolveVerifyRequirement() async {
+    final has = await context.read<AuthProvider>().hasOfflinePin;
+    if (!mounted) return;
+    setState(() {
+      _needsVerify = has;
+      _verified = !has;
+      _pinChecked = true;
+    });
+  }
+
+  @override
   void dispose() {
     _cooldownTicker?.cancel();
     super.dispose();
@@ -81,6 +108,7 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
 
   String get _title {
     if (_isUnlock) return 'Enter your offline PIN';
+    if (_isUpdate && _needsVerify && !_verified) return 'Enter current PIN';
     return _firstPin == null ? 'Choose a 4-digit PIN' : 'Confirm your PIN';
   }
 
@@ -90,6 +118,9 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
           'list and order history to the people who work here.';
     }
     if (_isUpdate) {
+      if (_needsVerify && !_verified) {
+        return 'Verify your identity before changing the offline PIN.';
+      }
       return _firstPin == null
           ? 'The PIN unlocks offline mode on this device. Setting a new one '
                 'replaces the old PIN.'
@@ -102,7 +133,7 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
   }
 
   void _press(String digit) {
-    if (_busy || _entry.length >= _pinLength) return;
+    if (!_pinChecked || _busy || _entry.length >= _pinLength) return;
     if (context.read<AuthProvider>().pinCooldownRemaining > Duration.zero) {
       return;
     }
@@ -126,6 +157,32 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
     setState(() => _busy = true);
 
     if (_isCreate || _isUpdate) {
+      // Update mode with an existing PIN must prove knowledge of it first.
+      if (_isUpdate && _needsVerify && !_verified) {
+        final ok = await auth.unlockOffline(pin);
+        if (!mounted) return;
+        if (ok) {
+          setState(() {
+            _verified = true;
+            _entry = '';
+            _busy = false;
+            _error = null;
+          });
+          return;
+        }
+        final remaining = auth.pinCooldownRemaining;
+        setState(() {
+          _entry = '';
+          _busy = false;
+          _error = remaining > Duration.zero
+              ? 'Too many attempts.'
+              : 'Wrong PIN — ${AuthProvider.maxPinAttempts - auth.failedPinAttempts} '
+                    'tries left.';
+        });
+        if (remaining > Duration.zero) _startCooldownTicker();
+        return;
+      }
+
       // Stage one only records the choice; nothing is stored until the person
       // has typed it twice.
       if (_firstPin == null) {
@@ -138,11 +195,11 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
       }
 
       if (_firstPin != pin) {
+        // Keep the first PIN so the person only re-types the confirmation.
         setState(() {
-          _firstPin = null;
           _entry = '';
           _busy = false;
-          _error = "Those PINs don't match. Start again.";
+          _error = "Those PINs don't match. Try again.";
         });
         return;
       }
@@ -219,6 +276,15 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_pinChecked) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_isUpdate ? 'Offline PIN' : 'Offline mode'),
+          automaticallyImplyLeading: _isSetup,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final auth = context.watch<AuthProvider>();

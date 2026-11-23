@@ -12,6 +12,13 @@ import 'prescription_recognizer.dart';
 /// members it does not use, and the tab treats false as a downgrade to the
 /// deliberate photo flow instead of an error.
 abstract class PrescriptionCamera {
+  /// Marks whether the live scanner is currently busy processing a frame.
+  ///
+  /// The camera checks this before converting a streamed frame, so a frame that
+  /// would only be discarded costs nothing. A no-op by default so fakes and
+  /// unsupported cameras need not track it.
+  void setLiveBusy(bool busy) {}
+
   /// Whether this platform has a camera at all.
   ///
   /// Web can show a camera preview but has no ML Kit behind it, so the whole

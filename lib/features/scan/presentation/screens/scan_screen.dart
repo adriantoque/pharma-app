@@ -355,6 +355,7 @@ class _ScanScreenState extends State<ScanScreen> {
       return;
     }
     _liveFrameBusy = true;
+    _camera.setLiveBusy(true);
     try {
       final lines = await _recognizer.recognizeFrame(frame);
       if (!mounted ||
@@ -388,6 +389,7 @@ class _ScanScreenState extends State<ScanScreen> {
       }
     } finally {
       _liveFrameBusy = false;
+      _camera.setLiveBusy(false);
     }
   }
 

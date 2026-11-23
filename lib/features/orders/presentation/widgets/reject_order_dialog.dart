@@ -33,6 +33,8 @@ class RejectOrderDialog extends StatefulWidget {
   /// Key for the confirm button, so tests can assert when it is disabled.
   static const Key confirmKey = Key('rejectConfirmButton');
 
+  /// Maximum number of characters allowed in a free-text rejection reason.
+  static const int maxRejectionReasonLength = 225;
   @override
   State<RejectOrderDialog> createState() => _RejectOrderDialogState();
 }
@@ -230,6 +232,7 @@ class _OtherReasonDialogState extends State<_OtherReasonDialog> {
         key: RejectOrderDialog.otherReasonFieldKey,
         controller: _controller,
         autofocus: true,
+        maxLength: RejectOrderDialog.maxRejectionReasonLength,
         minLines: 1,
         maxLines: 3,
         textCapitalization: TextCapitalization.sentences,

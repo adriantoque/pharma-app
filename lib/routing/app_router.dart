@@ -14,7 +14,9 @@ import '../features/search/presentation/screens/medicine_screen.dart';
 import '../features/dashboard/presentation/screens/notifications_screen.dart';
 import '../features/reports/presentation/screens/reports_screen.dart';
 import '../features/orders/presentation/screens/orders_screen.dart';
+import '../features/orders/data/models/receipt_model.dart';
 import '../features/orders/presentation/screens/order_history_screen.dart';
+import '../features/orders/presentation/screens/receipt_screen.dart';
 import '../features/profile/presentation/screens/about_screen.dart';
 import '../features/profile/presentation/screens/appearance_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
@@ -43,6 +45,11 @@ abstract final class AppRoutes {
   static const String home = '/home';
   static const String medicines = '/medicines';
   static const String orders = '/orders';
+
+  /// A single receipt for a completed order: `/receipt/:orderId`.
+  static const String receipt = '/receipt';
+  static const String receiptOrder = '/receipt/:orderId';
+
   static const String finder = '/finder';
 
   /// The other two tabs of the committed staff bar. New Sale is the home
@@ -415,6 +422,23 @@ GoRouter createAppRouter({required Listenable refreshListenable}) {
             builder: (context, state) => const OrderHistoryScreen(),
           ),
         ],
+      ),
+      // A single receipt for a completed order. The ReceiptModel is passed
+      // as `state.extra` by the caller (the Order History card). Pushed as a
+      // full page over the shell so the bottom bar stays put underneath and
+      // back returns to the history list.
+      GoRoute(
+        path: AppRoutes.receiptOrder,
+        name: 'receipt',
+        builder: (context, state) {
+          final receipt = state.extra;
+          if (receipt case final ReceiptModel r) {
+            return ReceiptScreen(receipt: r);
+          }
+          return const Scaffold(
+            body: Center(child: Text('Receipt not found')),
+          );
+        },
       ),
     ],
     // Reachable from either side of the auth redirect, so it cannot assume the

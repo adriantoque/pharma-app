@@ -64,6 +64,19 @@ dependencies:
   shared_preferences: ^2.5.5
   package_info_plus: ^10.2.2
   matcher: ^0.12.20
+  meta: ^1.11.0
+  # Builds PDF receipts on-device (pure Dart, no native code) and previews /
+  # prints them through the system print dialog.
+  pdf: ^3.11.0
+  printing: ^5.12.0
+  # Locates the app's documents folder so a saved receipt persists on disk.
+  path_provider: ^2.1.1
+  # Opens the system share sheet so a customer can receive the PDF by message
+  # or email, and opens the saved file from within the app.
+  share_plus: ^13.0.0
+  open_filex: ^4.3.2
+  # Philippine peso and date formatting on receipts.
+  intl: ^0.20.0
   # The durable local cache for the price list (Option A): Firestore stays the
   # source of truth, and Drift (SQLite) keeps a merged mirror of it on disk so
   # the catalogue survives a lost connection, a killed app and a cache eviction.
@@ -85,7 +98,6 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   integration_test:
     sdk: flutter
-  excel: ^4.0.6
   # Not used by the app, only by `test/connection_source_test.dart`, which swaps
   # `ConnectivityPlatform.instance` for a fake so the platform channel can be
   # driven without a device. The channel names and the list-of-transports shape
@@ -119,11 +131,11 @@ flutter:
 
   assets:
     - assets/images/
-    # The price list and sales history rebuilt from `Daily Sales Tracker.xlsx` by
-    # `tool/import_sales_tracker.dart`. The price list is seeded into Firestore on
-    # first run; the sales history is read and totalled in memory, since it
-    # describes months that have already happened. The spreadsheet itself is not
-    # an asset: the app reads JSON, never a spreadsheet.
+    # The price list and sales history are bundled JSON assets (seed files)
+    # generated from the daily sales tracker spreadsheet. The price list is seeded
+    # into Firestore on first run; the sales history is read and totalled in memory,
+    # since it describes months that have already happened. The app reads JSON,
+    # never a spreadsheet.
     - assets/data/medicines_seed.json
     - assets/data/sales_seed.json
     - assets/data/cleaned_sales_seed.json
@@ -167,3 +179,8 @@ flutter:
 flutter_launcher_icons:
   android: true
   image_path: "assets/images/baseIcon.png"
+
+# share_plus and package_info_plus pull incompatible `web` constraints.
+# Force a single version so both resolve; share_plus works fine with web 1.x.
+dependency_overrides:
+  web: ^1.1.1

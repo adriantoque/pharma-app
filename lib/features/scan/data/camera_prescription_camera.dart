@@ -23,6 +23,9 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   CameraDescription? _back;
   bool _disposed = false;
 
+  /// Whether the live scanner is currently busy processing a frame.
+  bool _liveFrameBusy = false;
+
   /// Whether the preview is streaming yet — one attempt at [startImageStream],
   /// not one attempt per frame.
   bool _streaming = false;
@@ -40,7 +43,7 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   /// camera-like rates while a frame can only be read at a fraction of that,
   /// so delivering every one would spend copies the recognizer's own queue
   /// would skip anyway. The reader throttles again on top of this.
-  static const Duration _frameInterval = Duration(milliseconds: 120);
+  static const Duration _frameInterval = Duration(milliseconds: 200);
 
   final Stopwatch _frameThrottle = Stopwatch();
 
@@ -249,6 +252,11 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   bool get supportsLiveFrames => isSupported;
 
   @override
+  void setLiveBusy(bool busy) {
+    _liveFrameBusy = busy;
+  }
+
+  @override
   bool get supportsZoom => _minZoom != null && _maxZoom != null;
 
   @override
@@ -346,6 +354,9 @@ class CameraPrescriptionCamera implements PrescriptionCamera {
   /// throttle, and hands it to the live scanner if one is still listening.
   void _deliverFrame(CameraImage image) {
     if (_disposed || !_streaming) return;
+    // Skip the conversion entirely while a frame is being read: the frame would
+    // only be discarded, and converting it only spends a memcpy and a buffer.
+    if (_liveFrameBusy) return;
     if (_frameThrottle.isRunning && _frameThrottle.elapsed < _frameInterval) {
       return;
     }

@@ -3,10 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/utils/currency.dart';
 import '../../../../core/widgets/pagination_bar.dart';
+import '../../../../core/widgets/snackbar_helper.dart';
+import '../../../admin/presentation/providers/store_settings_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/models/order_history_model.dart';
+import '../../data/models/receipt_model.dart';
 import '../../data/repositories/order_history_repository.dart';
 import '../providers/order_history_provider.dart';
+import '../providers/receipt_provider.dart';
 import '../widgets/order_receipt.dart';
 
 /// The Orders tab's history: approved and rejected orders, searchable.
@@ -89,6 +93,36 @@ class _OrderHistoryBodyState extends State<_OrderHistoryBody> {
     _controller.clear();
     context.read<OrderHistoryProvider>().clearQuery();
     _resetPage();
+  }
+
+  /// Builds a [ReceiptModel] from [order] and asks the [ReceiptProvider] to
+  /// render it to PDF and save it to disk. Shows a snackbar on success or
+  /// failure.
+  Future<void> _savePdf(OrderHistory order) async {
+    final settings = context.read<StoreSettingsProvider>();
+    final auth = context.read<AuthProvider>();
+    final receipt = ReceiptModel.fromOrder(
+      order: order,
+      storeName: settings.settings.name.isNotEmpty
+          ? settings.settings.name
+          : 'PharmaGuide Pharmacy',
+      storeAddress: settings.settings.address,
+      storePhone: settings.settings.phone,
+      cashierName: auth.user?.name ?? 'Cashier',
+    );
+
+    final ok = await context.read<ReceiptProvider>().generateAndSave(receipt);
+    if (ok && mounted) {
+      SnackbarHelper.showSuccess(
+        context,
+        'Receipt saved to ${receipt.fileName}',
+      );
+    } else if (mounted) {
+      SnackbarHelper.showError(
+        context,
+        context.read<ReceiptProvider>().error ?? 'Could not save the receipt.',
+      );
+    }
   }
 
   void _onFilterSelected(HistoryFilter filter) {
@@ -174,7 +208,10 @@ class _OrderHistoryBodyState extends State<_OrderHistoryBody> {
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _HistoryCard(order: pageItems[index]),
+                    child: _HistoryCard(
+                      order: pageItems[index],
+                      onSavePdf: _savePdf,
+                    ),
                   ),
                 ),
             },
@@ -293,9 +330,10 @@ class _FilterBar extends StatelessWidget {
 /// One order in history. Expandable to show its lines. No action buttons:
 /// once an order is here, its decision has been made.
 class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.order});
+  const _HistoryCard({required this.order, required this.onSavePdf});
 
   final OrderHistory order;
+  final Future<void> Function(OrderHistory order) onSavePdf;
 
   @override
   Widget build(BuildContext context) {
@@ -400,21 +438,38 @@ class _HistoryCard extends StatelessWidget {
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.all(12.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                showDialog<void>(
-                  context: context,
-                  builder: (_) => Dialog(
-                    backgroundColor: Colors.transparent,
-                    child: OrderReceipt(order: order),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        showDialog<void>(
+                          context: context,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            child: OrderReceipt(order: order),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('View Receipt'),
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.receipt_long),
-              label: const Text('View Receipt'),
-            ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => onSavePdf(order),
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: const Text('Save PDF'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],

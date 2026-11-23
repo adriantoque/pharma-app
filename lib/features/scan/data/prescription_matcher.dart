@@ -47,6 +47,20 @@ class PrescriptionMatcher {
   /// The whole price list to match against.
   final MedicineRepository repository;
 
+  // ── Caches ──────────────────────────────────────────────────────────────
+  // The catalogue with its names normalised once, plus a key that detects when
+  // the underlying repository's contents changed. Rebuilding it every call was
+  // O(M) of string work on top of the matching itself.
+  List<({MedicineModel medicine, String normalised, List<String> tokens})>?
+      _catalogCache;
+  String? _catalogKey;
+
+  // The last reading and its result, so a frame that re-reads the same text
+  // (the common case while a prescription is held still) skips the matcher
+  // entirely instead of re-scoring the whole catalogue.
+  String? _lastSuggestKey;
+  List<PrescriptionSuggestion>? _lastSuggestResult;
+
   /// How alike two strings have to be before a suggestion is offered. Tuned so
   /// "Amoxcilln 500" matches "amoxicillin 500" while a bare "500" does not
   /// match anything.
@@ -79,6 +93,12 @@ class PrescriptionMatcher {
     int perLine = 3,
     double threshold = defaultThreshold,
   }) {
+    final key = '$perLine|$threshold|'
+        '${lines.map((line) => line.text).join('\u0001')}';
+    if (_lastSuggestKey == key && _lastSuggestResult != null) {
+      return _lastSuggestResult!;
+    }
+
     final catalog = _catalog();
     final suggestions = <PrescriptionSuggestion>[];
     final seen = <MedicineModel>{};
@@ -95,6 +115,8 @@ class PrescriptionMatcher {
       }
     }
 
+    _lastSuggestKey = key;
+    _lastSuggestResult = suggestions;
     return suggestions;
   }
 
@@ -116,8 +138,15 @@ class PrescriptionMatcher {
   /// per line.
   List<({MedicineModel medicine, String normalised, List<String> tokens})>
   _catalog() {
-    return [
-      for (final medicine in repository.all())
+    final all = repository.all();
+    final key = '${all.length}|'
+        '${all.isEmpty ? '' : all.first.name}|'
+        '${all.isEmpty ? '' : all.last.name}';
+    if (_catalogCache != null && _catalogKey == key) {
+      return _catalogCache!;
+    }
+    final built = [
+      for (final medicine in all)
         (
           medicine: medicine,
           normalised: _normalise(medicine.name),
@@ -126,6 +155,9 @@ class PrescriptionMatcher {
           ],
         ),
     ];
+    _catalogCache = built;
+    _catalogKey = key;
+    return built;
   }
 
   /// The best-matching catalog entries for one line, strongest first.
