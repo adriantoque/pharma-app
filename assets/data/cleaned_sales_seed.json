@@ -1,0 +1,572 @@
+[
+  {
+    "date": "2025-07-01",
+    "kind": "counter",
+    "rawName": "AMOX 250 CAP",
+    "key": "amox 250 cap",
+    "quantity": 5.0,
+    "priceCentavos": 400,
+    "totalCentavos": 2000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-02",
+    "kind": "counter",
+    "rawName": "ASPIRIN",
+    "key": "aspirin",
+    "quantity": 5.0,
+    "priceCentavos": 300,
+    "totalCentavos": 1500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-03",
+    "kind": "counter",
+    "rawName": "Alchol",
+    "key": "alchol",
+    "quantity": 1.0,
+    "priceCentavos": 6500,
+    "totalCentavos": 6500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-04",
+    "kind": "counter",
+    "rawName": "Alcohol med",
+    "key": "alcohol med",
+    "quantity": 1.0,
+    "priceCentavos": 6500,
+    "totalCentavos": 6500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-05",
+    "kind": "counter",
+    "rawName": "Alcohol small",
+    "key": "alcohol small",
+    "quantity": 1.0,
+    "priceCentavos": 2700,
+    "totalCentavos": 2700,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-06",
+    "kind": "counter",
+    "rawName": "Amlo 5",
+    "key": "amlo 5",
+    "quantity": 10.0,
+    "priceCentavos": 300,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-07",
+    "kind": "counter",
+    "rawName": "Amox",
+    "key": "amox",
+    "quantity": 5.0,
+    "priceCentavos": 400,
+    "totalCentavos": 2000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-08",
+    "kind": "counter",
+    "rawName": "Amox 500mg",
+    "key": "amox 500mg",
+    "quantity": 4.0,
+    "priceCentavos": 400,
+    "totalCentavos": 1600,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-09",
+    "kind": "counter",
+    "rawName": "Ascorbic Tablet",
+    "key": "ascorbic tablet",
+    "quantity": 10.0,
+    "priceCentavos": 300,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-10",
+    "kind": "counter",
+    "rawName": "BABYOIL",
+    "key": "babyoil",
+    "quantity": 1.0,
+    "priceCentavos": 3000,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-11",
+    "kind": "counter",
+    "rawName": "BIOFLU",
+    "key": "bioflu",
+    "quantity": 2.0,
+    "priceCentavos": 1100,
+    "totalCentavos": 2200,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-12",
+    "kind": "counter",
+    "rawName": "BIOGESIC",
+    "key": "biogesic",
+    "quantity": 2.0,
+    "priceCentavos": 600,
+    "totalCentavos": 1200,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-13",
+    "kind": "counter",
+    "rawName": "BabYOIL",
+    "key": "babyoil",
+    "quantity": 1.0,
+    "priceCentavos": 3000,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-14",
+    "kind": "counter",
+    "rawName": "Biogesic",
+    "key": "biogesic",
+    "quantity": 6.0,
+    "priceCentavos": 600,
+    "totalCentavos": 3600,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-15",
+    "kind": "counter",
+    "rawName": "CARBO CAP",
+    "key": "carbo cap",
+    "quantity": 2.0,
+    "priceCentavos": 400,
+    "totalCentavos": 800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-16",
+    "kind": "counter",
+    "rawName": "CETERIZINE",
+    "key": "ceterizine",
+    "quantity": 40.0,
+    "priceCentavos": 250,
+    "totalCentavos": 10000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-17",
+    "kind": "counter",
+    "rawName": "CINNARIZINE",
+    "key": "cinnarizine",
+    "quantity": 6.0,
+    "priceCentavos": 300,
+    "totalCentavos": 1800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-18",
+    "kind": "counter",
+    "rawName": "Captopril",
+    "key": "captopril",
+    "quantity": 5.0,
+    "priceCentavos": 300,
+    "totalCentavos": 1500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-19",
+    "kind": "counter",
+    "rawName": "Celecoxib",
+    "key": "celecoxib",
+    "quantity": 2.0,
+    "priceCentavos": 1000,
+    "totalCentavos": 2000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-20",
+    "kind": "counter",
+    "rawName": "Ceterizine",
+    "key": "ceterizine",
+    "quantity": 10.0,
+    "priceCentavos": 300,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-21",
+    "kind": "counter",
+    "rawName": "Ceterizine syrup",
+    "key": "ceterizine syrup",
+    "quantity": 1.0,
+    "priceCentavos": 6000,
+    "totalCentavos": 6000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-22",
+    "kind": "counter",
+    "rawName": "Ceterizine tab",
+    "key": "ceterizine tab",
+    "quantity": 20.0,
+    "priceCentavos": 300,
+    "totalCentavos": 6000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-23",
+    "kind": "counter",
+    "rawName": "Cloxacillin",
+    "key": "cloxacillin",
+    "quantity": 11.0,
+    "priceCentavos": 700,
+    "totalCentavos": 7700,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-24",
+    "kind": "counter",
+    "rawName": "Cotton",
+    "key": "cotton",
+    "quantity": 1.0,
+    "priceCentavos": 800,
+    "totalCentavos": 800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-25",
+    "kind": "counter",
+    "rawName": "DIATABS",
+    "key": "diatabs",
+    "quantity": 4.0,
+    "priceCentavos": 1100,
+    "totalCentavos": 4400,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-26",
+    "kind": "counter",
+    "rawName": "Diclofenac",
+    "key": "diclofenac",
+    "quantity": 4.0,
+    "priceCentavos": 300,
+    "totalCentavos": 1200,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-27",
+    "kind": "counter",
+    "rawName": "ENERVON",
+    "key": "enervon",
+    "quantity": 2.0,
+    "priceCentavos": 1200,
+    "totalCentavos": 2400,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-28",
+    "kind": "counter",
+    "rawName": "ERCEFLORA",
+    "key": "erceflora",
+    "quantity": 1.0,
+    "priceCentavos": 5000,
+    "totalCentavos": 5000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-01",
+    "kind": "counter",
+    "rawName": "EYEMO",
+    "key": "eyemo",
+    "quantity": 1.0,
+    "priceCentavos": 10500,
+    "totalCentavos": 10500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-02",
+    "kind": "counter",
+    "rawName": "ElShadai",
+    "key": "elshadai",
+    "quantity": 1.0,
+    "priceCentavos": 2000,
+    "totalCentavos": 2000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-03",
+    "kind": "counter",
+    "rawName": "EyeMO",
+    "key": "eyemo",
+    "quantity": 1.0,
+    "priceCentavos": 10500,
+    "totalCentavos": 10500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-04",
+    "kind": "counter",
+    "rawName": "FLANAX",
+    "key": "flanax",
+    "quantity": 1.0,
+    "priceCentavos": 2700,
+    "totalCentavos": 2700,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-05",
+    "kind": "counter",
+    "rawName": "FernC syrup",
+    "key": "fernc syrup",
+    "quantity": 1.0,
+    "priceCentavos": 16500,
+    "totalCentavos": 16500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-06",
+    "kind": "counter",
+    "rawName": "KATIALIS",
+    "key": "katialis",
+    "quantity": 1.0,
+    "priceCentavos": 3200,
+    "totalCentavos": 3200,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-07",
+    "kind": "counter",
+    "rawName": "Katinko",
+    "key": "katinko",
+    "quantity": 1.0,
+    "priceCentavos": 3800,
+    "totalCentavos": 3800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-08",
+    "kind": "counter",
+    "rawName": "Katinko roll",
+    "key": "katinko roll",
+    "quantity": 1.0,
+    "priceCentavos": 5500,
+    "totalCentavos": 5500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-09",
+    "kind": "counter",
+    "rawName": "Lady Pills",
+    "key": "lady pills",
+    "quantity": 1.0,
+    "priceCentavos": 5500,
+    "totalCentavos": 5500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-10",
+    "kind": "counter",
+    "rawName": "Losartan",
+    "key": "losartan",
+    "quantity": 15.0,
+    "priceCentavos": 400,
+    "totalCentavos": 6000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-11",
+    "kind": "counter",
+    "rawName": "MEFENAMIC",
+    "key": "mefenamic",
+    "quantity": 2.0,
+    "priceCentavos": 300,
+    "totalCentavos": 600,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-12",
+    "kind": "counter",
+    "rawName": "Manzanill",
+    "key": "manzanill",
+    "quantity": 1.0,
+    "priceCentavos": 2100,
+    "totalCentavos": 2100,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-13",
+    "kind": "counter",
+    "rawName": "Medicol",
+    "key": "medicol",
+    "quantity": 2.0,
+    "priceCentavos": 900,
+    "totalCentavos": 1800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-14",
+    "kind": "counter",
+    "rawName": "Mefe",
+    "key": "mefe",
+    "quantity": 5.0,
+    "priceCentavos": 300,
+    "totalCentavos": 1500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-15",
+    "kind": "counter",
+    "rawName": "Metformin",
+    "key": "metformin",
+    "quantity": 10.0,
+    "priceCentavos": 300,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-16",
+    "kind": "counter",
+    "rawName": "Metropolol",
+    "key": "metropolol",
+    "quantity": 10.0,
+    "priceCentavos": 300,
+    "totalCentavos": 3000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-17",
+    "kind": "counter",
+    "rawName": "Neozep",
+    "key": "neozep",
+    "quantity": 3.0,
+    "priceCentavos": 2700,
+    "totalCentavos": 8100,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-18",
+    "kind": "counter",
+    "rawName": "Omeprazole",
+    "key": "omeprazole",
+    "quantity": 2.0,
+    "priceCentavos": 1000,
+    "totalCentavos": 2000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-19",
+    "kind": "counter",
+    "rawName": "PT",
+    "key": "pt",
+    "quantity": 1.0,
+    "priceCentavos": 4500,
+    "totalCentavos": 4500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-20",
+    "kind": "counter",
+    "rawName": "PYROFLORA",
+    "key": "pyroflora",
+    "quantity": 2.0,
+    "priceCentavos": 3500,
+    "totalCentavos": 7000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-21",
+    "kind": "counter",
+    "rawName": "Para syrup",
+    "key": "para syrup",
+    "quantity": 1.0,
+    "priceCentavos": 4800,
+    "totalCentavos": 4800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-22",
+    "kind": "counter",
+    "rawName": "SUPPOSOTORY",
+    "key": "supposotory",
+    "quantity": 2.0,
+    "priceCentavos": 1900,
+    "totalCentavos": 3800,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-23",
+    "kind": "counter",
+    "rawName": "Salbutamol 4mg",
+    "key": "salbutamol 4mg",
+    "quantity": 4.0,
+    "priceCentavos": 300,
+    "totalCentavos": 1200,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-24",
+    "kind": "counter",
+    "rawName": "Tawas",
+    "key": "tawas",
+    "quantity": 1.0,
+    "priceCentavos": 2200,
+    "totalCentavos": 2200,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-25",
+    "kind": "counter",
+    "rawName": "Tempra 1-5",
+    "key": "tempra 1-5",
+    "quantity": 1.0,
+    "priceCentavos": 13500,
+    "totalCentavos": 13500,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-26",
+    "kind": "counter",
+    "rawName": "Tissue",
+    "key": "tissue",
+    "quantity": 1.0,
+    "priceCentavos": 1300,
+    "totalCentavos": 1300,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-07-27",
+    "kind": "counter",
+    "rawName": "Tramadol",
+    "key": "tramadol",
+    "quantity": 10.0,
+    "priceCentavos": 400,
+    "totalCentavos": 4000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-08-28",
+    "kind": "counter",
+    "rawName": "Trust pills",
+    "key": "trust pills",
+    "quantity": 1.0,
+    "priceCentavos": 6000,
+    "totalCentavos": 6000,
+    "sourceSheet": "cleaned_csv"
+  },
+  {
+    "date": "2025-09-01",
+    "kind": "counter",
+    "rawName": "off lotion",
+    "key": "off lotion",
+    "quantity": 3.0,
+    "priceCentavos": 1300,
+    "totalCentavos": 3900,
+    "sourceSheet": "cleaned_csv"
+  }
+]

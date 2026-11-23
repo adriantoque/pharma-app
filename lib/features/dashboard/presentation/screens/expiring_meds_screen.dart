@@ -1,0 +1,299 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../core/widgets/show_csv_export_dialog.dart';
+import '../../../admin/presentation/providers/store_settings_provider.dart';
+import '../../../search/data/models/medicine_model.dart';
+import '../../../search/presentation/providers/medicine_provider.dart';
+import '../widgets/expiry_sheet.dart';
+
+/// Reached from the Home tile "Expiring Meds".
+///
+/// Nested under the Home branch, so the bottom bar keeps Home selected and the
+/// back arrow returns to the tile the user actually tapped from.
+///
+/// Lists only the lines that have a date, soonest first, and separates the ones
+/// already past it. Starts empty on purpose: the records contain no expiry data
+/// at all, so a list pretending otherwise would be showing nothing and calling
+/// it a result. The empty body is an instruction -- record a date from a line
+/// here, or from the row on the inventory screen.
+class ExpiringMedsScreen extends StatelessWidget {
+  const ExpiringMedsScreen({super.key});
+
+  /// Soonest first, with a lapsed line first of all.
+  ///
+  /// Ties broken by name so a list of everything expiring on the same day is in
+  /// a stable order rather than reshuffling between rebuilds.
+  static int _byExpiry(MedicineModel a, MedicineModel b) {
+    // No date sorts last: an unknown expiry is not an urgent one, and putting it
+    // first would bury the lines that actually need counting.
+    final aDate = a.expiryDate;
+    final bDate = b.expiryDate;
+    if (aDate == null && bDate == null) {
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    }
+    if (aDate == null) return 1;
+    if (bDate == null) return -1;
+
+    final byDate = aDate.compareTo(bDate);
+    return byDate != 0
+        ? byDate
+        : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // Watched: a date recorded on this screen, or on the inventory screen, has
+    // to move the list.
+    final catalogue = context.watch<MedicineProvider>();
+
+    final dated =
+        catalogue
+            .all()
+            .where((medicine) => medicine.expiryDate != null)
+            .toList()
+          ..sort(_byExpiry);
+
+    final expired = dated.where((medicine) => medicine.isExpired).toList();
+
+    // The window the middle section covers, in days. Read from Store
+    // settings, with the same default the setting's picker shows as first
+    // choice: an admin who never opens the settings screen sees what they
+    // always saw. Watched, so a change on the settings screen moves this
+    // list on the next visit without a restart.
+    final soonDays = context.watch<StoreSettingsProvider>()
+        .settings
+        .expiryWarningDays;
+    final soon = <MedicineModel>[];
+    final later = <MedicineModel>[];
+    for (final medicine in dated) {
+      if (medicine.isExpired) continue;
+      if ((medicine.daysUntilExpiry ?? 999) <= soonDays) {
+        soon.add(medicine);
+      } else {
+        later.add(medicine);
+      }
+    }
+
+    return Scaffold(
+      // Leading-aligned, as the other pages pushed from a Home tile are.
+      appBar: AppBar(
+        title: const Text('Expiring Meds'),
+        actions: [
+          // Only offered once there is something to export: an export button
+          // over an empty list is a dead end.
+          if (dated.isNotEmpty)
+            IconButton(
+              tooltip: 'Export expiring list',
+              icon: const Icon(Icons.download_outlined),
+              onPressed: () => _export(context, dated),
+            ),
+        ],
+      ),
+      body: switch ((catalogue.error, catalogue.isLoading)) {
+        (final String message, _) => _Body(
+          icon: Icons.cloud_off_outlined,
+          title: 'The price list did not load',
+          detail: message,
+        ),
+        (_, true) => const Center(child: CircularProgressIndicator()),
+        _ when dated.isEmpty => const _Body(
+          icon: Icons.event_busy_outlined,
+          title: 'No expiry dates recorded',
+          detail:
+              'Expiry dates are entered by hand: open a product from '
+              'Inventory and set the date its lot expires. Nothing has been '
+              'recorded yet.',
+        ),
+        _ => ListView(
+          children: [
+            if (expired.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Already expired',
+                count: expired.length,
+                colour: theme.colorScheme.error,
+              ),
+              for (final medicine in expired)
+                _ExpiryRow(
+                  medicine: medicine,
+                  onTap: () => _edit(context, medicine),
+                ),
+            ],
+            if (soon.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Expiring within $soonDays days',
+                count: soon.length,
+                colour: theme.colorScheme.error,
+              ),
+              for (final medicine in soon)
+                _ExpiryRow(
+                  medicine: medicine,
+                  onTap: () => _edit(context, medicine),
+                ),
+            ],
+            if (later.isNotEmpty) ...[
+              _SectionHeader(
+                title: 'Later',
+                count: later.length,
+                colour: theme.colorScheme.onSurfaceVariant,
+              ),
+              for (final medicine in later)
+                _ExpiryRow(
+                  medicine: medicine,
+                  onTap: () => _edit(context, medicine),
+                ),
+            ],
+            // Room for the last row to clear the floating bar in a list that
+            // is scrolled to the bottom.
+            const SizedBox(height: 24),
+          ],
+        ),
+      },
+    );
+  }
+
+  Future<void> _edit(BuildContext context, MedicineModel medicine) {
+    return showExpirySheet(context, medicine: medicine);
+  }
+
+  /// Exports the dated list as a CSV, in the same order the screen shows it.
+  ///
+  /// The exported sheet is the list the counter is looking at, not a fresh
+  /// query: "export what I see" is the only version of this a user can predict.
+  static Future<void> _export(BuildContext context, List<MedicineModel> dated) {
+    final lines = <String>['Name,Expiry,Status'];
+    for (final medicine in dated) {
+      final date = medicine.expiryDate!;
+      final iso =
+          '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+      final name = medicine.name.replaceAll(',', ';');
+      lines.add('$name,$iso,${_statusLabel(medicine)}');
+    }
+    return showCsvExportDialog(
+      context,
+      title: 'Expiring Meds CSV Export',
+      csv: lines.join('\n'),
+    );
+  }
+
+  /// The row wording, without the colour. Keeps the export and the screen
+  /// describing a line the same way.
+  static String _statusLabel(MedicineModel medicine) {
+    if (medicine.isExpired) return 'Expired';
+    final days = medicine.daysUntilExpiry ?? 999;
+    if (days == 0) return 'Expires today';
+    return 'Expires in $days days';
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.count,
+    required this.colour,
+  });
+
+  final String title;
+  final int count;
+  final Color colour;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Text(
+        '$title ($count)',
+        style: theme.textTheme.labelLarge?.copyWith(color: colour),
+      ),
+    );
+  }
+}
+
+class _ExpiryRow extends StatelessWidget {
+  const _ExpiryRow({required this.medicine, required this.onTap});
+
+  final MedicineModel medicine;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // `daysUntilExpiry` is null for a line that has already lapsed, and that is
+    // the one line whose wording matters most, so the lapsed case is settled
+    // first and the number is only read once it is known to mean something.
+    final days = medicine.daysUntilExpiry;
+
+    // Wording by band rather than a bare day count, because "3 days" and "3
+    // months" are not the same urgency and a single number flattens that.
+    final (label, colour) = switch (medicine.isExpired) {
+      true => ('Expired', theme.colorScheme.error),
+      false => switch (days ?? 999) {
+        0 => ('Expires today', theme.colorScheme.error),
+        <= 30 => ('Expires in $days days', theme.colorScheme.error),
+        <= 90 => ('Expires in $days days', theme.colorScheme.tertiary),
+        _ => ('Expires in $days days', theme.colorScheme.onSurfaceVariant),
+      },
+    };
+
+    return ListTile(
+      onTap: onTap,
+      title: Text(medicine.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(color: colour),
+      ),
+      trailing: Text(
+        MaterialLocalizations.of(context)
+            .formatMediumDate(medicine.expiryDate ?? DateTime.now()),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _Body extends StatelessWidget {
+  const _Body({required this.icon, required this.title, required this.detail});
+
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: theme.colorScheme.outline),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              detail,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
