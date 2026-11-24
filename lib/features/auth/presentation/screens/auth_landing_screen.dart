@@ -6,17 +6,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_bottom_sheet.dart';
 
-/// Brand greens for the landing screen.
-///
-/// The surface and border are the lighter tint of the shared [AppColors]
-/// brand green; the primary value lives there now so the rest of the app can
-/// reach the same token.
-abstract final class _LandingColors {
-  static const Color primary = AppColors.brandGreen;
-  static const Color primarySurface = Color(0xFFD1FAE5);
-  static const Color primarySurfaceBorder = Color(0xFFA7F3D0);
-}
-
 /// The first screen, for a signed-out app.
 ///
 /// Two doors out of the signed-out state: Login and Sign Up, both opening the
@@ -71,38 +60,76 @@ class AuthLandingScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       const Spacer(),
-                      Text(
-                        'Welcome to',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          letterSpacing: 0.3,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: scheme.outlineVariant),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'PharmaStaff POS · Cloud & Offline Ready',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const Spacer(),
+                      Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.secondary, AppColors.primary],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: const Icon(
+                          Icons.local_pharmacy_rounded,
+                          size: 52,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       Text(
-                        "Wilma\nPharmacy's",
+                        'WELCOME TO',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: AppColors.secondaryLight,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Wilma Pharmacy's",
                         textAlign: TextAlign.center,
                         style: theme.textTheme.displaySmall?.copyWith(
-                          fontSize: 40,
-                          color: _LandingColors.primary,
+                          fontSize: 32,
+                          color: scheme.onSurface,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
+                          letterSpacing: -1,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      CircleAvatar(
-                        radius: 48,
-                        backgroundImage: const AssetImage(
-                          'assets/images/baseIcon.png',
-                        ),
-                        backgroundColor: scheme.primaryContainer,
-                        foregroundColor: scheme.onPrimaryContainer,
-                      ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       Text(
-                        'Your trusted pharmacy companion',
+                        'Your trusted pharmacy companion for instant counter checkout, OCR box scanning & clinical triage.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -126,7 +153,7 @@ class AuthLandingScreen extends StatelessWidget {
                         onPressed: () =>
                             _openSheet(context, AuthSheetMode.signup),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       _RoleButton(
                         icon: Icons.cloud_off_outlined,
                         label: 'Continue Offline',
@@ -167,8 +194,9 @@ class _RoleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(20)),
+    final scheme = Theme.of(context).colorScheme;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
     );
     const textStyle = TextStyle(
       fontWeight: FontWeight.bold,
@@ -180,8 +208,8 @@ class _RoleButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          backgroundColor: _LandingColors.primarySurface,
-          foregroundColor: _LandingColors.primary,
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
           textStyle: textStyle,
           shape: shape,
         ),
@@ -194,9 +222,9 @@ class _RoleButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
-        backgroundColor: _LandingColors.primarySurface,
-        foregroundColor: _LandingColors.primary,
-        side: const BorderSide(color: _LandingColors.primarySurfaceBorder),
+        backgroundColor: scheme.surfaceContainerLow,
+        foregroundColor: scheme.onSurface,
+        side: BorderSide(color: scheme.outlineVariant),
         textStyle: textStyle,
         shape: shape,
       ),

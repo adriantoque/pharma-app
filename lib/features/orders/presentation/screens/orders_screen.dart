@@ -11,6 +11,7 @@ import '../../data/repositories/order_history_repository.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/order_receipt.dart';
 import '../widgets/reject_order_dialog.dart';
+import '../../../sales/presentation/widgets/pos_app_bar.dart';
 
 /// The Orders tab: new orders waiting for a decision.
 ///
@@ -34,17 +35,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     final uid = context.read<AuthProvider>().user?.id ?? '';
-    _orders = context
-        .read<OrderHistoryRepositoryFactory>()(uid)
-        .watchAll();
+    _orders = context.read<OrderHistoryRepositoryFactory>()(uid).watchAll();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Orders'),
-        centerTitle: true,
+      appBar: PosAppBar(
         actions: [
           IconButton(
             tooltip: 'Order history',
@@ -53,38 +50,54 @@ class _OrdersScreenState extends State<OrdersScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<OrderHistory>>(
-        stream: _orders,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            // The raw error stays out of the UI: Firestore messages are for
-            // developers. Log it so it can still be traced.
-            debugPrint('Orders stream failed: ${snapshot.error}');
-            return const _LoadError();
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final pending = snapshot.data!
-              .where((o) => o.status == OrderStatus.new_)
-              .toList()
-            ..sort((a, b) => b.time.compareTo(a.time));
-
-          if (pending.isEmpty) {
-            return const _EmptyOrderList();
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: pending.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) => _PendingOrderCard(
-              order: pending[index],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Orders',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-          );
-        },
+          ),
+          Expanded(
+            child: StreamBuilder<List<OrderHistory>>(
+              stream: _orders,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  // The raw error stays out of the UI: Firestore messages are for
+                  // developers. Log it so it can still be traced.
+                  debugPrint('Orders stream failed: ${snapshot.error}');
+                  return const _LoadError();
+                }
+
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final pending =
+                    snapshot.data!
+                        .where((o) => o.status == OrderStatus.new_)
+                        .toList()
+                      ..sort((a, b) => b.time.compareTo(a.time));
+
+                if (pending.isEmpty) {
+                  return const _EmptyOrderList();
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: pending.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) =>
+                      _PendingOrderCard(order: pending[index]),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -135,7 +148,11 @@ class _EmptyOrderList extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.inbox_outlined, size: 64, color: theme.colorScheme.outline),
+          Icon(
+            Icons.inbox_outlined,
+            size: 64,
+            color: theme.colorScheme.outline,
+          ),
           const SizedBox(height: 16),
           Text(
             'No orders waiting',

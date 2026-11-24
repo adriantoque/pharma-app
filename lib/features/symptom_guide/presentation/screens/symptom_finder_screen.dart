@@ -86,9 +86,10 @@ class _SymptomFinderScreenState extends State<SymptomFinderScreen> {
 
     final symptoms = _repository.all();
     final picked = symptoms.where((s) => _selected.contains(s.id)).toList();
-    final medicines = _recommendations(picked, catalogue.all())
-        .where((medicine) => medicine.isForAge(_ageGroup))
-        .toList(growable: false);
+    final medicines = _recommendations(
+      picked,
+      catalogue.all(),
+    ).where((medicine) => medicine.isForAge(_ageGroup)).toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Symptom Finder')),
@@ -114,29 +115,29 @@ class _SymptomFinderScreenState extends State<SymptomFinderScreen> {
                 ),
                 const SizedBox(height: 6),
 
-                // The sample's demographic chips, with an All beside them: the
-                // price list mostly records no age, and the guide must still
-                // be able to show it when nobody has said who the customer is.
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    _ageChip(
-                      group: AgeGroup.both,
-                      label: 'All',
-                      avatar: const Icon(Icons.people_outline, size: 16),
+                // Match the POS sale screen's demographic segmented control.
+                SegmentedButton<AgeGroup>(
+                  segments: const [
+                    ButtonSegment(
+                      value: AgeGroup.both,
+                      label: Text('All'),
+                      icon: Icon(Icons.people_outline, size: 16),
                     ),
-                    _ageChip(
-                      group: AgeGroup.child,
-                      label: 'Pediatric / Child',
-                      avatar: const Icon(Icons.child_care, size: 16),
+                    ButtonSegment(
+                      value: AgeGroup.child,
+                      label: Text('Child'),
+                      icon: Icon(Icons.child_care, size: 16),
                     ),
-                    _ageChip(
-                      group: AgeGroup.adult,
-                      label: 'Adult',
-                      avatar: const Icon(Icons.person_outline, size: 16),
+                    ButtonSegment(
+                      value: AgeGroup.adult,
+                      label: Text('Adult'),
+                      icon: Icon(Icons.person_outline, size: 16),
                     ),
                   ],
+                  selected: {_ageGroup},
+                  onSelectionChanged: (selection) {
+                    setState(() => _ageGroup = selection.first);
+                  },
                 ),
                 const SizedBox(height: 10),
 
@@ -196,43 +197,6 @@ class _SymptomFinderScreenState extends State<SymptomFinderScreen> {
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// One choice of who the medicine is for, as the sample draws it: an
-  /// avatar-facing chip.
-  Widget _ageChip({
-    required AgeGroup group,
-    required String label,
-    required Widget avatar,
-  }) {
-    final isSelected = _ageGroup == group;
-
-    return ChoiceChip(
-      avatar: avatar,
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        // A chip is tapped to choose, never to clear: one of the three is
-        // always in force, and clearing would leave the guide with no rule
-        // to filter by.
-        if (selected) setState(() => _ageGroup = group);
-      },
-      // Compact chips keep the fixed chapter short enough that the first
-      // suggestion is on screen with it -- on a counter's 360dp phone the
-      // recommendations would otherwise sit entirely below the fold.
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-      selectedColor: AppColors.brandGreenSurface,
-      checkmarkColor: AppColors.brandGreen,
-      side: const BorderSide(color: AppColors.brandGreenSurfaceBorder),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        color: isSelected
-            ? AppColors.brandGreen
-            : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }

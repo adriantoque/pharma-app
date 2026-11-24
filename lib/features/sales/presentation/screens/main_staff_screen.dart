@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../../search/data/models/age_guidance.dart';
 import '../../../search/data/models/medicine_model.dart';
@@ -11,6 +11,7 @@ import '../../../../core/utils/search_text.dart';
 import '../../../symptom_guide/data/models/symptom_entry.dart';
 import '../../../symptom_guide/data/repositories/symptom_repository.dart';
 import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
+import '../widgets/pos_app_bar.dart';
 
 /// The staff POS front view, restored from the `dashboard_screenv2` design.
 ///
@@ -27,65 +28,7 @@ import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
 /// rest of the app reports.
 
 /// The POS accent colour the design seeds its whole theme from.
-const Color _posPrimary = Color(0xFF06B6D4);
-
-/// The app bar shared by all three tabs: the pharmacy word-mark, the routes
-/// out of the POS (history, profile, the management screens). The cart has
-/// its own destination in the staff bar now.
-///
-/// The committed design keeps its word-mark row leading-aligned, so the
-/// theme's centerTitle is deliberately off here.
-AppBar _posAppBar(BuildContext context) {
-  return AppBar(
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    surfaceTintColor: Colors.transparent,
-    centerTitle: false,
-    // The word-mark scales down rather than overflowing on narrow phones:
-    // with three actions the title row has little room on a 360dp screen,
-    // and a hard overflow there would be worse than a slightly smaller mark.
-    title: const FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          Icon(Icons.local_pharmacy, color: _posPrimary),
-          SizedBox(width: 8),
-          Text(
-            'PharmaStaff POS',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-        ],
-      ),
-    ),
-    actions: [
-      IconButton(
-        tooltip: 'Profile',
-        icon: const Icon(Icons.account_circle_outlined),
-        onPressed: () => context.pushNamed('home-profile'),
-      ),
-      // The management screens live behind a menu rather than their own tabs:
-      // the committed bar is exactly three destinations wide. They are still
-      // routed underneath, so the menu only has to name them.
-      PopupMenuButton<String>(
-        tooltip: 'More',
-        icon: const Icon(Icons.more_vert),
-        onSelected: (route) => context.pushNamed(route),
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'home-expiring', child: Text('Expiring Meds')),
-          PopupMenuItem(
-            value: 'home-notifications',
-            child: Text('Notifications'),
-          ),
-          PopupMenuItem(value: 'medicines', child: Text('Medicine list')),
-          PopupMenuItem(value: 'orders-history', child: Text('Order history')),
-
-
-        ],
-      ),
-      const SizedBox(width: 4),
-    ],
-  );
-}
+const Color _posPrimary = AppColors.secondary;
 
 /// Adds one more of [medicine] to the order, the way the design's
 /// `_addToCart` did: the line goes into the provider and a short floating
@@ -106,7 +49,8 @@ void _addToOrder(
     return;
   }
 
-  _showQuantityDialog(context, order, medicine);  }
+  _showQuantityDialog(context, order, medicine);
+}
 
 /// Shows a dialog to select the quantity of [medicine] to add to the order.
 /// The dialog includes a stepper to adjust the amount, and confirms the
@@ -147,8 +91,9 @@ class _AddToCartDialogState extends State<_AddToCartDialog> {
     widget.order.add(widget.medicine, _selectedQuantity);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text('${widget.medicine.name} added to cart ($_selectedQuantity)'),
+        content: Text(
+          '${widget.medicine.name} added to cart ($_selectedQuantity)',
+        ),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -237,8 +182,7 @@ class NewSaleCatalogScreen extends StatelessWidget {
     final provider = context.watch<MedicineProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDFA),
-      appBar: _posAppBar(context),
+      appBar: const PosAppBar(),
       body: switch ((provider.error, provider.isLoading, provider.all())) {
         (final String message, _, _) => Center(
           child: Padding(
@@ -273,12 +217,13 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
   /// up on its own; lines whose category was never recorded only surface
   /// under All.
   List<String> get _categories {
-    final names = widget.medicines
-        .map((medicine) => medicine.category)
-        .whereType<String>()
-        .toSet()
-        .toList()
-      ..sort();
+    final names =
+        widget.medicines
+            .map((medicine) => medicine.category)
+            .whereType<String>()
+            .toSet()
+            .toList()
+          ..sort();
     return ['All', ...names];
   }
 
@@ -303,7 +248,7 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
     return Column(
       children: [
         Container(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
@@ -313,12 +258,6 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
                   hintText: 'Search medicine, generic name...',
                   prefixIcon: const Icon(Icons.search),
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFD1FAE5)),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFE6F7F4),
                 ),
               ),
               const SizedBox(height: 12),
@@ -368,7 +307,8 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
                             _selectedCategory = category;
                           });
                         },
-                        selectedColor: const Color(0xFFECFEFF),
+                        selectedColor: Theme.of(context).colorScheme.primary
+                            .withValues(alpha: 0.22),
                         checkmarkColor: _posPrimary,
                       ),
                     );
@@ -435,11 +375,12 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
 
   /// The symptoms that have been committed, in catalogue order.
   List<SymptomEntry> get _matchedSymptoms {
-    final matched = _repository
-        .all()
-        .where((entry) => _selectedSymptomIds.contains(entry.id))
-        .toList()
-      ..sort(SymptomEntry.compareByName);
+    final matched =
+        _repository
+            .all()
+            .where((entry) => _selectedSymptomIds.contains(entry.id))
+            .toList()
+          ..sort(SymptomEntry.compareByName);
     return matched;
   }
 
@@ -543,8 +484,7 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDFA),
-      appBar: _posAppBar(context),
+      appBar: const PosAppBar(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -558,59 +498,35 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
             const SafetyBanner(),
             const SizedBox(height: 12),
 
-            // Demographic control: wraps instead of overflowing on narrow screens.
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ChoiceChip(
-                  avatar: const Icon(Icons.child_care, size: 16),
-                  label: const Text('Pediatric / Child'),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                  selected: _targetAgeGroup == AgeGroup.child,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() => _targetAgeGroup = AgeGroup.child);
-                    }
-                  },
+            SegmentedButton<AgeGroup>(
+              segments: const [
+                ButtonSegment(
+                  value: AgeGroup.both,
+                  label: Text('All'),
+                  icon: Icon(Icons.people_outline, size: 16),
                 ),
-                ChoiceChip(
-                  avatar: const Icon(Icons.person, size: 16),
-                  label: const Text('Adult'),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                  selected: _targetAgeGroup == AgeGroup.adult,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() => _targetAgeGroup = AgeGroup.adult);
-                    }
-                  },
+                ButtonSegment(
+                  value: AgeGroup.child,
+                  label: Text('Child'),
+                  icon: Icon(Icons.child_care, size: 16),
                 ),
-                ChoiceChip(
-                  avatar: const Icon(Icons.people_outline, size: 16),
-                  label: const Text('All'),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                  selected: _targetAgeGroup == AgeGroup.both,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() => _targetAgeGroup = AgeGroup.both);
-                    }
-                  },
+                ButtonSegment(
+                  value: AgeGroup.adult,
+                  label: Text('Adult'),
+                  icon: Icon(Icons.person_outline, size: 16),
                 ),
               ],
+              selected: {_targetAgeGroup},
+              onSelectionChanged: (Set<AgeGroup> newSelection) {
+                setState(() => _targetAgeGroup = newSelection.first);
+              },
             ),
             const SizedBox(height: 12),
 
             Text(
               'Type Symptoms:',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
             TextField(
@@ -628,12 +544,6 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                 ),
                 helperText: 'Separate multiple symptoms with commas or "and".',
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFD1FAE5)),
-                ),
-                filled: true,
-                fillColor: const Color(0xFFE6F7F4),
               ),
             ),
 
@@ -647,8 +557,10 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                     .map(
                       (symptom) => ActionChip(
                         avatar: const Icon(Icons.add, size: 14),
-                        label: Text(symptom.name,
-                            style: const TextStyle(fontSize: 12)),
+                        label: Text(
+                          symptom.name,
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         onPressed: () => _addSymptom(symptom),
                       ),
                     )
@@ -665,8 +577,10 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                 children: _matchedSymptoms
                     .map(
                       (symptom) => InputChip(
-                        label: Text(symptom.name,
-                            style: const TextStyle(fontSize: 12)),
+                        label: Text(
+                          symptom.name,
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         onDeleted: () => setState(
                           () => _selectedSymptomIds.remove(symptom.id),
                         ),
@@ -693,10 +607,7 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
               Text(
                 'No symptom found for: ${_unmatchedTokens.join(', ')}. '
                 'Try another word or an alias.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.red.shade700,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.red.shade700),
               ),
             ],
 
@@ -721,7 +632,7 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                   'Based on: ${_matchedSymptoms.map((s) => s.name).join(', ')}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -778,8 +689,9 @@ class _SymptomNote extends StatelessWidget {
         children: [
           Text(
             symptom.name,
-            style: theme.textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(symptom.summary, style: theme.textTheme.bodySmall),
@@ -818,12 +730,12 @@ class SkuScannerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // A bigger preview for the camera, showing more of the prescription.
-    final previewHeight =
-        (MediaQuery.sizeOf(context).height * 0.60).clamp(300.0, 600.0).toDouble();
+    final previewHeight = (MediaQuery.sizeOf(context).height * 0.60)
+        .clamp(300.0, 600.0)
+        .toDouble();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDFA),
-      appBar: _posAppBar(context),
+      appBar: const PosAppBar(),
       body: ScanScreen(
         embedded: true,
         previewHeight: previewHeight,
@@ -864,46 +776,52 @@ class _PosProductCard extends StatelessWidget {
             if (medicine.genericKey ?? medicine.packageType case final generic?)
               Text(
                 generic,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
             const SizedBox(height: 6),
             if (medicine.dosageInfo case final dosage?)
               Text(
                 'Dosage: $dosage',
-                style: const TextStyle(fontSize: 11, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
-                   child: Text(
-                     medicine.formattedPrice,
-                     maxLines: 1,
-                     overflow: TextOverflow.ellipsis,
-                     style: const TextStyle(
-                       fontSize: 16,
-                       fontWeight: FontWeight.bold,
-                       color: _posPrimary,
-                     ),
-                   ),
-                 ),
-                 const SizedBox(width: 8),
-                 Flexible(
-                   child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _posPrimary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(72, 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  child: Text(
+                    medicine.formattedPrice,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.brandGreen,
                     ),
                   ),
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add_shopping_cart, size: 16),
-                  label: const Text('Add', overflow: TextOverflow.ellipsis),
                 ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _posPrimary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(72, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: onAdd,
+                    icon: const Icon(Icons.add_shopping_cart, size: 16),
+                    label: const Text('Add', overflow: TextOverflow.ellipsis),
+                  ),
                 ),
               ],
             ),
@@ -920,26 +838,32 @@ class _PosProductCard extends StatelessWidget {
     final badges = <Widget>[];
 
     if (medicine.ageGroup == AgeGroup.child) {
-      badges.add(_badge(
-        icon: Icons.child_care,
-        label: 'PEDIATRIC / CHILD',
-        background: const Color(0xFFFEF3C7),
-        foreground: const Color(0xFFF59E0B),
-      ));
+      badges.add(
+        _badge(
+          icon: Icons.child_care,
+          label: 'PEDIATRIC / CHILD',
+          background: const Color(0xFFFEF3C7),
+          foreground: const Color(0xFFF59E0B),
+        ),
+      );
     } else if (medicine.ageGuidance?.kids case AgeSuitability.caution) {
-      badges.add(_badge(
-        icon: Icons.child_care,
-        label: 'KIDS: ASK FIRST',
-        background: const Color(0xFFFEF3C7),
-        foreground: const Color(0xFFF59E0B),
-      ));
+      badges.add(
+        _badge(
+          icon: Icons.child_care,
+          label: 'KIDS: ASK FIRST',
+          background: const Color(0xFFFEF3C7),
+          foreground: const Color(0xFFF59E0B),
+        ),
+      );
     } else if (medicine.ageGroup == AgeGroup.adult) {
-      badges.add(_badge(
-        icon: Icons.person_outline,
-        label: 'ADULT FORMULA',
-        background: const Color(0xFFE0E7FF),
-        foreground: const Color(0xFF4338CA),
-      ));
+      badges.add(
+        _badge(
+          icon: Icons.person_outline,
+          label: 'ADULT FORMULA',
+          background: const Color(0xFFE0E7FF),
+          foreground: const Color(0xFF4338CA),
+        ),
+      );
     }
 
     if (medicine.requiresRx) {
@@ -995,4 +919,3 @@ class _PosProductCard extends StatelessWidget {
     );
   }
 }
-

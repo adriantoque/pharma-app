@@ -8,16 +8,16 @@ abstract final class AppColors {
   // Primary clinical accent (emerald/teal).
   static const Color primary = Color(0xFF10B981);
   static const Color primaryDark = Color(0xFF059669);
-  static const Color primaryLight = Color(0xFF34D399);
+  static const Color primaryLight = Color(0xFF5EEAD4);
 
   // Secondary accent (electric cyan/aqua) used by POS/approve actions.
-  static const Color secondary = Color(0xFF06B6D4);
-  static const Color secondaryLight = Color(0xFF22D3EE);
+  static const Color secondary = Color(0xFF0EA5E9);
+  static const Color secondaryLight = Color(0xFF38BDF8);
   static const Color secondarySurface = Color(0xFFECFEFF);
   static const Color secondarySurfaceBorder = Color(0xFFA5F3FC);
 
   // Legacy alias kept for compatibility with existing call sites.
-  static const Color brandGreen = Color(0xFF06B6D4);
+  static const Color brandGreen = Color(0xFF34D399);
   static const Color brandGreenSurface = Color(0xFFECFEFF);
   static const Color brandGreenSurfaceBorder = Color(0xFFA5F3FC);
 
@@ -27,7 +27,7 @@ abstract final class AppColors {
   static const Color accentAmberSurfaceBorder = Color(0xFFFCD34D);
 
   // Surfaces.
-  static const Color pageBackground = Color(0xFFF0FDFA);
+  static const Color pageBackground = Color(0xFF071B32);
   static const Color cardSurface = Color(0xFFFFFFFF);
   static const Color surfaceMuted = Color(0xFFE6F7F4);
   static const Color surfaceTint = Color(0xFFD1FAE5);
@@ -87,29 +87,29 @@ ThemeData buildAppTheme(Brightness brightness) {
     onSecondary: Colors.white,
     tertiary: AppColors.accentAmber,
     onTertiary: Colors.white,
-    surface: isLight ? AppColors.cardSurface : const Color(0xFF0B1324),
-    onSurface: isLight ? AppColors.textPrimary : const Color(0xFFE2E8F0),
-    onSurfaceVariant: isLight ? AppColors.textSecondary : const Color(0xFF94A3B8),
+    surface: isLight ? AppColors.cardSurface : const Color(0xFF071B32),
+    onSurface: isLight ? AppColors.textPrimary : const Color(0xFFF1F6FC),
+    onSurfaceVariant: isLight ? AppColors.textSecondary : const Color(0xFF9FB5CC),
     surfaceContainerLowest:
-        isLight ? Colors.white : const Color(0xFF080F1E),
+        isLight ? Colors.white : const Color(0xFF06152A),
     surfaceContainerLow:
-        isLight ? AppColors.surfaceMuted : const Color(0xFF111C30),
+        isLight ? AppColors.surfaceMuted : const Color(0xFF102E50),
     surfaceContainer:
-        isLight ? AppColors.surfaceMuted : const Color(0xFF16233A),
+        isLight ? AppColors.surfaceMuted : const Color(0xFF14365C),
     surfaceContainerHigh:
-        isLight ? AppColors.surfaceTint : const Color(0xFF1E2F4D),
+        isLight ? AppColors.surfaceTint : const Color(0xFF1A426A),
     surfaceContainerHighest:
-        isLight ? AppColors.primarySurfaceBorder : const Color(0xFF273B63),
+        isLight ? AppColors.primarySurfaceBorder : const Color(0xFF205078),
     error: AppColors.danger,
     onError: Colors.white,
-    outline: isLight ? AppColors.primarySurfaceBorder : const Color(0xFF334155),
-    outlineVariant: isLight ? AppColors.primarySurface : const Color(0xFF1E293B),
+    outline: isLight ? AppColors.primarySurfaceBorder : const Color(0xFF28618A),
+    outlineVariant: isLight ? AppColors.primarySurface : const Color(0xFF17446A),
   );
 
   final onSurface = scheme.onSurface;
   final onSurfaceVariant = scheme.onSurfaceVariant;
 
-  // Base text styles: Playfair Display for elegant headings, Inter for body.
+  // Inter keeps headings and controls consistent with the compact POS design.
   TextTheme buildTextTheme(String displayFont, String bodyFont) {
     TextStyle display({
       required double size,
@@ -166,7 +166,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     );
   }
 
-  final textTheme = buildTextTheme('PlayfairDisplay', 'Inter');
+  final textTheme = buildTextTheme('Inter', 'Inter');
 
   return ThemeData(
     useMaterial3: true,
@@ -189,7 +189,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       elevation: 0,
       shadowColor: Colors.black.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: scheme.outlineVariant),
       ),
       margin: EdgeInsets.zero,
@@ -197,10 +197,10 @@ ThemeData buildAppTheme(Brightness brightness) {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: isLight ? AppColors.cardSurface : scheme.surface,
       surfaceTintColor: Colors.transparent,
-      elevation: 3,
+      elevation: 0,
       shadowColor: Colors.black.withValues(alpha: 0.06),
-      indicatorColor:
-          isLight ? AppColors.primarySurface : scheme.secondaryContainer,
+      indicatorColor: isLight ? AppColors.primarySurface : Colors.transparent,
+      height: 68,
       labelTextStyle: WidgetStateProperty.all(
         textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
       ),

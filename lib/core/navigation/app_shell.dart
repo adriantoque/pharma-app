@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../features/orders/presentation/providers/order_provider.dart';
 import '../../features/search/data/sync/sync_status.dart';
 import '../../features/search/presentation/providers/medicine_provider.dart';
 import '../widgets/offline_banner.dart';
-import '../widgets/offline_mode_banner.dart';
 
 /// Hosts the persistent bottom navigation bar for the signed-in staff area.
 ///
@@ -111,7 +109,6 @@ class AppShell extends StatelessWidget {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const OfflineModeBanner(),
           OfflineBanner(
             status: context.select<MedicineProvider, SyncStatus>(
               (provider) => provider.syncStatus,
@@ -119,11 +116,8 @@ class AppShell extends StatelessWidget {
           ),
           NavigationBar(
             selectedIndex: navigationShell.currentIndex,
-            // The committed bar is white with a teal pill behind the
-            // selected destination, independent of the app theme so the
-            // staff POS keeps that look in dark mode too.
             backgroundColor: Theme.of(context).colorScheme.surface,
-            indicatorColor: AppColors.primarySurface,
+            indicatorColor: Colors.transparent,
             // Tapping the already-active tab returns it to its root, so a user
             // who drilled into a sub-screen is not stranded there.
             onDestinationSelected: (index) => navigationShell.goBranch(

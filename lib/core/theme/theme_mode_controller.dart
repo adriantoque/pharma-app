@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Owns the user's appearance choices -- the theme mode and the text scale --
 /// and persists them so they survive a restart.
 ///
-/// Defaults are deliberately the app's original look: light mode and 1.0 text
+/// Defaults to the dark POS palette and 1.0 text
 /// scale. Nothing changes for a user who never opens the Appearance screen.
 class AppThemeController extends ChangeNotifier {
   /// Persisted as a string (one of `system`, `light`, `dark`).
@@ -17,7 +17,7 @@ class AppThemeController extends ChangeNotifier {
   /// Persisted as a double, the multiplier applied to the platform text scale.
   static const String textScaleKey = 'pharmaguide_text_scale';
 
-  static const ThemeMode defaultMode = ThemeMode.light;
+  static const ThemeMode defaultMode = ThemeMode.dark;
   static const double defaultTextScale = 1.0;
 
   ThemeMode _mode = defaultMode;

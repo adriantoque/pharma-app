@@ -118,7 +118,7 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(Brightness.light),
         darkTheme: buildAppTheme(Brightness.dark),
-        themeMode: ThemeMode.light,
+        themeMode: ThemeMode.dark,
         home: BootstrapFailureScreen(result: result),
       );
     }

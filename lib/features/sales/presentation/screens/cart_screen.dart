@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../widgets/pos_app_bar.dart';
 import '../../../orders/data/models/order_line_model.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../domain/payment_method.dart';
@@ -53,15 +54,8 @@ Future<bool> confirmAndCompleteSale(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        OutlinedButton(
+        FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: OutlinedButton.styleFrom(
-            backgroundColor: AppColors.brandGreenSurface,
-            foregroundColor: AppColors.brandGreen,
-            side: const BorderSide(
-              color: AppColors.brandGreenSurfaceBorder,
-            ),
-          ),
           child: const Text('Continue'),
         ),
       ],
@@ -137,9 +131,7 @@ class _CartScreenState extends State<CartScreen> {
       }
       return;
     }
-    Navigator.of(context).pop(
-      CartResult(proceed: proceed, payment: _payment),
-    );
+    Navigator.of(context).pop(CartResult(proceed: proceed, payment: _payment));
   }
 
   Future<void> _confirmClear() async {
@@ -155,15 +147,8 @@ class _CartScreenState extends State<CartScreen> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
-          OutlinedButton(
+          FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: AppColors.brandGreenSurface,
-              foregroundColor: AppColors.brandGreen,
-              side: const BorderSide(
-                color: AppColors.brandGreenSurfaceBorder,
-              ),
-            ),
             child: const Text('Clear'),
           ),
         ],
@@ -183,44 +168,42 @@ class _CartScreenState extends State<CartScreen> {
     final lines = order.lines;
 
     return Scaffold(
-      appBar: AppBar(
-        // The count is the one fact a pharmacist wants from this screen's
-        // chrome; the rest is in the footer.
-        title: Text(
-          lines.isEmpty
-              ? 'Cart'
-              : 'Cart · ${order.itemCount} ${order.itemCount == 1 ? 'item' : 'items'}',
-        ),
-        actions: [
-          if (lines.isNotEmpty)
-            IconButton(
-              tooltip: 'Clear cart',
-              icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: _confirmClear,
-            ),
-          IconButton(
-            tooltip: 'Orders',
-            icon: const Icon(Icons.receipt_long_outlined),
-            onPressed: () => context.pushNamed('orders'),
-          ),
-        ],
-      ),
+      appBar: const PosAppBar(),
       body: lines.isEmpty
           ? _EmptyCart(onBack: () => _pop(proceed: false))
           : Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Cart · ${order.itemCount} '
+                          '${order.itemCount == 1 ? 'item' : 'items'}',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _confirmClear,
+                        icon: const Icon(Icons.delete_outline, size: 16),
+                        label: const Text('Clear all'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                          minimumSize: const Size(0, 36),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     itemCount: lines.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                    itemBuilder: (context, index) => _CartItemTile(
-                      line: lines[index],
-                      compact: false,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 8),
+                    itemBuilder: (context, index) => Card(
+                      child: _CartItemTile(line: lines[index], compact: false),
                     ),
                   ),
                 ),
@@ -276,17 +259,10 @@ class _EmptyCart extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back),
               label: const Text('Back to products'),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.brandGreenSurface,
-                foregroundColor: AppColors.brandGreen,
-                side: const BorderSide(
-                  color: AppColors.brandGreenSurfaceBorder,
-                ),
-              ),
             ),
           ],
         ),
@@ -357,15 +333,15 @@ class _CheckoutFooter extends StatelessWidget {
                 onChanged: onPaymentChanged,
               ),
               const SizedBox(height: 16),
-              OutlinedButton(
+              FilledButton(
                 key: const Key('proceedButton'),
                 onPressed: onProceed,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                  backgroundColor: AppColors.brandGreenSurface,
-                  foregroundColor: AppColors.brandGreen,
-                  side: const BorderSide(
-                    color: AppColors.brandGreenSurfaceBorder,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 52),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: const Text('Proceed'),
