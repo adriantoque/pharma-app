@@ -240,7 +240,24 @@ class _BusinessSection extends StatelessWidget {
         _NavTile(
           icon: Icons.palette_outlined,
           label: 'Appearance',
-          onTap: () => context.pushNamed('home-profile-appearance'),
+          comingSoon: true,
+          onTap: () {
+            showDialog<void>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('Coming soon'),
+                content: const Text(
+                  'Appearance settings will be available in a future update.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ],
     );
@@ -378,29 +395,46 @@ class _NavTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.trailingText,
+    this.comingSoon = false,
   });
 
   final IconData icon;
   final String label;
   final String? trailingText;
   final VoidCallback onTap;
+  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final trailingText = this.trailingText;
+    final mutedColor = comingSoon
+        ? theme.colorScheme.outline
+        : null;
 
     return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      trailing: trailingText != null
+      leading: Icon(icon, color: mutedColor),
+      title: Text(
+        label,
+        style: mutedColor != null
+            ? theme.textTheme.titleMedium?.copyWith(color: mutedColor)
+            : null,
+      ),
+      trailing: comingSoon
           ? Text(
-              trailingText,
+              'Soon',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: mutedColor,
               ),
             )
-          : const Icon(Icons.chevron_right),
+          : (trailingText != null
+              ? Text(
+                  trailingText,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : const Icon(Icons.chevron_right)),
       onTap: onTap,
     );
   }
