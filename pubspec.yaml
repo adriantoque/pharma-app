@@ -141,6 +141,11 @@ flutter:
     - assets/data/cleaned_sales_seed.json
 
   fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+        - asset: assets/fonts/Inter-VariableItalic.ttf
+          style: italic
     - family: PlayfairDisplay
       fonts:
         - asset: assets/fonts/PlayfairDisplay-Variable.ttf

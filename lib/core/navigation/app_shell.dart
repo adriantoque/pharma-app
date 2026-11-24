@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../features/orders/presentation/providers/order_provider.dart';
 import '../../features/search/data/sync/sync_status.dart';
 import '../../features/search/presentation/providers/medicine_provider.dart';
@@ -121,8 +122,8 @@ class AppShell extends StatelessWidget {
             // The committed bar is white with a teal pill behind the
             // selected destination, independent of the app theme so the
             // staff POS keeps that look in dark mode too.
-            backgroundColor: Colors.white,
-            indicatorColor: const Color(0xFFCBF1EC),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            indicatorColor: AppColors.primarySurface,
             // Tapping the already-active tab returns it to its root, so a user
             // who drilled into a sub-screen is not stranded there.
             onDestinationSelected: (index) => navigationShell.goBranch(

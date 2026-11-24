@@ -128,9 +128,9 @@ class OrderHistory {
 
   /// Status color for badge.
   Color get statusColor => switch (status) {
-        OrderStatus.new_ => const Color(0xFFB7791F),
-        OrderStatus.approved => const Color(0xFF2E7D4F),
-        OrderStatus.rejected => const Color(0xFFB42318),
+        OrderStatus.new_ => const Color(0xFFF59E0B),
+        OrderStatus.approved => const Color(0xFF22C55E),
+        OrderStatus.rejected => const Color(0xFFEF4444),
       };
 
   /// Background color for status badge.

@@ -26,7 +26,7 @@ class PdfReceiptService {
   static const double receiptWidthMm = 80;
 
   /// Brand teal, matching `AppColors.primary` in the Flutter theme.
-  static const PdfColor brandTeal = PdfColor.fromInt(0xFF0F766E);
+  static const PdfColor brandTeal = PdfColor.fromInt(0xFF059669);
 
   /// Builds a [pw.Document] from [receipt]. The caller is responsible for
   /// saving, sharing, or printing the returned document.

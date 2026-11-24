@@ -63,7 +63,7 @@ class OrderReceipt extends StatelessWidget {
                   children: [
                     _Badge(label: 'OFFICIAL RECEIPT', color: Colors.black87),
                     const SizedBox(width: 8),
-                    _Badge(label: 'APPROVED', color: const Color(0xFF2E7D4F)),
+                    _Badge(label: 'APPROVED', color: const Color(0xFF22C55E)),
                   ],
                 ),
                 const SizedBox(height: 12),

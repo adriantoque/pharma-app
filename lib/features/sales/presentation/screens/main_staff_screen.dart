@@ -27,7 +27,7 @@ import '../../../symptom_guide/presentation/widgets/safety_banner.dart';
 /// rest of the app reports.
 
 /// The POS accent colour the design seeds its whole theme from.
-const Color _posPrimary = Color(0xFF0284C7);
+const Color _posPrimary = Color(0xFF06B6D4);
 
 /// The app bar shared by all three tabs: the pharmacy word-mark, the routes
 /// out of the POS (history, profile, the management screens). The cart has
@@ -237,7 +237,7 @@ class NewSaleCatalogScreen extends StatelessWidget {
     final provider = context.watch<MedicineProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF0FDFA),
       appBar: _posAppBar(context),
       body: switch ((provider.error, provider.isLoading, provider.all())) {
         (final String message, _, _) => Center(
@@ -315,10 +315,10 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    borderSide: const BorderSide(color: Color(0xFFD1FAE5)),
                   ),
                   filled: true,
-                  fillColor: const Color(0xFFF1F5F9),
+                  fillColor: const Color(0xFFE6F7F4),
                 ),
               ),
               const SizedBox(height: 12),
@@ -368,7 +368,7 @@ class _SaleCatalogTabState extends State<_SaleCatalogTab> {
                             _selectedCategory = category;
                           });
                         },
-                        selectedColor: const Color(0xFFE0F2FE),
+                        selectedColor: const Color(0xFFECFEFF),
                         checkmarkColor: _posPrimary,
                       ),
                     );
@@ -543,7 +543,7 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF0FDFA),
       appBar: _posAppBar(context),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(12.0),
@@ -630,10 +630,10 @@ class _PosSymptomFinderScreenState extends State<PosSymptomFinderScreen> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  borderSide: const BorderSide(color: Color(0xFFD1FAE5)),
                 ),
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
+                fillColor: const Color(0xFFE6F7F4),
               ),
             ),
 
@@ -822,7 +822,7 @@ class SkuScannerScreen extends StatelessWidget {
         (MediaQuery.sizeOf(context).height * 0.60).clamp(300.0, 600.0).toDouble();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF0FDFA),
       appBar: _posAppBar(context),
       body: ScanScreen(
         embedded: true,
@@ -924,14 +924,14 @@ class _PosProductCard extends StatelessWidget {
         icon: Icons.child_care,
         label: 'PEDIATRIC / CHILD',
         background: const Color(0xFFFEF3C7),
-        foreground: const Color(0xFFD97706),
+        foreground: const Color(0xFFF59E0B),
       ));
     } else if (medicine.ageGuidance?.kids case AgeSuitability.caution) {
       badges.add(_badge(
         icon: Icons.child_care,
         label: 'KIDS: ASK FIRST',
         background: const Color(0xFFFEF3C7),
-        foreground: const Color(0xFFD97706),
+        foreground: const Color(0xFFF59E0B),
       ));
     } else if (medicine.ageGroup == AgeGroup.adult) {
       badges.add(_badge(
