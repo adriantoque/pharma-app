@@ -13,7 +13,6 @@ import 'bootstrap/splash_screen.dart';
 import 'core/connectivity/connection_source.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
-import 'core/theme/theme_mode_provider.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/data/repositories/firebase_auth_repository.dart';
 import 'features/auth/domain/user_role.dart';
@@ -127,9 +126,6 @@ class _PharmaGuideAppState extends State<PharmaGuideApp> {
     return MultiProvider(
       key: const ValueKey('app'),
       providers: [
-        ChangeNotifierProvider<ThemeModeProvider>(
-          create: (_) => ThemeModeProvider()..load(),
-        ),
         ChangeNotifierProvider<AppThemeController>(
           create: (_) => AppThemeController()..load(),
         ),
