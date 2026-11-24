@@ -13,8 +13,8 @@ import '../widgets/auth_bottom_sheet.dart';
 /// reach the same token.
 abstract final class _LandingColors {
   static const Color primary = AppColors.brandGreen;
-  static const Color primarySurface = Color(0xFFE2F1ED);
-  static const Color primarySurfaceBorder = Color(0xFFA7CFC6);
+  static const Color primarySurface = Color(0xFFD1FAE5);
+  static const Color primarySurfaceBorder = Color(0xFFA7F3D0);
 }
 
 /// The first screen, for a signed-out app.

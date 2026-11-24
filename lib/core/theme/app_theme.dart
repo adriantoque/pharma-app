@@ -2,44 +2,77 @@ import 'package:flutter/material.dart';
 
 /// Brand colours shared by the app's screens and navigation.
 ///
-/// Clinical, trustworthy palette: teal primary on crisp off-white surfaces,
-/// with clear semantic colours for stock and status states.
+/// Refined pharmacy palette: luminous emerald/teal paired with electric
+/// cyan/aqua on soft mint-tinted surfaces, with clear semantic status tones.
 abstract final class AppColors {
-  // Primary clinical accent (teal).
-  static const Color primary = Color(0xFF0D9488);
-  static const Color primaryDark = Color(0xFF0F766E);
-  static const Color primaryLight = Color(0xFF2DD4BF);
+  // Primary clinical accent (emerald/teal).
+  static const Color primary = Color(0xFF10B981);
+  static const Color primaryDark = Color(0xFF059669);
+  static const Color primaryLight = Color(0xFF34D399);
 
-  // Supporting brand blues used by POS/approve actions.
-  static const Color brandGreen = Color(0xFF0284C7);
-  static const Color brandGreenSurface = Color(0xFFE0F2FE);
-  static const Color brandGreenSurfaceBorder = Color(0xFFBAE6FD);
+  // Secondary accent (electric cyan/aqua) used by POS/approve actions.
+  static const Color secondary = Color(0xFF06B6D4);
+  static const Color secondaryLight = Color(0xFF22D3EE);
+  static const Color secondarySurface = Color(0xFFECFEFF);
+  static const Color secondarySurfaceBorder = Color(0xFFA5F3FC);
+
+  // Legacy alias kept for compatibility with existing call sites.
+  static const Color brandGreen = Color(0xFF06B6D4);
+  static const Color brandGreenSurface = Color(0xFFECFEFF);
+  static const Color brandGreenSurfaceBorder = Color(0xFFA5F3FC);
+
+  // Warm amber accent for highlights and warnings.
+  static const Color accentAmber = Color(0xFFF59E0B);
+  static const Color accentAmberSurface = Color(0xFFFEF3C7);
+  static const Color accentAmberSurfaceBorder = Color(0xFFFCD34D);
 
   // Surfaces.
-  static const Color pageBackground = Color(0xFFF8FAFC);
+  static const Color pageBackground = Color(0xFFF0FDFA);
   static const Color cardSurface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF1F5F9);
+  static const Color surfaceMuted = Color(0xFFE6F7F4);
+  static const Color surfaceTint = Color(0xFFD1FAE5);
 
   // Semantic status colours.
-  static const Color success = Color(0xFF16A34A);
-  static const Color warning = Color(0xFFD97706);
-  static const Color danger = Color(0xFFDC2626);
-  static const Color info = Color(0xFF2563EB);
+  static const Color success = Color(0xFF22C55E);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color danger = Color(0xFFEF4444);
+  static const Color info = Color(0xFF3B82F6);
 
   // Text.
   static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color textSecondary = Color(0xFF334155);
+  static const Color textMuted = Color(0xFF64748B);
 
   // Legacy aliases kept for compatibility with existing call sites.
-  static const Color primarySurface = Color(0xFFCCFBF1);
-  static const Color primarySurfaceBorder = Color(0xFF99F6E4);
+  static const Color primarySurface = Color(0xFFD1FAE5);
+  static const Color primarySurfaceBorder = Color(0xFFA7F3D0);
 }
 
 /// Tabular figures feature, used so digits align in prices/quantities.
 const List<FontFeature> _tabularFigures = <FontFeature>[
   FontFeature.tabularFigures(),
 ];
+
+TextStyle _textStyle({
+  required String fontFamily,
+  required double size,
+  required int weight,
+  required Color color,
+  double? height,
+  double? letterSpacing,
+  bool tabular = false,
+}) {
+  return TextStyle(
+    fontFamily: fontFamily,
+    fontSize: size,
+    fontWeight: FontWeight.values[(weight ~/ 100).clamp(1, 9) - 1],
+    color: color,
+    height: height,
+    letterSpacing: letterSpacing,
+    fontFeatures: tabular ? _tabularFigures : null,
+    fontVariations: [FontVariation('wght', weight.toDouble())],
+  );
+}
 
 ThemeData buildAppTheme(Brightness brightness) {
   final isLight = brightness == Brightness.light;
@@ -50,86 +83,104 @@ ThemeData buildAppTheme(Brightness brightness) {
   final scheme = baseScheme.copyWith(
     primary: AppColors.primary,
     onPrimary: Colors.white,
-    secondary: AppColors.brandGreen,
+    secondary: AppColors.secondary,
     onSecondary: Colors.white,
-    surface: isLight ? AppColors.cardSurface : baseScheme.surface,
-    onSurface: isLight ? AppColors.textPrimary : baseScheme.onSurface,
-    surfaceContainerLowest: isLight ? Colors.white : baseScheme.surfaceContainerLowest,
-    surfaceContainerLow: isLight ? AppColors.surfaceMuted : baseScheme.surfaceContainerLow,
-    surfaceContainer: isLight ? AppColors.surfaceMuted : baseScheme.surfaceContainer,
-    surfaceContainerHigh: isLight ? const Color(0xFFE2E8F0) : baseScheme.surfaceContainerHigh,
-    surfaceContainerHighest: isLight ? const Color(0xFFCBD5E1) : baseScheme.surfaceContainerHighest,
+    tertiary: AppColors.accentAmber,
+    onTertiary: Colors.white,
+    surface: isLight ? AppColors.cardSurface : const Color(0xFF0B1324),
+    onSurface: isLight ? AppColors.textPrimary : const Color(0xFFE2E8F0),
+    onSurfaceVariant: isLight ? AppColors.textSecondary : const Color(0xFF94A3B8),
+    surfaceContainerLowest:
+        isLight ? Colors.white : const Color(0xFF080F1E),
+    surfaceContainerLow:
+        isLight ? AppColors.surfaceMuted : const Color(0xFF111C30),
+    surfaceContainer:
+        isLight ? AppColors.surfaceMuted : const Color(0xFF16233A),
+    surfaceContainerHigh:
+        isLight ? AppColors.surfaceTint : const Color(0xFF1E2F4D),
+    surfaceContainerHighest:
+        isLight ? AppColors.primarySurfaceBorder : const Color(0xFF273B63),
     error: AppColors.danger,
-    outline: isLight ? const Color(0xFFCBD5E1) : baseScheme.outline,
-    outlineVariant: isLight ? const Color(0xFFE2E8F0) : baseScheme.outlineVariant,
+    onError: Colors.white,
+    outline: isLight ? AppColors.primarySurfaceBorder : const Color(0xFF334155),
+    outlineVariant: isLight ? AppColors.primarySurface : const Color(0xFF1E293B),
   );
 
   final onSurface = scheme.onSurface;
   final onSurfaceVariant = scheme.onSurfaceVariant;
 
-  // Base text styles using Inter.
-  TextStyle t({
-    required double size,
-    required int weight,
-    required Color color,
-    double? height,
-    double? letterSpacing,
-    bool tabular = false,
-  }) {
-    return TextStyle(
-      fontFamily: 'Inter',
-      fontSize: size,
-      fontWeight: FontWeight.values[(weight ~/ 100).clamp(1, 9) - 1],
-      color: color,
-      height: height,
-      letterSpacing: letterSpacing,
-      fontFeatures: tabular ? _tabularFigures : null,
-      fontVariations: [FontVariation('wght', weight.toDouble())],
+  // Base text styles: Playfair Display for elegant headings, Inter for body.
+  TextTheme buildTextTheme(String displayFont, String bodyFont) {
+    TextStyle display({
+      required double size,
+      required int weight,
+      required Color color,
+      double? height,
+      double? letterSpacing,
+    }) {
+      return _textStyle(
+        fontFamily: displayFont,
+        size: size,
+        weight: weight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+    }
+
+    TextStyle body({
+      required double size,
+      required int weight,
+      required Color color,
+      double? height,
+      double? letterSpacing,
+      bool tabular = false,
+    }) {
+      return _textStyle(
+        fontFamily: bodyFont,
+        size: size,
+        weight: weight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+        tabular: tabular,
+      );
+    }
+
+    return TextTheme(
+      displayLarge: display(size: 42, weight: 700, color: onSurface, letterSpacing: -1.2, height: 1.08),
+      displayMedium: display(size: 36, weight: 700, color: onSurface, letterSpacing: -0.8, height: 1.12),
+      displaySmall: display(size: 30, weight: 700, color: onSurface, letterSpacing: -0.5, height: 1.18),
+      headlineLarge: display(size: 26, weight: 700, color: onSurface, letterSpacing: -0.4, height: 1.22),
+      headlineMedium: display(size: 22, weight: 600, color: onSurface, letterSpacing: -0.2, height: 1.26),
+      headlineSmall: display(size: 19, weight: 600, color: onSurface, letterSpacing: -0.1, height: 1.3),
+      titleLarge: body(size: 18, weight: 600, color: onSurface, height: 1.3, tabular: true),
+      titleMedium: body(size: 16, weight: 600, color: onSurface, height: 1.35, tabular: true),
+      titleSmall: body(size: 14, weight: 600, color: onSurface, height: 1.35, tabular: true),
+      bodyLarge: body(size: 16, weight: 400, color: onSurface, height: 1.55, tabular: true),
+      bodyMedium: body(size: 14, weight: 400, color: onSurfaceVariant, height: 1.5, tabular: true),
+      bodySmall: body(size: 12, weight: 400, color: onSurfaceVariant, height: 1.45, tabular: true),
+      labelLarge: body(size: 14, weight: 600, color: onSurface, letterSpacing: 0.1, height: 1.2, tabular: true),
+      labelMedium: body(size: 12, weight: 600, color: onSurface, letterSpacing: 0.2, height: 1.2, tabular: true),
+      labelSmall: body(size: 11, weight: 500, color: onSurfaceVariant, letterSpacing: 0.3, height: 1.2, tabular: true),
     );
   }
 
-  // Convenience weight access
-  final textTheme = TextTheme(
-    displayLarge: t(size: 40, weight: 700, color: onSurface, letterSpacing: -1.0, height: 1.1),
-    displayMedium: t(size: 34, weight: 700, color: onSurface, letterSpacing: -0.6, height: 1.15),
-    displaySmall: t(size: 28, weight: 700, color: onSurface, letterSpacing: -0.4, height: 1.2),
-    headlineLarge: t(size: 24, weight: 700, color: onSurface, letterSpacing: -0.3, height: 1.25),
-    headlineMedium: t(size: 20, weight: 600, color: onSurface, letterSpacing: -0.2, height: 1.3),
-    headlineSmall: t(size: 18, weight: 600, color: onSurface, letterSpacing: -0.1, height: 1.3),
-    titleLarge: t(size: 18, weight: 600, color: onSurface, height: 1.3),
-    titleMedium: t(size: 16, weight: 600, color: onSurface, height: 1.35),
-    titleSmall: t(size: 14, weight: 600, color: onSurface, height: 1.35),
-    bodyLarge: t(size: 16, weight: 400, color: onSurface, height: 1.5),
-    bodyMedium: t(size: 14, weight: 400, color: onSurfaceVariant, height: 1.5),
-    bodySmall: t(size: 12, weight: 400, color: onSurfaceVariant, height: 1.45),
-    labelLarge: t(size: 14, weight: 600, color: onSurface, letterSpacing: 0.1, height: 1.2),
-    labelMedium: t(size: 12, weight: 600, color: onSurface, letterSpacing: 0.2, height: 1.2),
-    labelSmall: t(size: 11, weight: 500, color: onSurfaceVariant, letterSpacing: 0.3, height: 1.2),
-  );
-
-  // Tabular variants for numbers: provide via textTheme? We'll keep base; screens can use fontFeatures.
-  // But make labelLarge/bodyMedium tabular by default? Prices use various. Add tabular to a couple.
-  final tabularTextTheme = textTheme.copyWith(
-    titleMedium: textTheme.titleMedium?.copyWith(fontFeatures: _tabularFigures),
-    titleLarge: textTheme.titleLarge?.copyWith(fontFeatures: _tabularFigures),
-    bodyLarge: textTheme.bodyLarge?.copyWith(fontFeatures: _tabularFigures),
-    bodyMedium: textTheme.bodyMedium?.copyWith(fontFeatures: _tabularFigures),
-    labelLarge: textTheme.labelLarge?.copyWith(fontFeatures: _tabularFigures),
-  );
+  final textTheme = buildTextTheme('PlayfairDisplay', 'Inter');
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    textTheme: tabularTextTheme,
+    textTheme: textTheme,
     scaffoldBackgroundColor: scheme.surface,
     appBarTheme: AppBarTheme(
       backgroundColor: isLight ? AppColors.cardSurface : scheme.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      scrolledUnderElevation: 1,
-      shadowColor: Colors.black.withValues(alpha: 0.05),
+      scrolledUnderElevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
       centerTitle: true,
-      titleTextStyle: tabularTextTheme.titleLarge?.copyWith(color: onSurface),
+      titleTextStyle: textTheme.titleLarge?.copyWith(color: onSurface),
       iconTheme: IconThemeData(color: onSurface),
     ),
     cardTheme: CardThemeData(
@@ -138,7 +189,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       elevation: 0,
       shadowColor: Colors.black.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: scheme.outlineVariant),
       ),
       margin: EdgeInsets.zero,
@@ -146,12 +197,12 @@ ThemeData buildAppTheme(Brightness brightness) {
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: isLight ? AppColors.cardSurface : scheme.surface,
       surfaceTintColor: Colors.transparent,
-      elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.05),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
       indicatorColor:
           isLight ? AppColors.primarySurface : scheme.secondaryContainer,
       labelTextStyle: WidgetStateProperty.all(
-        tabularTextTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+        textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
       ),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
@@ -165,32 +216,32 @@ ThemeData buildAppTheme(Brightness brightness) {
       unselectedLabelColor: onSurfaceVariant,
       indicatorColor: scheme.primary,
       dividerColor: scheme.outlineVariant,
-      labelStyle: tabularTextTheme.labelLarge,
+      labelStyle: textTheme.labelLarge,
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: onSurface,
       contentTextStyle: TextStyle(color: scheme.surface, fontFamily: 'Inter'),
       behavior: SnackBarBehavior.floating,
       elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: isLight ? AppColors.surfaceMuted : scheme.surfaceContainerHighest,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: scheme.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: AppColors.danger, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -201,38 +252,85 @@ ThemeData buildAppTheme(Brightness brightness) {
       style: FilledButton.styleFrom(
         backgroundColor: scheme.primary,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        textStyle: tabularTextTheme.labelLarge,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(0, 46),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        textStyle: textTheme.labelLarge,
+        elevation: 0,
+      ).copyWith(
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.18);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return Colors.white.withValues(alpha: 0.12);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return Colors.white.withValues(alpha: 0.14);
+          }
+          return null;
+        }),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: onSurface,
+        foregroundColor: scheme.primary,
         side: BorderSide(color: scheme.outlineVariant),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        textStyle: tabularTextTheme.labelLarge,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(0, 46),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        textStyle: textTheme.labelLarge,
+      ).copyWith(
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return scheme.primary.withValues(alpha: 0.14);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return scheme.primary.withValues(alpha: 0.08);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return scheme.primary.withValues(alpha: 0.10);
+          }
+          return null;
+        }),
+        side: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5));
+          }
+          if (states.contains(WidgetState.focused) ||
+              states.contains(WidgetState.hovered)) {
+            return BorderSide(color: scheme.primary, width: 1.4);
+          }
+          return BorderSide(color: scheme.outlineVariant);
+        }),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: scheme.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        minimumSize: const Size(0, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        textStyle: tabularTextTheme.labelLarge,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        minimumSize: const Size(0, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        textStyle: textTheme.labelLarge,
+      ).copyWith(
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return scheme.primary.withValues(alpha: 0.16);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return scheme.primary.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
       ),
     ),
     chipTheme: ChipThemeData(
       backgroundColor: isLight ? AppColors.surfaceMuted : scheme.surfaceContainer,
       selectedColor: AppColors.primarySurface,
-      labelStyle: tabularTextTheme.bodySmall?.copyWith(color: onSurface),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      labelStyle: textTheme.bodySmall?.copyWith(color: onSurface),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       side: BorderSide(color: scheme.outlineVariant),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     ),
     dividerTheme: DividerThemeData(
       color: scheme.outlineVariant,
@@ -242,28 +340,39 @@ ThemeData buildAppTheme(Brightness brightness) {
     dialogTheme: DialogThemeData(
       backgroundColor: isLight ? AppColors.cardSurface : scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 12,
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: isLight ? AppColors.cardSurface : scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      elevation: 8,
+      elevation: 12,
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: scheme.primary,
       foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: 6,
     ),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
         foregroundColor: onSurface,
         minimumSize: const Size(40, 40),
         padding: const EdgeInsets.all(8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ).copyWith(
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return scheme.primary.withValues(alpha: 0.16);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return scheme.primary.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -271,10 +380,26 @@ ThemeData buildAppTheme(Brightness brightness) {
         backgroundColor: scheme.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        textStyle: tabularTextTheme.labelLarge,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        minimumSize: const Size(0, 46),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        textStyle: textTheme.labelLarge,
+      ).copyWith(
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.white.withValues(alpha: 0.18);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return Colors.white.withValues(alpha: 0.12);
+          }
+          return null;
+        }),
+        elevation: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return 0.0;
+          if (states.contains(WidgetState.hovered)) return 2.0;
+          if (states.contains(WidgetState.pressed)) return 0.0;
+          return 0.0;
+        }),
       ),
     ),
   );

@@ -36,7 +36,7 @@ class ReceiptPreview extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0F766E),
+                    color: const Color(0xFF059669),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -46,7 +46,7 @@ class ReceiptPreview extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
-                    color: const Color(0xFF0F766E),
+                    color: const Color(0xFF059669),
                   ),
                 ),
                 if (receipt.storeAddress.isNotEmpty) ...[
@@ -148,7 +148,7 @@ class ReceiptPreview extends StatelessWidget {
                   'TOTAL',
                   receipt.totalCentavos,
                   bold: true,
-                  color: const Color(0xFF0F766E),
+                  color: const Color(0xFF059669),
                 ),
                 const SizedBox(height: 10),
 

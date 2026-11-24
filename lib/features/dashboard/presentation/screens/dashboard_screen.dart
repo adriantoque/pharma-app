@@ -35,7 +35,7 @@ class DashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.only(left: 12, top: 10, bottom: 10),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F8F4),
+              color: const Color(0xFFF0FDFA),
               borderRadius: BorderRadius.circular(10),
             ),
             child: ClipRRect(
