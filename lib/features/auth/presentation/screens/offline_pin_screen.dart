@@ -53,10 +53,11 @@ class OfflinePinScreen extends StatefulWidget {
 class _OfflinePinScreenState extends State<OfflinePinScreen> {
   static const int _pinLength = 4;
 
-  String _entry = '';
+  /// One entry per visible PIN row. The active row receives the keypad input.
+  List<String> _values = const [];
 
-  /// The first PIN of the create/update flow, waiting to be confirmed.
-  String? _firstPin;
+  /// Index into [_values] of the row currently receiving input.
+  int _active = 0;
 
   String? _error;
   bool _busy = false;
@@ -84,8 +85,16 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
   @override
   void initState() {
     super.initState();
-    if (_isUpdate) {
+    if (_isUnlock) {
+      _values = [''];
+      _active = 0;
+    } else if (_isCreate) {
+      _values = ['', ''];
+      _active = 0;
+    } else {
       _pinChecked = false;
+    }
+    if (_isUpdate) {
       unawaited(_resolveVerifyRequirement());
     }
   }
@@ -97,6 +106,12 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
       _needsVerify = has;
       _verified = !has;
       _pinChecked = true;
+      if (has) {
+        _values = ['', '', ''];
+      } else {
+        _values = ['', ''];
+      }
+      _active = 0;
     });
   }
 
@@ -106,10 +121,21 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
     super.dispose();
   }
 
+  /// Index of the row holding the new PIN.
+  int get _newIndex {
+    if (_isUnlock) return 0;
+    if (_isUpdate && _needsVerify) return 1;
+    return 0;
+  }
+
+  /// Index of the row holding the confirmation.
+  int get _confirmIndex => _values.length - 1;
+
   String get _title {
     if (_isUnlock) return 'Enter your offline PIN';
     if (_isUpdate && _needsVerify && !_verified) return 'Enter current PIN';
-    return _firstPin == null ? 'Choose a 4-digit PIN' : 'Confirm your PIN';
+    if (_active == _newIndex) return 'Choose a 4-digit PIN';
+    return 'Confirm your PIN';
   }
 
   String get _subtitle {
@@ -121,58 +147,92 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
       if (_needsVerify && !_verified) {
         return 'Verify your identity before changing the offline PIN.';
       }
-      return _firstPin == null
-          ? 'The PIN unlocks offline mode on this device. Setting a new one '
-                'replaces the old PIN.'
-          : 'Type the same four digits again.';
+      if (_active == _newIndex) {
+        return 'The PIN unlocks offline mode on this device. Setting a new one '
+            'replaces the old PIN.';
+      }
+      return 'Type the same four digits again.';
     }
-    return _firstPin == null
-        ? 'The PIN unlocks offline mode on this device. Choose something you '
-              'will remember at the counter.'
-        : 'Type the same four digits again.';
+    if (_active == _newIndex) {
+      return 'The PIN unlocks offline mode on this device. Choose something you '
+          'will remember at the counter.';
+    }
+    return 'Type the same four digits again.';
+  }
+
+  List<String> get _labels {
+    if (_isUnlock) return const ['PIN'];
+    if (_isUpdate && _needsVerify) {
+      return const ['Current PIN', 'New PIN', 'Confirm PIN'];
+    }
+    return const ['New PIN', 'Confirm PIN'];
+  }
+
+  void _activate(int index) {
+    if (_busy) return;
+    if (_isUpdate && _needsVerify && !_verified && index > 0) return;
+    setState(() {
+      if (index == 0 && _isUpdate && _needsVerify && _verified) {
+        _verified = false;
+      }
+      _active = index;
+      for (var j = index + 1; j < _values.length; j++) {
+        _values[j] = '';
+      }
+    });
   }
 
   void _press(String digit) {
-    if (!_pinChecked || _busy || _entry.length >= _pinLength) return;
+    if (!_pinChecked || _busy || _active >= _values.length) return;
     if (context.read<AuthProvider>().pinCooldownRemaining > Duration.zero) {
       return;
     }
+    if (_values[_active].length >= _pinLength) return;
     setState(() {
-      _entry += digit;
+      _values[_active] += digit;
       _error = null;
+      if (_active == _newIndex && _values[_confirmIndex].isNotEmpty) {
+        _values[_confirmIndex] = '';
+      }
     });
-    if (_entry.length == _pinLength) {
-      unawaited(_submit());
+    if (_values[_active].length == _pinLength) {
+      unawaited(_handleComplete(_active));
     }
   }
 
   void _backspace() {
-    if (_busy || _entry.isEmpty) return;
-    setState(() => _entry = _entry.substring(0, _entry.length - 1));
+    if (_busy || _active >= _values.length || _values[_active].isEmpty) return;
+    setState(() {
+      _values[_active] =
+          _values[_active].substring(0, _values[_active].length - 1);
+      if (_active == _newIndex) {
+        _values[_confirmIndex] = '';
+      }
+    });
   }
 
-  Future<void> _submit() async {
-    final pin = _entry;
+  Future<void> _handleComplete(int index) async {
     final auth = context.read<AuthProvider>();
     setState(() => _busy = true);
 
-    if (_isCreate || _isUpdate) {
-      // Update mode with an existing PIN must prove knowledge of it first.
-      if (_isUpdate && _needsVerify && !_verified) {
-        final ok = await auth.unlockOffline(pin);
-        if (!mounted) return;
-        if (ok) {
-          setState(() {
-            _verified = true;
-            _entry = '';
-            _busy = false;
-            _error = null;
-          });
-          return;
-        }
+    // Update mode must prove knowledge of the existing PIN first.
+    if (_isUpdate && _needsVerify && !_verified && index == 0) {
+      final pin = _values[0];
+      final ok = await auth.unlockOffline(pin);
+      if (!mounted) return;
+      if (ok) {
+        setState(() {
+          _verified = true;
+          _values[0] = pin;
+          _active = _newIndex;
+          _busy = false;
+          _error = null;
+        });
+      } else {
         final remaining = auth.pinCooldownRemaining;
         setState(() {
-          _entry = '';
+          _values[0] = '';
+          _active = 0;
           _busy = false;
           _error = remaining > Duration.zero
               ? 'Too many attempts.'
@@ -180,70 +240,78 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
                     'tries left.';
         });
         if (remaining > Duration.zero) _startCooldownTicker();
-        return;
       }
+      return;
+    }
 
-      // Stage one only records the choice; nothing is stored until the person
-      // has typed it twice.
-      if (_firstPin == null) {
+    // Unlock mode: verify and enter offline mode.
+    if (_isUnlock) {
+      final pin = _values[0];
+      final ok = await auth.unlockOffline(pin);
+      if (!mounted) return;
+      if (ok) {
+        if (!auth.isOffline) await auth.enterOfflineMode();
+        if (!mounted) return;
         setState(() {
-          _firstPin = pin;
-          _entry = '';
+          _values[0] = '';
           _busy = false;
         });
-        return;
-      }
-
-      if (_firstPin != pin) {
-        // Keep the first PIN so the person only re-types the confirmation.
+      } else {
+        final remaining = auth.pinCooldownRemaining;
         setState(() {
-          _entry = '';
+          _values[0] = '';
+          _busy = false;
+          _error = remaining > Duration.zero
+              ? 'Too many attempts.'
+              : 'Wrong PIN — ${AuthProvider.maxPinAttempts - auth.failedPinAttempts} '
+                    'tries left.';
+        });
+        if (remaining > Duration.zero) _startCooldownTicker();
+      }
+      return;
+    }
+
+    final newIdx = _newIndex;
+    final confirmIdx = _confirmIndex;
+
+    // New PIN just completed: move to confirmation.
+    if (index == newIdx) {
+      setState(() {
+        _active = confirmIdx;
+        _busy = false;
+      });
+      return;
+    }
+
+    // Confirmation completed: compare and store.
+    if (index == confirmIdx) {
+      final newPin = _values[newIdx];
+      final confirmPin = _values[confirmIdx];
+      if (newPin != confirmPin) {
+        setState(() {
+          _values[confirmIdx] = '';
+          _active = newIdx;
           _busy = false;
           _error = "Those PINs don't match. Try again.";
         });
         return;
       }
 
-      await auth.setOfflinePin(pin);
+      await auth.setOfflinePin(newPin);
       // Only the create flow opens offline mode. The profile's update flow
       // stores the PIN and returns the person to where they were.
       if (_isCreate) await auth.enterOfflineMode();
       if (!mounted) return;
       setState(() {
-        _entry = '';
+        for (var i = 0; i < _values.length; i++) {
+          _values[i] = '';
+        }
+        _active = 0;
         _busy = false;
+        _error = null;
       });
       if (_isUpdate) widget.onSaved?.call();
-      return;
     }
-
-    final ok = await auth.unlockOffline(pin);
-    if (!mounted) return;
-
-    if (ok) {
-      // The pad has two callers: a cold start that restored an offline session
-      // (already offline, only the lock was shut) and "Continue Offline" on the
-      // landing screen (no session yet). In the second case the right PIN is what
-      // starts offline mode; the router's redirect then leaves the pad.
-      if (!auth.isOffline) await auth.enterOfflineMode();
-      if (!mounted) return;
-      setState(() {
-        _entry = '';
-        _busy = false;
-      });
-      return;
-    }
-
-    final remaining = auth.pinCooldownRemaining;
-    setState(() {
-      _entry = '';
-      _busy = false;
-      _error = remaining > Duration.zero
-          ? 'Too many attempts.'
-          : 'Wrong PIN — ${AuthProvider.maxPinAttempts - auth.failedPinAttempts} '
-                'tries left.';
-    });
-    if (remaining > Duration.zero) _startCooldownTicker();
   }
 
   void _startCooldownTicker() {
@@ -324,8 +392,16 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  _PinDots(length: _entry.length, total: _pinLength),
-                  const SizedBox(height: 20),
+                  for (var i = 0; i < _values.length; i++) ...[
+                    _PinFieldRow(
+                      label: _labels[i],
+                      length: _values[i].length,
+                      total: _pinLength,
+                      isActive: i == _active,
+                      onTap: () => _activate(i),
+                    ),
+                    SizedBox(height: i == _values.length - 1 ? 20 : 12),
+                  ],
                   SizedBox(
                     height: 40,
                     child: Text(
@@ -364,30 +440,89 @@ class _OfflinePinScreenState extends State<OfflinePinScreen> {
   }
 }
 
+/// A labelled PIN row. Tapping it makes it the active input target.
+class _PinFieldRow extends StatelessWidget {
+  const _PinFieldRow({
+    required this.label,
+    required this.length,
+    required this.total,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final String label;
+  final int length;
+  final int total;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? scheme.primary : scheme.outlineVariant,
+            width: isActive ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isActive
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    ),
+              ),
+            ),
+            _PinDots(length: length, total: total, isActive: isActive),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Four dots, filled as digits are pressed.
 class _PinDots extends StatelessWidget {
-  const _PinDots({required this.length, required this.total});
+  const _PinDots({
+    required this.length,
+    required this.total,
+    this.isActive = false,
+  });
 
   final int length;
   final int total;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < total; i++)
           AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            width: 18,
-            height: 18,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: 14,
+            height: 14,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: i < length ? scheme.primary : Colors.transparent,
               border: Border.all(
-                color: i < length ? scheme.primary : scheme.outline,
+                color: i < length
+                    ? scheme.primary
+                    : (isActive ? scheme.primary : scheme.outline),
                 width: 2,
               ),
             ),
